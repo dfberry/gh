@@ -1,0 +1,10 @@
+[
+  { "full_name": "dfberry/actions-pipelines", "expected_category": "actions" },
+  { "full_name": "dfberry/az-simple", "expected_category": "azure" },
+  { "full_name": "dfberry/azure-sas-decoded", "expected_category": "azure" },
+  { "full_name": "dfberry/ai", "expected_category": "ai" },
+  { "full_name": "dfberry/nextjs", "expected_category": "frontend" },
+  { "full_name": "dfberry/rust-axum-hello-world-plus", "expected_category": "rust" },
+  { "full_name": "dfberry/terraform-separated", "expected_category": "infrastructure" },
+  { "full_name": "dfberry/delete-zero-size-repos", "expected_category": "scripts" }
+]

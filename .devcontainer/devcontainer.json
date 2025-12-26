@@ -1,0 +1,29 @@
+{
+  "name": "Monorepo Dev Container (Node.js, Rust, Python)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-22.04",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {},
+    // "ghcr.io/devcontainers/features/rust:1": {},
+    // "ghcr.io/devcontainers/features/python:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/azure-cli:1": {}
+  },
+  "postCreateCommand": "chmod +x /workspace/scripts/* && ./scripts/post-create-setup.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        // "python.defaultInterpreterPath": "/usr/local/bin/python3",
+        // "rust-analyzer.cargo.useRustcWrapperForBuild": true
+      },
+      "extensions": [
+        "ms-azuretools.vscode-docker",
+        "esbenp.prettier-vscode",
+        "humao.rest-client",
+        "SanjulaGanepola.github-local-actions"
+      ]
+    }
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace"
+}

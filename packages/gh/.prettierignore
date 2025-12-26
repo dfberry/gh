@@ -1,0 +1,13 @@
+node_modules
+dist
+coverage
+.turbo
+.next
+.vercel
+.cache
+/*.log
+npm-debug.log*
+.git
+**/node_modules
+
+stale.json

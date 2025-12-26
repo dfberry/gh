@@ -1,0 +1,46 @@
+{
+  "name": "gh-sdk",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint 'src/**/*.ts'",
+    "format": "eslint 'src/**/*.ts' --fix",
+    "prettier:check": "prettier --check \"src/**/*.{ts,js,tsx,jsx}\" \"**/*.{md,json,ts,js}\" --ignore-path .prettierignore",
+    "prettier:format": "prettier --write \"src/**/*.{ts,js,tsx,jsx}\" \"**/*.{md,json,ts,js}\" --ignore-path .prettierignore",
+    "format:all": "npm run prettier:format && npm run format",
+    "build": "npm run format:all && tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "examples:remove-forks": "node ./examples/remove-forks.mjs",
+    "examples:create-and-run": "node ./scripts/gh-prepare-and-run.mjs",
+    "examples:archive-stale-repos": "node ./examples/archive-stale-repos.mjs",
+    "examples:delete-zero-size": "node ./examples/delete-zero-size-repos.mjs",
+    "tools:json-to-csv": "node ./scripts/json-to-csv.mjs",
+    "examples:categorize": "node ./scripts/categorize-repos.mjs",
+    "examples:categorize-gen": "bash -lc 'OUT=\"${GENERATED_DIR:-../../generated}\"; node ./scripts/categorize-repos.mjs --input=\"$OUT/all_repos.json\" --fetch --checks=light --output=json > \"$OUT/categorized-index.json\"'",
+    "build:scripts": "tsc -p tsconfig.scripts.json",
+    "examples:categorize-all": "npm run build:scripts && node ./dist/scripts/index-all-repos.js",
+    "examples:clean-generated": "node -e \"const fs=require('fs');const p=require('path').resolve(process.cwd(),'..','..','generated'); if(fs.existsSync(p)){fs.rmSync(p,{recursive:true,force:true}); console.log('removed',p);} else console.log('nothing to remove')\""
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@eslint/js": "^9.39.1",
+    "eslint": "^9.39.1",
+    "globals": "^16.5.0",
+    "lint-staged": "^16.2.6",
+    "prettier": "^3.7.4",
+    "typescript": "^5.0.0",
+    "typescript-eslint": "^8.46.4",
+    "vitest": "^1.6.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "jiti": "^2.6.1"
+  }
+}

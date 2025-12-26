@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces --if-present",
+    "test:dev": "npm run test --workspaces --if-present -- -w",
+    "test:ci": "npm run test --workspaces --if-present -- --run"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3"
+  },
+  "workspaces": [
+    "packages/*"
+  ]
+}

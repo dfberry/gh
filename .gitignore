@@ -1,0 +1,54 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+yarn.lock
+.env
+.env*
+**/.env*
+dist/
+coverage/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+.mypy_cache/
+.pytest_cache/
+.tox/
+.coverage
+coverage.xml
+*.cover
+.hypothesis/
+.pylint.d/
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Rust
+target/
+**/*.rs.bk
+Cargo.lock
+.cargo/
+.rustup/
+.idea/
+.vscode/
+
+#MacOS
+.DS_Store
+
+# Certificates
+*.pem
+*.crt
+
+generated/
+**/generated/
+**/generated

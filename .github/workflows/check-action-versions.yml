@@ -1,0 +1,68 @@
+name: Check GitHub Action Versions
+
+on:
+  #schedule:
+    # Run weekly on Mondays at 9 AM UTC
+   # - cron: '0 9 * * 1'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  check-versions:
+    name: Check for Outdated GitHub Actions
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check GitHub Actions versions
+        id: versioner
+        uses: mateuszgorniak/github-actions-versioner@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if outdated actions exist
+        id: check
+        run: |
+          OUTDATED="${{ steps.versioner.outputs.outdated_actions }}"
+          echo "Versioner output: $OUTDATED"
+          
+          if [ -n "$OUTDATED" ] && [ "$OUTDATED" != "" ] && [ "$OUTDATED" != "null" ]; then
+            echo "has_outdated=true" >> $GITHUB_OUTPUT
+            echo "Outdated actions found - will create issue"
+          else
+            echo "has_outdated=false" >> $GITHUB_OUTPUT
+            echo "No outdated actions found - skipping issue creation"
+          fi
+
+      - name: Create issue for outdated actions
+        if: steps.check.outputs.has_outdated == 'true'
+        uses: JasonEtco/create-an-issue@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OUTDATED_ACTIONS: ${{ steps.versioner.outputs.outdated_actions }}
+        with:
+          filename: .github/ISSUE_TEMPLATE/outdated-actions.md
+          update_existing: true
+
+      - name: Output summary
+        if: always()
+        run: |
+          echo "## Action Version Check Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ steps.check.outputs.has_outdated == 'true' && 'Outdated actions found ⚠️' || 'All actions up to date ✅' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.has_outdated }}" == "true" ]; then
+            echo "An issue has been created or updated with details about outdated actions." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+            echo "1. Review the created issue in the Issues tab" >> $GITHUB_STEP_SUMMARY
+            echo "2. Check the release notes for each outdated action" >> $GITHUB_STEP_SUMMARY
+            echo "3. Update the action versions in your workflow files" >> $GITHUB_STEP_SUMMARY
+            echo "4. Test the workflows after updating" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No outdated actions were detected. All GitHub Actions are up to date!" >> $GITHUB_STEP_SUMMARY
+          fi

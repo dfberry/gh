@@ -1,0 +1,35 @@
+name: GH SDK CI
+
+on:
+  push:
+    paths:
+      - 'packages/gh/**'
+  pull_request:
+    paths:
+      - 'packages/gh/**'
+
+jobs:
+  build-and-test:
+    name: Build and test gh-sdk
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install 
+        working-directory: packages/gh
+        run: npm install
+
+      - name: Build
+        working-directory: packages/gh
+        run: npm run build
+
+      - name: Tests
+        working-directory: packages/gh
+        run: npm run test
