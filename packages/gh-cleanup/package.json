@@ -1,0 +1,24 @@
+{
+  "name": "gh-cleanup",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "npm --prefix ../github-rest run build && npm run build && node --env-file ../../.env ./dist/bin/cli.js",
+    "dev": "ts-node --esm ./src/bin/cli.ts"
+  },
+  "dependencies": {
+    "github-rest": "workspace:*"
+  },
+  "devDependencies": {
+    "ts-node": "^10.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0"
+  }
+}
