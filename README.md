@@ -1,3 +1,16 @@
+
+## Monorepo overview
+
+This repository is a small monorepo with two primary packages and supporting docs:
+
+- `packages/github-rest`: a lightweight GitHub REST client and reusable helpers (endpoints, pagination, permissions). See `packages/github-rest/README.md` for usage and exported helpers.
+- `packages/gh-cleanup`: CLI tools that implement repository-cleanup features (commands: `remove-forks`, `archive-stale-repos`, `delete-empty-repos`, `categorize-repos`, `summary`). See `packages/gh-cleanup/README.md` for CLI options and examples.
+
+Docs and artifacts
+- `generated/` contains example or generated markdown outputs (e.g., catalogs and summaries) produced by the CLI for site consumption.
+- GitHub token instructions are in [./docs/GET-GITHUB-TOKEN.md](./docs/GET-GITHUB-TOKEN.md).
+- Copilot instructions are in [./.github/copilot-instructions.md](./.github/copilot-instructions.md)
+
 ## Functional specification
 
 This section describes the key functionality for the repository-cleanup
@@ -30,7 +43,19 @@ implementation, testing, and safe operation.
   confidence scores.
 
 - **Generate Markdown table for dfberry.github.io**: From categorized results,
-  generate a markdown table with columns: Name, Description, Topics, License,
-  Stars, Last Updated, Link, Category, Status. Support sorting, filtering, and
+  generate a markdown table with columns: Name, Description, Topics, Language,
+  Category, Last Updated, Link. (Note: `stars` are collected by the tooling
+  but not currently rendered in the default table; `License` is not included.)
+  Support sorting, filtering, and
   an option to output a minimal frontmatter header for inclusion in the
   dfberry site.
+
+- **Summary command**: a `summary` command/feature produces aggregated
+  summaries of repositories (counts, categories, and other high-level metrics)
+  used by the CLI and reporting tools.
+
+- **Empty-repo detection details**: The empty-repo checks include additional
+  heuristics beyond `size === 0` — the code also verifies there are no commits
+  or pull requests (the commits API may return a `409` for empty repos which
+  is treated as empty), and the presence of a wiki (if detectable) will cause
+  a repo to be considered non-empty.
