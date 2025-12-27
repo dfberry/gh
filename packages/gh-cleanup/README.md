@@ -13,7 +13,7 @@ Commands
 - `remove-forks`
 	- Description: List forked repositories owned by the authenticated user and
 		optionally delete them.
-	- Flags: `--yes` (perform deletion), `--force` (skip typed `YES` confirmation)
+	- Flags: `--yes` (perform deletion), `--force` (skip typed `YES` confirmation), `--out=<path>` (write JSON details)
 	- Example:
 		```bash
 		# dry-run (default)
@@ -21,13 +21,16 @@ Commands
 
 		# actually delete (interactive confirmation)
 		npm run start -w gh-cleanup -- remove-forks --yes
+
+		# save dry-run details to a file
+		npm run start -w gh-cleanup -- remove-forks --out=generated/remove-forks.json
 		```
 
 - `archive-stale-repos`
 	- Description: Find repositories with no activity older than N days and
 		optionally archive them. Forks are excluded by default.
 	- Flags: `--older-than-days=<n>` (default 365), `--yes`, `--force`,
-		`--allow-forks` (include forks)
+		`--allow-forks` (include forks), `--out=<path>` (write JSON details)
 	- Example:
 		```bash
 		# dry-run: list repos older than 365 days
@@ -35,20 +38,26 @@ Commands
 
 		# archive repos older than 730 days
 		npm run start -w gh-cleanup -- archive-stale-repos --older-than-days=730 --yes
+
+		# save dry-run list to a file
+		npm run start -w gh-cleanup -- archive-stale-repos --out=generated/stale.json
 		```
 
 - `delete-empty-repos`
-	- Description: Detect repositories with `size === 0`, confirm no commits
-		and no pull requests, and optionally delete them. Forks are excluded by
-		default.
-	- Flags: `--yes`, `--force`, `--allow-forks`
+	- Description: Detect repositories with `size === 0` (0 KB), confirm no commits
+	and no pull requests, and optionally delete them. Forks are excluded by
+	default.
+	- Flags: `--yes`, `--force`, `--allow-forks`, `--out=<path>` (write JSON details)
 	- Example:
 		```bash
 		# dry-run
-		node packages/gh-cleanup/src/bin/cli.ts delete-empty-repos
+		npm run start -w gh-cleanup -- delete-empty-repos
 
 		# delete matched repos
-		node packages/gh-cleanup/src/bin/cli.ts delete-empty-repos --yes
+		npm run start -w gh-cleanup -- delete-empty-repos --yes
+
+		# save deletion plan to file
+		npm run start -w gh-cleanup -- delete-empty-repos --out=generated/delete-empty.json
 		```
 
 - `categorize-repos`
@@ -60,17 +69,23 @@ Commands
 	- Example:
 		```bash
 		# JSON to stdout (no extra fetches)
-		node packages/gh-cleanup/src/bin/cli.ts categorize-repos
+		npm run start -w gh-cleanup -- categorize-repos
 
 		# fetch languages/README and output Markdown file
-		node packages/gh-cleanup/src/bin/cli.ts categorize-repos --fetch --output=md --out=generated/catalog.md
+		npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=generated/catalog.md
 		```
+
+	- Notes:
+		- **Custom rules:** You can pass `--rules=/path/to/rules.json` to load a custom rules file. Rules follow the bundled shape (see below).
+		- **Bundled rules:** Default heuristics live in `packages/gh-cleanup/src/config/categorization.rules.ts`.
+		- **Output directories:** Parent directories for `--out` are created automatically.
+
 
 	- `summary`
 		- Description: Produce a quick summary of your repositories — counts of
-			forks you own, stale repositories (no activity older than N days), and
-			repositories with size === 0. Can optionally verify counts by fetching
-			commit and pull request metadata (slower).
+		forks you own, stale repositories (no activity older than N days), and
+		repositories with size === 0 (0 KB). Can optionally verify counts by fetching
+		commit and pull request metadata (slower).
 		- Flags: `--older-than-days=<n>` (default 365), `--allow-forks`, `--verify`
 			(`--verify` will fetch commits/PRs for more accurate classification)
 		- Example:
@@ -118,3 +133,35 @@ Developer notes
 	`packages/gh-cleanup/src`.
 - To run the CLI from source in development use `ts-node` or run the built
 	`.js` output from `dist` after `npm run build` in the package directory.
+
+Quick CLI help
+
+You can print a concise help summary from the entrypoint:
+
+```bash
+# using npm run start wrapper
+npm run start -w gh-cleanup -- --help
+
+# or directly (after build)
+node packages/gh-cleanup/dist/bin/cli.js --help
+```
+
+The help output lists available commands and common flags such as `--yes`, `--force`, `--out=<path>`, and `--output=json|md`.
+
+Rules file shape (example)
+
+The rules are an array of objects with optional match fields. Example minimal rule:
+
+```json
+{
+	"category": "cli",
+	"confidence": 0.85,
+	"topicsContains": ["cli"],
+	"readmeContains": ["cli"],
+	"languagesContains": ["go", "shell"]
+}
+```
+
+Generated Markdown
+
+Markdown outputs produced by `categorize-repos` and `summary` include a `generated_at` ISO timestamp in the YAML frontmatter.

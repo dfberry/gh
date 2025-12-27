@@ -1,14 +1,16 @@
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { requireTypedConfirmation } from '../lib/confirm.js';
+import { emitOutput } from '../lib/report.js';
 
-type Args = { yes?: boolean; force?: boolean; olderThanDays?: number; excludeForks?: boolean };
+type Args = { yes?: boolean; force?: boolean; olderThanDays?: number; excludeForks?: boolean; out?: string };
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { yes: argv.includes('--yes'), force: argv.includes('--force'), olderThanDays: DEFAULT_STALE_DAYS, excludeForks: true };
+  const args: Args = { yes: argv.includes('--yes'), force: argv.includes('--force'), olderThanDays: DEFAULT_STALE_DAYS, excludeForks: true, out: '' };
   for (const a of argv) {
     if (a.startsWith('--older-than-days=')) args.olderThanDays = Number(a.split('=')[1]);
     if (a === '--allow-forks') args.excludeForks = false;
+    if (a.startsWith('--out=')) args.out = a.split('=')[1];
   }
   return args;
 }
@@ -23,19 +25,16 @@ export async function archiveStaleReposCommand(argv: string[]) {
 
   const cutoff = new Date(Date.now() - (args.olderThanDays ?? 365) * 24 * 60 * 60 * 1000);
 
-  const candidates = all.filter((r) => {
-    if (r.archived) return false;
-    if (args.excludeForks && r.fork) return false;
-    const pushed = r.pushed_at ? new Date(r.pushed_at) : null;
-    if (!pushed) return true; // no activity recorded -> candidate
-    return pushed < cutoff;
-  });
+  // Use the REST package eligibility helper for cheap exclusions, then verify staleness
+  const maybe = all.filter((r) => repos.repoIsEligibleForStale(r as any, { excludeForks: args.excludeForks }));
+  const flags = await Promise.all(maybe.map((r) => repos.isStale(client, r as any, cutoff)));
+  const candidates = maybe.filter((_, i) => flags[i]);
 
   console.log(`Found ${candidates.length} stale repo(s) older than ${args.olderThanDays} days.`);
   if (candidates.length === 0) return;
 
   const details = candidates.map((c) => ({ full_name: c.full_name, html_url: c.html_url, pushed_at: c.pushed_at, size: c.size }));
-  console.log(JSON.stringify(details, null, 2));
+  await emitOutput(JSON.stringify(details, null, 2), args.out);
 
   if (!args.yes) {
     console.log('Dry-run mode. Use --yes to perform archiving.');

@@ -92,6 +92,56 @@ export async function fetchRepoMetadata(client: GitHubClient, owner: string, rep
   }
 }
 
+/**
+ * Return the best-effort "last updated" timestamp for a repository.
+ * Prefers the date of the last commit (from commits API) and falls back
+ * to the repository `pushed_at` value.
+ */
+export async function getRepoLastUpdated(client: GitHubClient, owner: string, repo: string): Promise<string | null> {
+  try {
+    const meta = await fetchRepoMetadata(client, owner, repo);
+    if (meta.lastCommitDate) return meta.lastCommitDate;
+    const r = await getRepo(client, owner, repo);
+    return r.pushed_at ?? null;
+  } catch (err: any) {
+    return null;
+  }
+}
+
+/**
+ * Determine whether a repository should be considered stale relative to the
+ * provided cutoff date. Prefers last commit date, falls back to `pushed_at`,
+ * and treats repositories with no recorded activity as stale.
+ */
+export async function isStale(client: GitHubClient, repo: Repository, cutoff: Date): Promise<boolean> {
+  try {
+    const meta = await fetchRepoMetadata(client, repo.owner.login, repo.name);
+    if (meta.lastCommitDate) {
+      return new Date(meta.lastCommitDate) < cutoff;
+    }
+    if (repo.pushed_at) {
+      return new Date(repo.pushed_at) < cutoff;
+    }
+    // No activity recorded -> consider stale
+    return true;
+  } catch (err: any) {
+    // If repository is empty (409) treat as stale; otherwise rethrow
+    if (err?.status === 409) return true;
+    throw err;
+  }
+}
+
+/**
+ * Lightweight eligibility check for stale processing.
+ * Returns `false` for repos that should be skipped by default (archived),
+ * and optionally skips forks when `opts.excludeForks` is true.
+ */
+export function repoIsEligibleForStale(repo: Repository, opts: { excludeForks?: boolean } = { excludeForks: true }): boolean {
+  if (repo.archived) return false;
+  if (opts.excludeForks && repo.fork) return false;
+  return true;
+}
+
 export function repoMatchesFilters(repo: Repository, meta: RepoMetadata | undefined, f?: FilterOptions): boolean {
   if (!f) return true;
   if (f.archived !== undefined && repo.archived !== f.archived) return false;
@@ -131,4 +181,39 @@ export async function enrichReposMetadata(client: GitHubClient, repos: Repositor
     }
   }
   return out;
+}
+
+/**
+ * Determine whether the given repository should be considered "empty".
+ * Criteria:
+ * - repo.size === 0
+ * - no commits
+ * - no pull requests
+ * - no wiki (if detectable)
+ */
+export async function isRepoEmpty(client: GitHubClient, repo: Repository): Promise<boolean> {
+  if (repo.archived) return false;
+  if (repo.size !== 0) return false;
+
+  try {
+    const meta = await fetchRepoMetadata(client, repo.owner.login, repo.name);
+    if ((meta?.commits ?? 0) > 0) return false;
+    if ((meta?.pulls ?? 0) > 0) return false;
+  } catch (err: any) {
+    // If the repository is empty we may get a 409 from the commits API; treat as empty
+    if (err?.status === 409) return true;
+    throw err;
+  }
+
+  const anyRepo = repo as any;
+  if (anyRepo.has_wiki === true || anyRepo.hasWiki === true) return false;
+
+  try {
+    const full = await getRepo(client, repo.owner.login, repo.name);
+    if ((full as any).has_wiki === true || (full as any).hasWiki === true) return false;
+  } catch (e) {
+    // ignore errors fetching full repo metadata
+  }
+
+  return true;
 }

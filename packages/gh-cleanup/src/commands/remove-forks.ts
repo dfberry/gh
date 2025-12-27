@@ -1,10 +1,19 @@
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
+import { emitOutput } from '../lib/report.js';
 
 type Args = { yes?: boolean; force?: boolean; out?: string };
 
+function parseArgs(argv: string[]): Args {
+  const args: Args = { yes: argv.includes('--yes'), force: argv.includes('--force'), out: '' };
+  for (const a of argv) {
+    if (a.startsWith('--out=')) args.out = a.split('=')[1];
+  }
+  return args;
+}
+
 export async function removeForksCommand(argv: string[]) {
-  const args: Args = { yes: argv.includes('--yes'), force: argv.includes('--force') };
+  const args = parseArgs(argv);
   const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/remove-forks' });
 
   // validate token and scopes using shared client helpers
@@ -43,7 +52,7 @@ export async function removeForksCommand(argv: string[]) {
     }
   }
 
-  console.log(JSON.stringify(details, null, 2));
+  await emitOutput(JSON.stringify(details, null, 2), args.out);
 
   if (!args.yes) {
     console.log('Dry-run mode. Use --yes to perform deletions.');
