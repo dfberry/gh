@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="240" viewBox="0 0 960 240">
+  <rect width="100%" height="100%" fill="#0f172a"/>
+  <g font-family="Arial,Helvetica,sans-serif" fill="#fff">
+    <text x="40" y="56" font-size="28" font-weight="700">CLI: remove-forks (dry-run)</text>
+    <rect x="40" y="76" width="880" height="140" rx="8" fill="#001122"/>
+    <text x="64" y="110" font-size="14" fill="#9aaed6">$ npm run start -w gh-cleanup -- remove-forks</text>
+    <text x="64" y="136" font-size="14" fill="#9aaed6">Found 12 forked repositories:</text>
+    <text x="80" y="162" font-size="13" fill="#cfe0ff">- dfberry/old-sample (forked from upstream/old-sample)  pushed: 2018-03-01</text>
+    <text x="80" y="184" font-size="13" fill="#cfe0ff">- dfberry/another-fork (forked from upstream/another)  pushed: 2019-06-20</text>
+    <text x="80" y="206" font-size="13" fill="#cfe0ff">... (dry-run, no destructive actions)</text>
+  </g>
+</svg>
