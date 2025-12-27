@@ -3,3 +3,8 @@ export * as errors from './core/errors.js';
 export * as types from './types/index.js';
 export * as repos from './endpoints/repos.js';
 export * as pagination from './pagination/index.js';
+export * as permissions from './endpoints/permissions.js';
+export { getRepoPermissions, hasAdminPermission } from './endpoints/permissions.js';
+export { findEmptyRepos } from './endpoints/repos.js';
+export * as auth from './core/auth.js';
+export { getActorWithScopeCheck } from './core/auth.js';

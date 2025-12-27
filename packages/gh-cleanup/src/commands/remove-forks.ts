@@ -1,13 +1,15 @@
-import { GitHubClient, repos, pagination } from 'github-rest';
+import { GitHubClient, repos, pagination, hasAdminPermission } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput } from '../lib/report.js';
 
-type Args = { yes?: boolean; force?: boolean; out?: string };
+type Args = { yes?: boolean; force?: boolean; out?: string; audit?: boolean };
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { yes: argv.includes('--yes'), force: argv.includes('--force'), out: '' };
+  const args: Args = { yes: argv.includes('--yes'), force: argv.includes('--force'), out: '', audit: true };
   for (const a of argv) {
     if (a.startsWith('--out=')) args.out = a.split('=')[1];
+    if (a === '--no-audit') args.audit = false;
+    if (a === '--audit') args.audit = true;
   }
   return args;
 }
@@ -16,16 +18,17 @@ export async function removeForksCommand(argv: string[]) {
   const args = parseArgs(argv);
   const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/remove-forks' });
 
-  // validate token and scopes using shared client helpers
+  // validate token and scopes using shared helper
   let me: string;
   try {
-    const user = await client.getAuthenticatedUser<{ login: string }>();
-    me = (user as any).login;
-    const scopes = await client.getTokenScopes();
+    const { login, scopes, missing } = await (async () => {
+      const m = await import('github-rest');
+      return m.getActorWithScopeCheck(client, ['repo', 'delete_repo']);
+    })();
+    me = login;
     console.log('Token scopes:', scopes.join(', ') || '(none)');
-    const okScope = scopes.includes('repo') || scopes.includes('delete_repo');
-    if (!okScope) {
-      console.warn('Warning: token does not include `repo` or `delete_repo` scopes. Destructive operations may fail.');
+    if (missing.length > 0) {
+      console.warn('Warning: token is missing required scopes:', missing.join(', '), 'Destructive operations may fail.');
     }
   } catch (err: any) {
     console.error('Failed to validate GH_TOKEN or fetch authenticated user:', err?.message ?? err);
@@ -40,13 +43,16 @@ export async function removeForksCommand(argv: string[]) {
 
   const foundCount = ownedForks.length;
   console.log(`Found ${foundCount} fork(s) owned by ${me}`);
-  if (ownedForks.length === 0) return;
+  if (ownedForks.length === 0) {
+    if (args.out) await emitOutput(JSON.stringify([], null, 2), args.out);
+    return;
+  }
 
   const details = [] as Array<{ full_name: string; html_url: string; size: number; permissions?: any; willDelete?: boolean }>;
   for (const f of ownedForks) {
     try {
       const full = await repos.getRepo(client, f.owner.login, f.name);
-      details.push({ full_name: full.full_name, html_url: full.html_url, size: full.size, permissions: full.permissions, willDelete: false });
+      details.push({ full_name: full.full_name, html_url: full.html_url, size: full.size, permissions: args.audit ? full.permissions : undefined, willDelete: false });
     } catch (e) {
       details.push({ full_name: f.full_name, html_url: f.html_url, size: f.size, permissions: undefined, willDelete: false });
     }
@@ -71,7 +77,7 @@ export async function removeForksCommand(argv: string[]) {
   for (const d of details) {
     try {
       const [owner, name] = d.full_name.split('/');
-      const ok = await client.hasRepoAdmin(owner, name);
+      const ok = await hasAdminPermission(client, owner, name);
       if (!ok) {
         console.warn(`Skipping ${d.full_name}: token does not have admin permission.`);
         continue;

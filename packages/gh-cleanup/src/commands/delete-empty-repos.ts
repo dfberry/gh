@@ -1,13 +1,22 @@
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput } from '../lib/report.js';
+import { getRepoPermissions, hasAdminPermission } from 'github-rest';
 
-type Args = { yes?: boolean; force?: boolean; excludeForks?: boolean; out?: string };
+type Args = { yes?: boolean; force?: boolean; excludeForks?: boolean; out?: string; audit?: boolean };
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { yes: argv.includes('--yes'), force: argv.includes('--force'), excludeForks: !argv.includes('--allow-forks'), out: '' };
+  const args: Args = {
+    yes: argv.includes('--yes'),
+    force: argv.includes('--force'),
+    excludeForks: !argv.includes('--allow-forks'),
+    out: '',
+    audit: true,
+  };
   for (const a of argv) {
     if (a.startsWith('--out=')) args.out = a.split('=')[1];
+    if (a === '--no-audit') args.audit = false;
+    if (a === '--audit') args.audit = true;
   }
   return args;
 }
@@ -16,40 +25,23 @@ export async function deleteEmptyReposCommand(argv: string[]) {
   const args = parseArgs(argv);
   const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/delete-empty' });
 
-  const all = await pagination.paginateAll(async (page) => {
-    return repos.listAuthenticatedUserRepos(client, page, 100);
-  });
-
-  const candidates = all.filter((r) => {
-    if (r.archived) return false;
-    if (args.excludeForks && r.fork) return false;
-    return r.size === 0;
-  });
+  // Delegate candidate-finding (and optional verification) to the REST helper.
+  const candidates = await repos.findEmptyRepos(client, { excludeForks: args.excludeForks, verify: true });
   console.log(`Found ${candidates.length} candidate empty repo(s) (size === 0 — 0 KB).`);
-  if (candidates.length === 0) return;
+  if (candidates.length === 0) {
+    // Ensure output file is written even when there are no candidates
+    await emitOutput(
+      JSON.stringify({ generated_at: new Date().toISOString(), count: 0, items: [] }, null, 2),
+      args.out,
+    );
+    return;
+  }
 
   const toDelete = [] as Array<{ full_name: string; owner: string; name: string; permissions?: any }>;
   for (const r of candidates) {
-    let empty = false;
-    try {
-      empty = await repos.isRepoEmpty(client, r as any);
-    } catch (err) {
-      console.warn(`Failed to determine emptiness for ${r.full_name}:`, (err as any)?.message ?? err);
-      continue;
-    }
-    if (!empty) continue;
-
-    // ensure we have admin permission before attempting delete
-    let permissions = r.permissions;
-    if (!permissions) {
-      try {
-        const full = await repos.getRepo(client, r.owner.login, r.name);
-        permissions = full.permissions;
-      } catch {
-        permissions = undefined;
-      }
-    }
-    toDelete.push({ full_name: r.full_name, owner: r.owner.login, name: r.name, permissions });
+    // resolve permissions (may be present on the list item or fetched)
+    const permissions = await getRepoPermissions(client, r as any);
+    toDelete.push({ full_name: r.full_name, owner: r.owner.login, name: r.name, permissions: args.audit ? permissions : undefined });
   }
 
   console.log(`Matched ${toDelete.length} empty repo(s) after metadata checks.`);
@@ -70,7 +62,9 @@ export async function deleteEmptyReposCommand(argv: string[]) {
   }
 
   for (const d of toDelete) {
-    if (d.permissions && d.permissions.admin === false) {
+    // Always use centralized `hasAdminPermission` for a single-path permission check.
+    const ok = await hasAdminPermission(client, d);
+    if (!ok) {
       console.warn(`Skipping ${d.full_name}: no admin permission`);
       continue;
     }

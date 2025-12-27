@@ -16,19 +16,13 @@ export async function categorizeReposWithMetadata(client: GitHubClient, repos: R
     let readmeText: string | null = null;
     try {
       if (opts.fetch) {
-        languages = await client.get<Record<string, number>>(`/repos/${r.owner.login}/${r.name}/languages`);
-        try {
-          const rd = await client.get<any>(`/repos/${r.owner.login}/${r.name}/readme`);
-          if (rd?.content) {
-            const buff = Buffer.from(rd.content, rd.encoding ?? 'base64');
-            readmeText = buff.toString('utf8');
-          }
-        } catch {
-          readmeText = null;
-        }
+        const gh = (await import('github-rest')) as any;
+        languages = await gh.repos.getRepoLanguages(client, r.owner.login, r.name);
+        readmeText = await gh.repos.getRepoReadme(client, r.owner.login, r.name);
       }
     } catch (e) {
       languages = null;
+      readmeText = null;
     }
 
     const { category, confidence } = await scoreCategory(r, languages, readmeText, (r as any).topics, opts.providedRules);

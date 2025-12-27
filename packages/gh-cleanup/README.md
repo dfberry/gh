@@ -13,7 +13,7 @@ Commands
 - `remove-forks`
 	- Description: List forked repositories owned by the authenticated user and
 		optionally delete them.
-	- Flags: `--yes` (perform deletion), `--force` (skip typed `YES` confirmation), `--out=<path>` (write JSON details)
+	- Flags: `--yes` (perform deletion), `--force` (skip typed `YES` confirmation), `--out=<path>` (write JSON details), `--no-audit` (omit permissions from output)
 	- Example:
 		```bash
 		# dry-run (default)
@@ -22,8 +22,11 @@ Commands
 		# actually delete (interactive confirmation)
 		npm run start -w gh-cleanup -- remove-forks --yes
 
-		# save dry-run details to a file
+		# save dry-run details to a file (including permissions)
 		npm run start -w gh-cleanup -- remove-forks --out=generated/remove-forks.json
+
+		# save dry-run details without permissions
+		npm run start -w gh-cleanup -- remove-forks --out=generated/remove-forks-noaudit.json --no-audit
 		```
 
 - `archive-stale-repos`
@@ -47,7 +50,7 @@ Commands
 	- Description: Detect repositories with `size === 0` (0 KB), confirm no commits
 	and no pull requests, and optionally delete them. Forks are excluded by
 	default.
-	- Flags: `--yes`, `--force`, `--allow-forks`, `--out=<path>` (write JSON details)
+	- Flags: `--yes`, `--force`, `--allow-forks`, `--out=<path>` (write JSON details), `--no-audit` (omit permissions from output)
 	- Example:
 		```bash
 		# dry-run
@@ -56,8 +59,11 @@ Commands
 		# delete matched repos
 		npm run start -w gh-cleanup -- delete-empty-repos --yes
 
-		# save deletion plan to file
+		# save deletion plan to file (including permissions)
 		npm run start -w gh-cleanup -- delete-empty-repos --out=generated/delete-empty.json
+
+		# save deletion plan without permissions
+		npm run start -w gh-cleanup -- delete-empty-repos --out=generated/delete-empty-noaudit.json --no-audit
 		```
 
 - `categorize-repos`
@@ -86,7 +92,7 @@ Commands
 		forks you own, stale repositories (no activity older than N days), and
 		repositories with size === 0 (0 KB). Can optionally verify counts by fetching
 		commit and pull request metadata (slower).
-		- Flags: `--older-than-days=<n>` (default 365), `--allow-forks`, `--verify`
+		- Flags: `--older-than-days=<n>` (default 365), `--allow-forks`, `--verify`, `--summary-out=<path>` (write full summary Markdown)
 			(`--verify` will fetch commits/PRs for more accurate classification)
 		- Example:
 			```bash
@@ -99,11 +105,14 @@ Commands
 			# verify by fetching commits & PR counts (slower)
 			npm run start -w gh-cleanup -- summary --verify
 
-            # write markdown to file
-            npm run start -w gh-cleanup -- summary --output=md --out=generated/active.md
+			# write markdown to file (active repos table)
+			npm run start -w gh-cleanup -- summary --output=md --out=generated/active.md
 
-            # write JSON instead
-            npm run start -w gh-cleanup -- summary --output=json --out=generated/active.json
+			# write JSON instead
+			npm run start -w gh-cleanup -- summary --output=json --out=generated/active.json
+
+			# write a full summary Markdown file (counts + active repo table)
+			npm run start -w gh-cleanup -- summary --summary-out=generated/summary.md
 			```
 
 Prerequisites

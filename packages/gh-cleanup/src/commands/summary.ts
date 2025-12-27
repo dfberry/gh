@@ -5,7 +5,7 @@ import { toMarkdownTable, addGeneratedTimestamp, emitOutput } from '../lib/repor
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
-type Args = { olderThanDays?: number; allowForks?: boolean; verify?: boolean; output?: 'json' | 'md'; out?: string };
+type Args = { olderThanDays?: number; allowForks?: boolean; verify?: boolean; output?: 'json' | 'md'; out?: string; summaryOut?: string };
 
 export async function summaryCommand(argv: string[]) {
   const args: Args = { olderThanDays: DEFAULT_STALE_DAYS, allowForks: false, verify: false, output: undefined, out: '' };
@@ -15,6 +15,7 @@ export async function summaryCommand(argv: string[]) {
     if (a === '--verify') args.verify = true;
     if (a.startsWith('--output=')) args.output = (a.split('=')[1] as any) || undefined;
     if (a.startsWith('--out=')) args.out = a.split('=')[1];
+    if (a.startsWith('--summary-out=')) args.summaryOut = a.split('=')[1];
   }
 
   const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/summary' });
@@ -121,6 +122,16 @@ export async function summaryCommand(argv: string[]) {
       const out = JSON.stringify(mapped, null, 2);
       await emitOutput(out, args.out);
     }
+  }
+
+  // If requested, also write a full summary Markdown file (counts + active list)
+  if (args.summaryOut) {
+    const header = `# Repository Summary\n\n`;
+    const counts = `- Forks owned: ${forks.length}\n- Stale repos (>${args.olderThanDays} days): ${staleSet.size}\n- Archived repos: ${archivedSet.size}\n- Empty repos: ${trulyEmpty.size}\n- Active/Other repos: ${active.length}\n\n`;
+    const mapped = await categorizeReposWithMetadata(client, active, { fetch: true });
+    let table = toMarkdownTable(mapped, { title: 'Active Repositories', includeFrontmatter: false });
+    const md = addGeneratedTimestamp(header + counts + table, 'Repository Summary');
+    await emitOutput(md, args.summaryOut);
   }
 
 }

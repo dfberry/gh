@@ -1,6 +1,7 @@
 import type { Repository } from '../types/index.js';
 import { GitHubClient } from '../core/client.js';
 import { getLastPageFromLink } from '../pagination/links.js';
+import { paginateAll } from '../pagination/index.js';
 
 export async function listAuthenticatedUserRepos(client: GitHubClient, page = 1, per_page = 100): Promise<Repository[]> {
   const q = `?per_page=${per_page}&page=${page}&type=owner`;
@@ -10,6 +11,31 @@ export async function listAuthenticatedUserRepos(client: GitHubClient, page = 1,
 
 export async function getRepo(client: GitHubClient, owner: string, repo: string): Promise<Repository> {
   return client.get<Repository>(`/repos/${owner}/${repo}`);
+}
+
+/**
+ * Fetch languages for a repository. Returns `null` on error.
+ */
+export async function getRepoLanguages(client: GitHubClient, owner: string, repo: string): Promise<Record<string, number> | null> {
+  try {
+    return await client.get<Record<string, number>>(`/repos/${owner}/${repo}/languages`);
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * Fetch and decode the repository README. Returns decoded string or `null` if not available.
+ */
+export async function getRepoReadme(client: GitHubClient, owner: string, repo: string): Promise<string | null> {
+  try {
+    const rd = await client.get<any>(`/repos/${owner}/${repo}/readme`);
+    if (!rd || !rd.content) return null;
+    const buff = Buffer.from(rd.content, rd.encoding ?? 'base64');
+    return buff.toString('utf8');
+  } catch (err) {
+    return null;
+  }
 }
 
 export async function deleteRepo(client: GitHubClient, owner: string, repo: string, opts?: { dryRun?: boolean }): Promise<boolean> {
@@ -178,6 +204,36 @@ export async function enrichReposMetadata(client: GitHubClient, repos: Repositor
       out[r.full_name] = await fetchRepoMetadata(client, owner, name);
     } catch (err) {
       out[r.full_name] = { commits: 0, pulls: 0, hasCommits: false, lastCommitDate: null };
+    }
+  }
+  return out;
+}
+
+export type FindEmptyOptions = { excludeForks?: boolean; verify?: boolean; maxPages?: number };
+
+/**
+ * Find repositories owned by the authenticated user that are likely empty.
+ * - Applies cheap filters (archived, forks, size===0)
+ * - If `verify` is true, calls `isRepoEmpty` to confirm emptiness (slower)
+ */
+export async function findEmptyRepos(client: GitHubClient, opts: FindEmptyOptions = {}): Promise<Repository[]> {
+  const all = await paginateAll<Repository>((page) => listAuthenticatedUserRepos(client, page, 100), { maxPages: opts.maxPages });
+  const candidates = all.filter((r) => {
+    if (r.archived) return false;
+    if (opts.excludeForks && r.fork) return false;
+    return r.size === 0;
+  });
+  if (!opts.verify) return candidates;
+
+  const out: Repository[] = [];
+  for (const r of candidates) {
+    try {
+      const empty = await isRepoEmpty(client, r as any);
+      if (empty) out.push(r);
+    } catch (err) {
+      // log a warning and skip on errors
+      // Avoid importing console/logging utilities from caller packages
+      // Caller can choose to re-check if needed.
     }
   }
   return out;
