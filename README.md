@@ -59,3 +59,38 @@ implementation, testing, and safe operation.
   or pull requests (the commits API may return a `409` for empty repos which
   is treated as empty), and the presence of a wiki (if detectable) will cause
   a repo to be considered non-empty.
+
+## Example commands
+
+Run one example command per main feature (uses the npm wrapper to run the package CLI):
+
+- Remove forks (dry-run):
+
+  ```bash
+  npm run start -w gh-cleanup -- remove-forks
+  ```
+
+- Archive stale repositories (dry-run, older than 365 days):
+
+  ```bash
+  npm run start -w gh-cleanup -- archive-stale-repos
+  ```
+
+- Delete empty repositories (dry-run):
+
+  ```bash
+  npm run start -w gh-cleanup -- delete-empty-repos
+  ```
+
+- Categorize repositories (fetch languages + README and output Markdown):
+
+  ```bash
+  npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=generated/catalog.md
+  ```
+
+- Summary (quick counts, write full summary Markdown):
+
+  ```bash
+  npm run start -w gh-cleanup -- summary --summary-out=generated/summary.md
+  ```
+
