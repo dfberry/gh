@@ -1,7 +1,7 @@
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { requireTypedConfirmation } from '../lib/confirm.js';
-import { emitOutput } from '../lib/report.js';
+import { emitOutput, formatJsonOutput } from '../lib/report.js';
 
 type Args = { yes?: boolean; force?: boolean; olderThanDays?: number; excludeForks?: boolean; out?: string };
 
@@ -33,15 +33,12 @@ export async function archiveStaleReposCommand(argv: string[]) {
   console.log(`Found ${candidates.length} stale repo(s) older than ${args.olderThanDays} days.`);
   if (candidates.length === 0) {
     // ensure output file exists even when empty
-    await emitOutput(
-      JSON.stringify({ generated_at: new Date().toISOString(), count: 0, items: [] }, null, 2),
-      args.out,
-    );
+    await emitOutput(formatJsonOutput([]), args.out);
     return;
   }
 
   const details = candidates.map((c) => ({ full_name: c.full_name, html_url: c.html_url, pushed_at: c.pushed_at, size: c.size }));
-  await emitOutput(JSON.stringify(details, null, 2), args.out);
+  await emitOutput(formatJsonOutput(details), args.out);
 
   if (!args.yes) {
     console.log('Dry-run mode. Use --yes to perform archiving.');

@@ -1,5 +1,5 @@
 import { GitHubClient, repos, pagination } from 'github-rest';
-import { toMarkdownTable, Categorized, addGeneratedTimestamp, emitOutput } from '../lib/report.js';
+import { toMarkdownTable, Categorized, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -46,7 +46,6 @@ export async function categorizeReposCommand(argv: string[]) {
     md = addGeneratedTimestamp(md, 'Repository Catalog');
     await emitOutput(md, args.out);
   } else {
-    const out = JSON.stringify(results, null, 2);
-    await emitOutput(out, args.out);
+    await emitOutput(formatJsonOutput(results), args.out);
   }
 }

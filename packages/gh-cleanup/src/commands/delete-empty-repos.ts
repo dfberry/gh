@@ -1,6 +1,6 @@
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
-import { emitOutput } from '../lib/report.js';
+import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { getRepoPermissions, hasAdminPermission } from 'github-rest';
 
 type Args = { yes?: boolean; force?: boolean; excludeForks?: boolean; out?: string; audit?: boolean };
@@ -30,10 +30,7 @@ export async function deleteEmptyReposCommand(argv: string[]) {
   console.log(`Found ${candidates.length} candidate empty repo(s) (size === 0 — 0 KB).`);
   if (candidates.length === 0) {
     // Ensure output file is written even when there are no candidates
-    await emitOutput(
-      JSON.stringify({ generated_at: new Date().toISOString(), count: 0, items: [] }, null, 2),
-      args.out,
-    );
+    await emitOutput(formatJsonOutput([]), args.out);
     return;
   }
 
@@ -45,7 +42,7 @@ export async function deleteEmptyReposCommand(argv: string[]) {
   }
 
   console.log(`Matched ${toDelete.length} empty repo(s) after metadata checks.`);
-  await emitOutput(JSON.stringify(toDelete, null, 2), args.out);
+  await emitOutput(formatJsonOutput(toDelete), args.out);
 
   if (!args.yes) {
     console.log('Dry-run mode. Use --yes to perform deletions.');

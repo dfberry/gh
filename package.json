@@ -3,7 +3,10 @@
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces --if-present",
     "test:dev": "npm run test --workspaces --if-present -- -w",
-    "test:ci": "npm run test --workspaces --if-present -- --run"
+    "test:ci": "npm run test --workspaces --if-present -- --run",
+    "run-all": "bash ./scripts/run-all.sh",
+    "run-all:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; bash ./scripts/run-all.sh'",
+    "run-all:apply": "bash ./scripts/run-all.sh --apply"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

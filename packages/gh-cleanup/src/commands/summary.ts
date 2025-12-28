@@ -1,7 +1,7 @@
 import { GitHubClient, pagination, repos } from 'github-rest';
 import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
-import { toMarkdownTable, addGeneratedTimestamp, emitOutput } from '../lib/report.js';
+import { toMarkdownTable, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 
@@ -119,8 +119,7 @@ export async function summaryCommand(argv: string[]) {
       md = addGeneratedTimestamp(md, 'Active Repositories');
       await emitOutput(md, args.out);
     } else if (args.output === 'json') {
-      const out = JSON.stringify(mapped, null, 2);
-      await emitOutput(out, args.out);
+      await emitOutput(formatJsonOutput(mapped), args.out);
     }
   }
 

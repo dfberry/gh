@@ -36,6 +36,9 @@ export async function categorizeReposWithMetadata(client: GitHubClient, repos: R
       confidence,
       last_updated: r.pushed_at ?? null,
       stars: (r as any).stargazers_count ?? null,
+      archived: (r as any).archived ?? false,
+      fork: (r as any).fork ?? false,
+      template: (r as any).template ?? (r as any).has_template ?? false,
     });
   }
   return results;

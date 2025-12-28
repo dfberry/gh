@@ -1,6 +1,6 @@
 import { GitHubClient, repos, pagination, hasAdminPermission } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
-import { emitOutput } from '../lib/report.js';
+import { emitOutput, formatJsonOutput } from '../lib/report.js';
 
 type Args = { yes?: boolean; force?: boolean; out?: string; audit?: boolean };
 
@@ -44,7 +44,7 @@ export async function removeForksCommand(argv: string[]) {
   const foundCount = ownedForks.length;
   console.log(`Found ${foundCount} fork(s) owned by ${me}`);
   if (ownedForks.length === 0) {
-    if (args.out) await emitOutput(JSON.stringify([], null, 2), args.out);
+    if (args.out) await emitOutput(formatJsonOutput([]), args.out);
     return;
   }
 
@@ -58,7 +58,7 @@ export async function removeForksCommand(argv: string[]) {
     }
   }
 
-  await emitOutput(JSON.stringify(details, null, 2), args.out);
+  await emitOutput(formatJsonOutput(details), args.out);
 
   if (!args.yes) {
     console.log('Dry-run mode. Use --yes to perform deletions.');

@@ -1,0 +1,83 @@
+name: Update site with generated catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 0' # weekly on Sunday UTC
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    env:
+      TARGET_REPO: ${{ secrets.TARGET_REPO }} # e.g., username/username.github.io
+      TARGET_REPO_PATH: ${{ secrets.TARGET_REPO_PATH || '_includes/repo-catalog.md' }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      GH_USER: ${{ secrets.GH_USER }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Run repository-cleanup pipeline (NOT dry-run)
+        run: npm run run-all:apply
+
+      - name: Validate target repo owner is a user
+        if: env.TARGET_REPO != ''
+        run: |
+          set -euo pipefail
+          OWNER="${TARGET_REPO%%/*}"
+          if [ -z "${OWNER}" ]; then
+            echo "Invalid TARGET_REPO format. Expected 'owner/repo'."; exit 1
+          fi
+          echo "Checking owner '$OWNER' is a user account"
+          resp=$(curl -s -H "Authorization: token ${TARGET_REPO_TOKEN}" "https://api.github.com/users/${OWNER}")
+          if echo "$resp" | grep -q '"Not Found"'; then
+            echo "Owner '${OWNER}' not found in GitHub API"; exit 1
+          fi
+          if echo "$resp" | grep -q '"type": "User"'; then
+            echo "Owner '${OWNER}' is a User"
+          else
+            type=$(echo "$resp" | sed -n 's/.*\"type\": *\"\([^\"]*\)\".*/\1/p' || echo "unknown")
+            echo "Owner '${OWNER}' is type '${type}', not a personal user account. Aborting."; exit 1
+          fi
+
+      - name: Prepare target repo
+        if: env.TARGET_REPO != ''
+        run: |
+          set -euo pipefail
+          echo "Cloning target repo ${TARGET_REPO}"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          TARGET_DIR=$(mktemp -d)
+          git clone "https://${{ secrets.TARGET_REPO_TOKEN }}@github.com/${TARGET_REPO}.git" "$TARGET_DIR"
+          cd "$TARGET_DIR"
+          BRANCH="update/repo-catalog-$(date -u +%Y%m%d%H%M%S)"
+          git checkout -b "$BRANCH"
+          mkdir -p "$(dirname $TARGET_REPO_PATH)"
+          cp "$GITHUB_WORKSPACE/generated/catalog.md" "$TARGET_REPO_PATH"
+          git add "$TARGET_REPO_PATH"
+          git commit -m "chore: update repo catalog (generated)"
+          git push origin "$BRANCH"
+          # create a PR
+          PR_TITLE="chore: update repo catalog (generated)"
+          PR_BODY="Automated update of the generated repo catalog."
+          API_URL="https://api.github.com/repos/${TARGET_REPO}/pulls"
+          curl -s -X POST -H "Authorization: token ${{ secrets.TARGET_REPO_TOKEN }}" -H "Accept: application/vnd.github+json" \
+            -d "{\"title\":\"${PR_TITLE}\",\"head\":\"${BRANCH}\",\"base\":\"main\",\"body\":\"${PR_BODY}\"}" \
+            $API_URL || true
+
+      - name: Finish
+        run: echo "Workflow finished"

@@ -8,6 +8,9 @@ export type Categorized = {
   confidence: number;
   last_updated?: string | null;
   stars?: number | null;
+  archived?: boolean;
+  fork?: boolean;
+  template?: boolean;
 };
 
 export function toMarkdownTable(items: Categorized[], opts?: { title?: string; includeFrontmatter?: boolean }) {
@@ -16,14 +19,20 @@ export function toMarkdownTable(items: Categorized[], opts?: { title?: string; i
     ? `---\nlayout: page\ntitle: "${title}"\n---\n\n`
     : '';
 
-  const header = ['Name', 'Description', 'Topics', 'Language', 'Category', 'Last Updated', 'Link'];
+  const header = ['Name', 'Description', 'Topics', 'Language', 'Category', 'Status', 'Last Updated', 'Link'];
   const rows = items.map((it) => {
     const topics = (it.topics ?? []).join(', ');
     const desc = it.description ? it.description.replace(/\|/g, '\\|') : '';
     const link = it.html_url ? `[${it.full_name}](${it.html_url})` : it.full_name;
+    const flags: string[] = [];
+    if (it.archived) flags.push('archived');
+    if (it.fork) flags.push('fork');
+    if (it.template) flags.push('template');
+    if (flags.length === 0) flags.push('active');
+    const status = flags.join(', ');
     return `| ${it.full_name} | ${desc} | ${topics} | ${it.language ?? ''} | ${it.category} (${Math.round(
       it.confidence * 100,
-    )}%) | ${it.last_updated ?? ''} | ${link} |`;
+    )}%) | ${status} | ${it.last_updated ?? ''} | ${link} |`;
   });
 
   const table = [`| ${header.join(' | ')} |`, `| ${header.map(() => '---').join(' | ')} |`, ...rows].join('\n');
@@ -76,6 +85,9 @@ export function addGeneratedTimestamp(md: string, title?: string) {
 import { ensureDirForFile } from './fs.js';
 import * as fs from 'node:fs/promises';
 
+export function formatJsonOutput(items: any[]) {
+  return JSON.stringify({ generated_at: new Date().toISOString(), count: Array.isArray(items) ? items.length : 0, items: items ?? [] }, null, 2);
+}
 /**
  * Write or print output. If `out` is provided, ensures parent dir and writes file,
  * otherwise prints to stdout.
