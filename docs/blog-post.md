@@ -2,6 +2,18 @@
 
 A short guide to using the repository-cleanup tooling in this repo to audit and clean personal GitHub accounts. This is a practical, quick project you can run on your account to remove forks, archive stale repos, delete empty repos, and produce a catalog of the projects you want to keep.
 
+Intro: what "cleanup" can mean
+
+Cleanup goes beyond removing unused repositories. When tidying a personal or org GitHub account you may also:
+
+- Reclaim unused cloud resources referenced by projects (e.g., old deployments, test clusters, or storage buckets).
+- Remove or archive unused repositories that are forks, abandoned, or no longer relevant.
+- Find and fix failing or stale GitHub Actions workflows (update action versions or workflow syntax) or remove workflows that are no longer useful.
+- Update CI matrices and runtimes (programming language versions, OS matrix entries) to reduce CI cost and avoid testing very-old combinations.
+- Bump pinned GitHub Action versions and dependencies to address deprecations and security fixes.
+
+This repo focuses on repository-level cleanup (archive/delete/catalog), but the same audit run can help you discover candidates for cloud-resource reclamation and CI/workflow maintenance.
+
 Why I built this
 - End-of-year spring cleaning for personal GitHub accounts.
 - Make it easy to find and archive old or unused projects, and to surface interesting projects for a portfolio site.
