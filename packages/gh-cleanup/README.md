@@ -115,6 +115,41 @@ Commands
 			npm run start -w gh-cleanup -- summary --summary-out=generated/summary.md
 			```
 
+	- `describe-repo`
+		- Description: Generate a short description and suggested topics for a repository using the configured LLM prompt. Can operate on a single `owner/repo` or on a JSON file containing repositories.
+		- Flags: `--openai-key=`, `--openai-model=`, `--openai-temp=`, `--openai-endpoint=`, `--apply` (apply description/topics), `--out=<path.json|path.md>` (write aggregated output)
+		- Flags: `--openai-key=`, `--openai-model=`, `--openai-temp=`, `--openai-endpoint=`, `--prompt=/path/to/prompt.md` (override prompt file), `--apply` (apply description/topics), `--out=<path.json|path.md>` (write aggregated output)
+		- Example:
+			```bash
+			# single repo to stdout
+			npm run start -w gh-cleanup -- describe-repo --repo=owner/repo
+
+			# process JSON list (array of repo strings or objects) and write JSON output
+			npm run start -w gh-cleanup -- describe-repos --input=generated/active.json --out=generated/descriptions.json
+
+			# process JSON list and write Markdown output
+			npm run start -w gh-cleanup -- describe-repos --input=generated/active.json --out=generated/descriptions.md
+
+			# apply changes (update repo description & topics) for a single repo
+			npm run start -w gh-cleanup -- describe-repo --repo=owner/repo --apply --openai-key=YOUR_KEY
+			```
+
+			# specify a prompt file explicitly (plural)
+			npm run start -w gh-cleanup -- describe-repos --input=generated/active.json --prompt=.github/LLM_DESCRIBE_REPO_PROMPT.md --out=generated/descriptions.json
+
+			# or provide an absolute path
+			npm run start -w gh-cleanup -- describe-repos --input=generated/active.json --prompt=/full/path/to/LLM_DESCRIBE_REPO_PROMPT.md --out=generated/descriptions.json
+
+			# note: if `--prompt` is omitted the CLI searches upward from the current working directory for `.github/LLM_DESCRIBE_REPO_PROMPT.md` and will error if none is found
+
+		- Input JSON shape:
+			- The command accepts either an array or a single file object. Supported shapes:
+				- Array of strings: `["owner/repo", "owner2/repo2"]`.
+				- Array of objects: `[{ "full_name": "owner/repo" }, { "owner": "owner", "name": "repo" }]`.
+				- Top-level object with an array field: `{ "items": [...], "repos": [...], "repositories": [...] }` — the CLI will look for `items`, `repos`, or `repositories`.
+			- For objects the CLI looks for `full_name`, `owner`+`name`, or `repo` fields. It also accepts GitHub search results where each item contains a `full_name`.
+			- (Optional) The CLI does not currently extract owner/repo from `html_url`; provide `full_name` or `owner`+`name` when possible.
+
 Prerequisites
 
 - Set `GH_TOKEN` in environment or place a `.env` at the repository root.

@@ -43,6 +43,18 @@ Welcome to the project! This file provides guidance for GitHub Copilot and other
 - Prefer native APIs (e.g., fetch) over polyfills or external libraries when available.
 - Keep dependencies up to date and remove unused packages regularly.
 
+
+## Feature Addition Checklist
+
+For any new feature or command added to this repository, include the following items in the change set:
+
+- Plan: a short, high-level plan or TODO list describing the implementation steps and any dependencies.
+- Source changes: the code implementing the feature, kept minimal and focused; include tests where appropriate. All source code changes aren't complete until all projects in the monorepo build successfully.
+- Documentation: update relevant `README.md` files (package-level and repository-level) to document CLI flags, examples, and input/output shapes.
+- CI: update GitHub Actions/workflows if the feature requires new build, lint, or test steps, or additional secrets; add workflow changes to the same PR.
+
+Including these items ensures consistent reviews, reproducible builds, and clear usage for maintainers and users.
+
 ---
 
 Thank you for helping keep this project clean, consistent, and maintainable!

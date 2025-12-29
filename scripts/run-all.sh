@@ -54,7 +54,7 @@ run_cmd(){
 }
 
 # 1) Initial summary run (produces active list and initial summary)
-run_cmd "npm run start -w gh-cleanup -- summary --output=md --out=\"$OUT_DIR/active.md\" --summary-out=\"$OUT_DIR/initial-summary.md\""
+run_cmd "npm run start -w gh-cleanup -- summary --output=md --out=\"$OUT_DIR/initial-active.md\" --summary-out=\"$OUT_DIR/initial-summary.md\""
 
 # 2) Categorize repos (fetch languages + README) -> catalog.md
 run_cmd "npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=\"$OUT_DIR/catalog.md\""
@@ -80,9 +80,12 @@ else
   run_cmd "npm run start -w gh-cleanup -- archive-stale-repos --out=\"$OUT_DIR/stale.json\""
 fi
 
+run_cmd "npm run start -w gh-cleanup -- summary --output=json --out=\"$OUT_DIR/active.json\""
+
+
 # 6) Final log of activity
 # 5b) Final summary run after all operations (refresh active list + summary)
-run_cmd "npm run start -w gh-cleanup -- summary --output=md --out=\"$OUT_DIR/active.md\" --summary-out=\"$OUT_DIR/summary.md\""
+run_cmd "npm run start -w gh-cleanup -- summary --output=md --out=\"$OUT_DIR/summary-active.md\" --summary-out=\"$OUT_DIR/summary-report.md\""
 
 echo "\nPipeline finished at: $(date -u --iso-8601=seconds)" >&2
 echo "Generated outputs:" >&2

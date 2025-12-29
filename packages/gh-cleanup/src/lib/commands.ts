@@ -17,6 +17,14 @@ const commands: Record<string, CommandRunner> = {
     const m = await import('../commands/categorize-repos.js');
     await m.categorizeReposCommand(argv);
   },
+  'describe-repo': async (argv: string[]) => {
+    const m = await import('../commands/describe-repo.js');
+    await m.describeRepoCommand(argv);
+  },
+  'describe-repos': async (argv: string[]) => {
+    const m = await import('../commands/describe-repos.js');
+    await m.describeReposCommand(argv);
+  },
   'delete-empty-repos': async (argv: string[]) => {
     const m = await import('../commands/delete-empty-repos.js');
     await m.deleteEmptyReposCommand(argv);

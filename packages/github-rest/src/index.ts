@@ -8,3 +8,4 @@ export { getRepoPermissions, hasAdminPermission } from './endpoints/permissions.
 export { findEmptyRepos } from './endpoints/repos.js';
 export * as auth from './core/auth.js';
 export { getActorWithScopeCheck } from './core/auth.js';
+export * as describeHelpers from './endpoints/describe-helpers.js';

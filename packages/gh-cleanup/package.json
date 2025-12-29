@@ -14,7 +14,8 @@
     "dev": "ts-node --esm ./src/bin/cli.ts"
   },
   "dependencies": {
-    "github-rest": "workspace:*"
+    "github-rest": "file:../github-rest",
+    "llm-completion": "file:../llm-completion"
   },
   "devDependencies": {
     "ts-node": "^10.0.0",

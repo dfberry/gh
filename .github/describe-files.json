@@ -1,0 +1,26 @@
+{
+  "minimum": [
+    "README.*",
+    "package.json",
+    "pyproject.toml",
+    "setup.cfg",
+    "Cargo.toml",
+    "go.mod"
+  ],
+  "max": [
+    "README.*",
+    "package.json",
+    "pyproject.toml",
+    "setup.cfg",
+    "Cargo.toml",
+    "go.mod",
+    "docs/**",
+    "CONTRIBUTING*",
+    "CODE_OF_CONDUCT*",
+    "LICENSE*",
+    ".github/**",
+    "CHANGELOG*",
+    "src/**/index.*",
+    "examples/**"
+  ]
+}

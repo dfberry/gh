@@ -1,0 +1,30 @@
+name: Describe repo with LLM
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 7 * * 1' # weekly Monday UTC
+
+permissions:
+  contents: write
+
+jobs:
+  describe:
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Run describe (dry-run)
+        run: npx ts-node packages/gh-cleanup/src/bin/cli.ts describe-repo ${{ github.repository }}
+      - name: Finish
+        run: echo "done"
