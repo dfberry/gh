@@ -11,6 +11,8 @@ export type Categorized = {
   archived?: boolean;
   fork?: boolean;
   template?: boolean;
+  private?: boolean;
+  visibility?: string | null;
 };
 
 export function toMarkdownTable(items: Categorized[], opts?: { title?: string; includeFrontmatter?: boolean }) {
@@ -28,6 +30,8 @@ export function toMarkdownTable(items: Categorized[], opts?: { title?: string; i
     if (it.archived) flags.push('archived');
     if (it.fork) flags.push('fork');
     if (it.template) flags.push('template');
+    if (it.private) flags.push('private');
+    else flags.push('public');
     if (flags.length === 0) flags.push('active');
     const status = flags.join(', ');
     return `| ${it.full_name} | ${desc} | ${topics} | ${it.language ?? ''} | ${it.category} (${Math.round(

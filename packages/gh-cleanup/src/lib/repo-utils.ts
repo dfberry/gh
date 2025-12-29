@@ -14,11 +14,17 @@ export async function categorizeReposWithMetadata(client: GitHubClient, repos: R
   for (const r of repos) {
     let languages: Record<string, number> | null = null;
     let readmeText: string | null = null;
+    let ghRepo: any = null;
     try {
       if (opts.fetch) {
         const gh = (await import('github-rest')) as any;
         languages = await gh.repos.getRepoLanguages(client, r.owner.login, r.name);
         readmeText = await gh.repos.getRepoReadme(client, r.owner.login, r.name);
+        try {
+          ghRepo = await gh.repos.getRepo(client, r.owner.login, r.name);
+        } catch (e) {
+          ghRepo = null;
+        }
       }
     } catch (e) {
       languages = null;
@@ -39,6 +45,8 @@ export async function categorizeReposWithMetadata(client: GitHubClient, repos: R
       archived: (r as any).archived ?? false,
       fork: (r as any).fork ?? false,
       template: (r as any).template ?? (r as any).has_template ?? false,
+      private: (ghRepo && typeof ghRepo.private !== 'undefined') ? ghRepo.private : (r as any).private ?? false,
+      visibility: (ghRepo && typeof ghRepo.visibility !== 'undefined') ? ghRepo.visibility : (r as any).visibility ?? ((r as any).private ? 'private' : 'public'),
     });
   }
   return results;

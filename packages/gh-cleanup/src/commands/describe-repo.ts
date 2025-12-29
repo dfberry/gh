@@ -43,29 +43,44 @@ export async function describeRepoCommand(argv: string[]) {
     return;
   }
   const res = await processOne(owner, repo);
-  console.log(JSON.stringify(res.result, null, 2));
+  let appliedDescription = false;
+  let appliedTopics = false;
   if (apply) {
-    await describeHelpers.updateRepo(client, owner, repo, { description: res.result.short_description });
-    await describeHelpers.updateTopics(client, owner, repo, (res.result.topics || []).slice(0,20)).catch(()=>null);
-    console.log('Applied description and topics');
+    try {
+      await describeHelpers.updateRepo(client, owner, repo, { description: res.result.short_description });
+      appliedDescription = true;
+    } catch (err) {
+      console.error('Failed to apply description:', (err as any)?.message || err);
+    }
+    try {
+      await describeHelpers.updateTopics(client, owner, repo, (res.result.topics || []).slice(0,20));
+      appliedTopics = true;
+    } catch (err) {
+      console.error('Failed to apply topics:', (err as any)?.message || err);
+    }
+    console.log(`Apply results: description=${appliedDescription} topics=${appliedTopics}`);
   }
+  // print ai result (include applied flags when --apply used)
+  if (apply) console.log(JSON.stringify({ ai: res.result, applied: { description: appliedDescription, topics: appliedTopics } }, null, 2));
+  else console.log(JSON.stringify(res.result, null, 2));
 
   // write aggregated output if requested (single item)
   if (outPath) {
     if (outPath.endsWith('.json')) {
-      const out = [{ repo: `${owner}/${repo}`, ...res.result }];
+      const out = [{ repo: `${owner}/${repo}`, ai: res.result, applied: { description: appliedDescription, topics: appliedTopics } }];
       await fs.writeFile(outPath, JSON.stringify(out, null, 2), 'utf8');
       console.log('Wrote', outPath);
     } else if (outPath.endsWith('.md') || outPath.endsWith('.markdown')) {
       const parts: string[] = [];
       parts.push(`## ${owner}/${repo}\n`);
+      parts.push(`- **Applied description**: ${appliedDescription}\n- **Applied topics**: ${appliedTopics}\n`);
       parts.push('```json');
       parts.push(JSON.stringify(res.result, null, 2));
       parts.push('```\n');
       await fs.writeFile(outPath, parts.join('\n'), 'utf8');
       console.log('Wrote', outPath);
     } else {
-      const out = [{ repo: `${owner}/${repo}`, ...res.result }];
+      const out = [{ repo: `${owner}/${repo}`, ai: res.result, applied: { description: appliedDescription, topics: appliedTopics } }];
       await fs.writeFile(outPath, JSON.stringify(out, null, 2), 'utf8');
       console.log('Wrote', outPath);
     }

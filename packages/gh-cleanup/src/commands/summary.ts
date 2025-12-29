@@ -66,22 +66,27 @@ export async function summaryCommand(argv: string[]) {
   );
   // compute stale set (verified or heuristic)
   let staleSet = new Set<string>();
+  let staleList: any[] = [];
   if (args.verify) {
     const meta = await repos.enrichReposMetadata(client, staleCandidates);
     for (const r of staleCandidates) {
       const m = meta[r.full_name];
+      let isStale = false;
       if (!m) {
-        staleSet.add(r.full_name);
-        continue;
-      }
-      if (!m.lastCommitDate) {
-        staleSet.add(r.full_name);
+        isStale = true;
+      } else if (!m.lastCommitDate) {
+        isStale = true;
       } else {
         const d = new Date(m.lastCommitDate);
-        if (d < cutoff) staleSet.add(r.full_name);
+        if (d < cutoff) isStale = true;
+      }
+      if (isStale) {
+        staleSet.add(r.full_name);
+        staleList.push(r);
       }
     }
   } else {
+    staleList = staleCandidates;
     staleSet = new Set(staleCandidates.map((r) => r.full_name));
   }
 
@@ -94,16 +99,38 @@ export async function summaryCommand(argv: string[]) {
     (r) => !forksOwnedSet.has(r.full_name) && !staleSet.has(r.full_name) && !trulyEmpty.has(r.full_name) && !archivedSet.has(r.full_name)
   );
 
+  // Count public vs private among owned repos
+  const privateCount = owned.filter((r) => Boolean(r.private)).length;
+  const publicCount = owned.length - privateCount;
+  // Count public vs private among active repos
+  const activePrivateCount = active.filter((r) => Boolean(r.private)).length;
+  const activePublicCount = active.length - activePrivateCount;
+  // Count forks public/private
+  const forksPrivateCount = forks.filter((r) => Boolean(r.private)).length;
+  const forksPublicCount = forks.length - forksPrivateCount;
+  // Count stale public/private
+  const stalePrivateCount = staleList.filter((r) => Boolean(r.private)).length;
+  const stalePublicCount = staleList.length - stalePrivateCount;
+  // Count archived public/private
+  const archivedPrivateCount = archivedCandidates.filter((r) => Boolean(r.private)).length;
+  const archivedPublicCount = archivedCandidates.length - archivedPrivateCount;
+  // Count empty public/private (use trulyEmpty set to filter emptyCandidates)
+  const emptyList = emptyCandidates.filter((r) => trulyEmpty.has(r.full_name));
+  const emptyPrivateCount = emptyList.filter((r) => Boolean(r.private)).length;
+  const emptyPublicCount = emptyList.length - emptyPrivateCount;
+
   if (args.verify) {
     console.log('Summary (verified stale, empty checked by metadata):');
   } else {
     console.log('Summary:');
   }
-  console.log(`Forks owned by you: ${forks.length}`);
-  console.log(`Stale repos (>${args.olderThanDays} days): ${staleSet.size}`);
-  console.log(`Archived repos: ${archivedSet.size}`);
-  console.log(`Empty repos (no commits, no PRs, no wiki, size===0): ${trulyEmpty.size}`);
-  console.log(`Active/Other repos: ${active.length}`);
+  console.log(`Public repos: ${publicCount}`);
+  console.log(`Private repos: ${privateCount}`);
+  console.log(`Forks owned by you: ${forks.length} (public: ${forksPublicCount}, private: ${forksPrivateCount})`);
+  console.log(`Stale repos (>${args.olderThanDays} days): ${staleSet.size} (public: ${stalePublicCount}, private: ${stalePrivateCount})`);
+  console.log(`Archived repos: ${archivedSet.size} (public: ${archivedPublicCount}, private: ${archivedPrivateCount})`);
+  console.log(`Empty repos (no commits, no PRs, no wiki, size===0): ${trulyEmpty.size} (public: ${emptyPublicCount}, private: ${emptyPrivateCount})`);
+  console.log(`Active/Other repos: ${active.length} (public: ${activePublicCount}, private: ${activePrivateCount})`);
   if (active.length > 0) {
     console.log('Active/Other list (first 50):');
     for (const a of active.slice(0, 50)) console.log(`  - ${a.full_name}`);
@@ -126,7 +153,7 @@ export async function summaryCommand(argv: string[]) {
   // If requested, also write a full summary Markdown file (counts + active list)
   if (args.summaryOut) {
     const header = `# Repository Summary\n\n`;
-    const counts = `- Forks owned: ${forks.length}\n- Stale repos (>${args.olderThanDays} days): ${staleSet.size}\n- Archived repos: ${archivedSet.size}\n- Empty repos: ${trulyEmpty.size}\n- Active/Other repos: ${active.length}\n\n`;
+    const counts = `- Public repos: ${publicCount}\n- Private repos: ${privateCount}\n- Forks owned: ${forks.length} (public: ${forksPublicCount}, private: ${forksPrivateCount})\n- Stale repos (>${args.olderThanDays} days): ${staleSet.size} (public: ${stalePublicCount}, private: ${stalePrivateCount})\n- Archived repos: ${archivedSet.size} (public: ${archivedPublicCount}, private: ${archivedPrivateCount})\n- Empty repos: ${trulyEmpty.size} (public: ${emptyPublicCount}, private: ${emptyPrivateCount})\n- Active/Other repos: ${active.length} (public: ${activePublicCount}, private: ${activePrivateCount})\n\n`;
     const mapped = await categorizeReposWithMetadata(client, active, { fetch: true });
     let table = toMarkdownTable(mapped, { title: 'Active Repositories', includeFrontmatter: false });
     const md = addGeneratedTimestamp(header + counts + table, 'Repository Summary');

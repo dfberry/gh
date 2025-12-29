@@ -82,6 +82,17 @@ fi
 
 run_cmd "npm run start -w gh-cleanup -- summary --output=json --out=\"$OUT_DIR/active.json\""
 
+# if the OPENAI_API_KEY is set, run descriptions
+if [ -n "${OPENAI_API_KEY:-}" ]; then
+  echo "\n==> Describing active repositories using LLM..." >&2
+  if [ "$APPLY" = true ]; then
+    run_cmd "npm run start -w gh-cleanup -- describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\" --apply"
+  else
+    run_cmd "npm run start -w gh-cleanup -- describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\""
+  fi
+else
+  echo "\n==> Skipping repository description step as OPENAI_API_KEY is not set." >&2
+fi
 
 # 6) Final log of activity
 # 5b) Final summary run after all operations (refresh active list + summary)
