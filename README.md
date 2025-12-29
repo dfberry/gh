@@ -6,9 +6,24 @@ This repository is a small monorepo with two primary packages and supporting doc
 - packages/gh-cleanup: CLI tools that implement repository-cleanup features (commands: remove-forks, archive-stale-repos, delete-empty-repos, categorize-repos, summary). See [packages/gh-cleanup/README.md](packages/gh-cleanup/README.md) for CLI options and examples.
 
 Docs and artifacts
-- `generated/` contains example or generated markdown outputs (e.g., catalogs and summaries) produced by the CLI for site consumption.
-- GitHub token instructions are in [./docs/GET-GITHUB-TOKEN.md](./docs/GET-GITHUB-TOKEN.md).
-- Copilot instructions are in [./.github/copilot-instructions.md](./.github/copilot-instructions.md)
+- `generated/` contains example or generated markdown outputs (e.g., catalogs and summaries) produced by the CLI for site consumption. These are intended as the site/content inputs for `dfberry.github.io` or similar static sites.
+- `docs/GET-GITHUB-TOKEN.md` documents how to create a GitHub token with the right scopes for dry-run and destructive operations (delete/archive/update). Use this when preparing CI or local runs.
+- `scripts/` holds utility scripts used by maintainers — notably `scripts/run-all.sh` which runs the full pipeline (summary, categorize, delete-empty, remove-forks, archive-stale, describe-repos) in a safe, mostly dry-run flow and forwards `--apply` for destructive steps.
+- `.github/` contains repository-maintenance artifacts and CI/workflow definitions:
+	- `.github/LLM_DESCRIBE_REPO_PROMPT.md`: the default LLM prompt template used by the `describe-repo`/`describe-repos` commands. The CLI will search upward for this file when `--prompt` isn't provided.
+	- `.github/describe-files.json`: metadata used by repository tooling to enumerate or validate files that should be present in packages or the monorepo (used by CI or publishing scripts).
+	- `.github/package-placement-rules.md`: guidance on where code/packages belong in the monorepo (helps contributors place new packages consistently).
+	- `.github/copilot-instructions.md`: project-specific Copilot / AI assistant guidance for consistent code suggestions, testing, and style rules.
+	- `.github/ISSUE_TEMPLATE/`: issue templates to help contributors file useful issues (e.g., `outdated-actions.md` documents reporting of outdated GH Actions).
+	- `.github/workflows/`: GitHub Actions workflows for CI, release, and site publishing. Examples in this repo include:
+		- `describe-repo.yml`: a workflow that can run the `describe-repos` command in CI (useful for scheduled content generation or audits).
+		- `gh-sdk-ci.yml`: CI for the `github-rest` package.
+		- `update-site.yml`: a workflow that pushes generated site artifacts (from `generated/`) to a target repo using a deployment token.
+
+- Other support files:
+	- `README.replace.md`, `docs/` and `generated/` contain content and scripts used to assemble the static site content; treat them as source assets for publishing.
+
+If you want, I can also add short links from `packages/gh-cleanup/README.md` to the `.github/LLM_DESCRIBE_REPO_PROMPT.md` and the `scripts/run-all.sh` examples so users discover them faster.
 
 ## Functional specification
 
@@ -22,6 +37,8 @@ This section describes the key functionality for the repository-cleanup tooling 
 
 - **Categorize remaining repositories**: Run lightweight analysis per-repo to assign categories (e.g., library, cli, infra, docs, sample). Use heuristics such as language, topics, README presence, package manifests, and last activity. Emit structured output linking repositories to category tags and confidence scores.
 
+- **Generate repository descriptions & topics (LLM):** Use a configured LLM chat model with a prompt template to generate a short and long description, suggested topics, and useful links for a repository. This is implemented via the `describe-repo` and `describe-repos` commands. The action defaults to dry-run; provide `--apply` to PATCH repository descriptions and update topics. Supported flags include `--openai-key=`, `--prompt=`, and `--out=`.
+
 - **Generate Markdown table for dfberry.github.io**: From categorized results, generate a markdown table with columns: Name, Description, Topics, Language, Category, Last Updated, Link.
 
 - **Summary command**: a `summary` command/feature produces aggregated summaries of repositories (counts, categories, and other high-level metrics) used by the CLI and reporting tools.
@@ -30,50 +47,152 @@ This section describes the key functionality for the repository-cleanup tooling 
 
 Run one example command per main feature (uses the npm wrapper to run the package CLI):
 
-- Remove forks (dry-run):
+- Summary (initial active list + summary Markdown — matches `scripts/run-all.sh` step 1):
 
 ```bash
-npm run start -w gh-cleanup -- remove-forks
+npm run start -w gh-cleanup -- summary --output=md --out=generated/initial-active.md --summary-out=generated/initial-summary.md
 ```
 
-- Archive stale repositories (dry-run, older than 365 days):
+- Switches used:
+	- `--output=md`: output format for the active list (`md` or `json`).
+	- `--out=...`: destination file for the active list output.
+	- `--summary-out=...`: write the full summary Markdown including counts and the active table.
+	- `--older-than-days=<n>`: change stale cutoff (default 365).
+	- `--allow-forks`: include forks when computing stale/empty/archived sets.
+	- `--verify`: perform extra metadata checks (slower) to verify stale/empty status.
 
-```bash
-npm run start -w gh-cleanup -- archive-stale-repos
-```
-
-- Delete empty repositories (dry-run):
-
-```bash
-npm run start -w gh-cleanup -- delete-empty-repos
-```
-
-- Categorize repositories (fetch languages + README and output Markdown):
+- Categorize repositories (fetch languages + README and output Markdown — matches `scripts/run-all.sh` step 2):
 
 ```bash
 npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=generated/catalog.md
 ```
 
-- Summary (quick counts, write full summary Markdown):
+- Switches used:
+	- `--fetch`: fetch repository languages and README to improve categorization.
+	- `--output=md|json`: choose Markdown or JSON output.
+	- `--out=...`: destination file for the catalog output.
+	- `--rules=path`: optional rules file to override default categorization heuristics.
 
+- Delete empty repositories (dry-run or apply — matches `scripts/run-all.sh` step 3):
+
+Dry-run:
 ```bash
-npm run start -w gh-cleanup -- summary --summary-out=generated/summary.md
+npm run start -w gh-cleanup -- delete-empty-repos --out=generated/delete-empty.json
 ```
 
-## Generate repo descriptions
+Apply (destructive):
+```bash
+npm run start -w gh-cleanup -- delete-empty-repos --yes --out=generated/delete-empty.json
+```
+
+- Switches used:
+	- `--yes`: perform the destructive action (delete) instead of a dry-run.
+	- `--force`: skip interactive typed confirmation.
+	- `--allow-forks`: include forks in the scan.
+	- `--out=...`: write the plan or results to a file.
+	- `--no-audit`: omit permission details from the output.
+
+- Remove forks (dry-run or apply — matches `scripts/run-all.sh` step 4):
+
+Dry-run:
+```bash
+npm run start -w gh-cleanup -- remove-forks --out=generated/remove-forks.json
+```
+
+Apply (destructive):
+```bash
+npm run start -w gh-cleanup -- remove-forks --yes --out=generated/remove-forks.json
+```
+
+- Switches used:
+	- `--yes`: actually delete matched forked repos.
+	- `--force`: skip interactive confirmation.
+	- `--out=...`: write dry-run or action details to a file.
+	- `--no-audit`: omit permission/audit details.
+
+- Archive stale repositories (dry-run or apply — matches `scripts/run-all.sh` step 5):
+
+Dry-run (default cutoff 365 days):
+```bash
+npm run start -w gh-cleanup -- archive-stale-repos --out=generated/stale.json
+```
+
+Apply (archive matched repos):
+```bash
+npm run start -w gh-cleanup -- archive-stale-repos --older-than-days=365 --yes --out=generated/stale.json
+```
+
+- Switches used:
+	- `--older-than-days=<n>`: threshold for inactivity (days).
+	- `--yes`: perform the archival PATCH.
+	- `--allow-forks`: include forks.
+	- `--out=...`: write the list of matched repos.
+
+- Produce active list JSON (used by the run-all pipeline before describing repos):
+
+```bash
+npm run start -w gh-cleanup -- summary --output=json --out=generated/active.json
+```
+
+- Switches used:
+	- `--output=json`: produce machine-readable JSON instead of Markdown.
+	- `--out=...`: destination JSON file.
+
+- Describe repositories (LLM-driven, matches `scripts/run-all.sh` describe step):
+
+Dry-run against active JSON:
+```bash
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json
+```
+
+Apply LLM suggestions to repos (if you want descriptions/topics applied to GitHub):
+```bash
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json --apply
+```
+
+- Switches used:
+	- `--repos=FILE` (alias `--input=FILE`): input JSON file with the active list (array or object shapes supported).
+	- `--out=FILE`: write aggregated AI outputs (JSON or `.md` inferred by extension).
+	- `--prompt=PATH`: override the prompt template file (otherwise searches upward for `.github/LLM_DESCRIBE_REPO_PROMPT.md`).
+	- `--openai-key=KEY`: supply OpenAI key; otherwise `OPENAI_API_KEY` env var is used.
+	- `--apply`: PATCH repository description and update topics on GitHub (destructive; requires `GH_TOKEN` with repo permissions).
+
+
+## Generate repo descriptions and topics
 
 You can generate short descriptions and topic lists for repositories using an LLM-driven CLI command implemented in [packages/gh-cleanup/src/commands/describe-repo.ts](packages/gh-cleanup/src/commands/describe-repo.ts). The LLM prompt template is at [./.github/LLM_DESCRIBE_REPO_PROMPT.md](.github/LLM_DESCRIBE_REPO_PROMPT.md).
 
 Prerequisites:
 
-- A GitHub token in `GH_TOKEN` or `GITHUB_TOKEN` with repo scope.
-- An OpenAI API key in `OPENAI_API_KEY` (or pass `--openai-key=` to the command).
+- A `.env` file at the repository root or equivalent environment variables set. Example `samples.env` snippet:
+
+```ini
+GH_TOKEN=
+GH_USER=YOUR_GITHUB_USER_NAME
+OPENAI_API_KEY=
+OPENAI_ENDPOINT=https://RESOURCE-NAME.openai.azure.com/openai/deployments/gpt-4.1-mini/chat/completions?api-version=API_VERSION
+OPENAI_MODEL=gpt-4.1-mini
+OPENAI_TEMPERATURE=0.2
+```
+
+Variable descriptions:
+
+- `GH_TOKEN` / `GITHUB_TOKEN`: a GitHub personal access token (PAT) used by the CLI to read and modify repositories. For destructive operations (delete/archive/update topics) the token must have appropriate repo/admin scopes; for read-only operations a token with `repo` or read scopes is sufficient.
+- `GH_USER`: your GitHub username. Used for readability in outputs and to filter owned repositories in summaries.
+- `OPENAI_API_KEY`: API key for OpenAI (or compatible) services used by the LLM-driven `describe-*` commands. If omitted you can pass `--openai-key=` on the CLI.
+- `OPENAI_ENDPOINT`: (optional) full endpoint URL for Azure OpenAI or other hosted endpoints when not using the default OpenAI API base. Example value is the Azure-style chat completions endpoint with deployment and api-version.
+- `OPENAI_MODEL`: (optional) the model/deployment identifier to use for generation (e.g., `gpt-4.1-mini`). When omitted a sensible default is used by the LLM client.
+- `OPENAI_TEMPERATURE`: (optional) sampling temperature for LLM completions (0-1 scale). Lower values produce more deterministic results; higher values increase creativity.
+
+Notes:
+
+- When running commands that modify repositories (e.g., `--yes`, `--apply`), ensure `GH_TOKEN` has the necessary permissions and consider running a dry-run first.
+- `OPENAI_ENDPOINT` and `OPENAI_MODEL` are primarily for Azure OpenAI customers; the CLI will fall back to the public OpenAI API unless overridden.
+
 
 Single repo (dry-run):
 
 ```bash
-export GH_TOKEN="ghp_..."
-export OPENAI_API_KEY="sk-..."
 npm run start -w gh-cleanup -- describe-repo --repo=owner/repo
 ```
 
@@ -98,3 +217,43 @@ Optional OpenAI CLI flags supported: `--openai-key=`, `--openai-model=`, `--open
 Output
 
 The command prints validated JSON to stdout containing `short_description`, `long_description`, `topics`, and `links`. When run with `--apply` it will PATCH the repository description and update topics (up to 20).
+
+## Run all scripts
+
+Using the `run-all.sh` script
+
+- The `scripts/run-all.sh` helper will run the describe step only when an OpenAI key is available in the environment (`OPENAI_API_KEY`).
+- If you run `scripts/run-all.sh --apply` the script forwards `--apply` to the `describe-repos` command so the LLM-generated descriptions/topics will be applied to each repository. Without `--apply` the describe step runs in dry-run mode and will not modify repositories.
+
+Example (run-all dry-run):
+
+```bash
+./scripts/run-all.sh
+```
+
+Example (apply changes and allow the describe step to write updates):
+
+```bash
+./scripts/run-all.sh --apply
+```
+
+## Common switches
+
+These switches are used across the CLI commands (examples above and `scripts/run-all.sh`):
+
+- `--yes` : perform the destructive action (delete, archive, etc.) instead of a dry-run.
+- `--force` : skip interactive typed confirmation prompts.
+- `--out=<path>` : write command output or plan to a file (JSON or Markdown depending on command/`--output`).
+- `--no-audit` : omit permission/audit details from outputs where supported.
+- `--allow-forks` : include forked repositories in scans and actions.
+- `--older-than-days=<n>` : threshold (days) to consider a repo stale (default 365).
+- `--verify` : perform extra metadata checks (slower) to verify stale/empty status.
+- `--fetch` : fetch extra metadata (languages, README) for improved analysis.
+- `--output=json|md` : choose machine-readable JSON or Markdown output for listing commands.
+- `--summary-out=<path>` : write full summary Markdown (counts + active table).
+- `--repos=<file>` or `--input=<file>` : input JSON file for batch commands (describe-repos), supports arrays or object shapes.
+- `--prompt=<path>` : override the LLM prompt file (otherwise upward-searches for `.github/LLM_DESCRIBE_REPO_PROMPT.md`).
+- `--openai-key=<key>` : supply OpenAI API key for LLM calls (falls back to `OPENAI_API_KEY` env var).
+- `--openai-model=`, `--openai-temp=`, `--openai-endpoint=` : optional OpenAI/LLM tuning flags.
+- `--apply` : apply LLM-generated suggestions to GitHub (PATCH description, update topics) — requires `GH_TOKEN` with appropriate permissions.
+- `--rules=<path>` : custom rules file for `categorize-repos`.

@@ -91,6 +91,65 @@ const md = toMarkdownTable(items, { title: 'Repository Catalog', includeFrontmat
 await emitOutput(addGeneratedTimestamp(md, 'Repo Catalog'), outPath);
 ```
 
+Using the LLM to generate repository descriptions and topics
+----------------------------------------------------------
+
+This project can automatically generate short/long descriptions and suggested topics
+for repositories using the bundled LLM helpers. The describe step is implemented in
+`gh-cleanup` and uses the `llm-completion` package for calling the model and
+sanitizing the response. The output includes both the AI-generated result and
+applied flags showing what (if anything) was patched on the repository.
+
+Example: generate descriptions (dry-run)
+
+```bash
+# produce AI suggestions for repositories listed in generated/active.json
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json
+```
+
+Example: apply suggested descriptions and topics (use with caution)
+
+```bash
+# forward --apply to actually patch repo descriptions/topics
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json --apply --openai-key=$OPENAI_API_KEY
+```
+
+Sample output item (JSON)
+
+```json
+{
+	"repo": "owner/repo",
+	"ai": {
+		"short": "Lightweight CLI for X",
+		"long": "A small tool that helps automate X by doing Y and Z...",
+		"topics": ["cli","automation","tools"],
+		"links": ["https://example.com/docs"]
+	},
+	"applied": { "description": false, "topics": false }
+}
+```
+
+Embedding AI descriptions in your blog post
+-----------------------------------------
+
+You can include the generated description and topics directly in a post by
+consuming the generated JSON and inlining the fields. For example, to include
+the short description and topics for a repo in Markdown:
+
+```md
+### owner/repo
+
+Lightweight CLI for X — A small tool that helps automate X by doing Y and Z.
+
+Topics: `cli`, `automation`, `tools`
+
+[Project docs](https://example.com/docs)
+```
+
+If you prefer automation, parse `generated/descriptions.json` and render the
+content into your static site generator or a README snippet.
+
+
 Screenshot placeholders
 
 - Screenshot: CLI run listing forks (replace with your screenshot)

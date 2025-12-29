@@ -10,15 +10,50 @@ Install & prerequisites (0:20-0:40)
 - Say: "You need Node 22 and a GitHub token in `GH_TOKEN`. Clone the repo and run `npm install` and `npm run build`."
 - Do: Show terminal, run `git clone ...`, `npm install`, `npm run build` (speed up/skip with jump cut).
 
+Using `./scripts/run-all.sh` and `sample.env`
+- This project includes a convenience runner at `./scripts/run-all.sh` that orchestrates
+	the main audit-and-cleanup steps and writes results to `generated/`.
+- Prepare your environment by copying the provided `sample.env` (or creating a `.env` file)
+	and setting required secrets such as `GH_TOKEN` and optionally `OPENAI_API_KEY`.
+
+Example: create a working `.env` from `sample.env` (local, non-secret values may be present)
+
+```bash
+# copy and edit sample.env to .env, then add your secrets
+cp scripts/sample.env .env
+# edit .env and set GH_TOKEN and optionally OPENAI_API_KEY
+${EDITOR:-vi} .env
+```
+
 Run examples (0:40-2:10)
-- Say: "First, dry-run to see what will happen. This won't change anything." 
-- Do: Show running `npm run start -w gh-cleanup -- remove-forks` in terminal. Pause on output.
-- Say: "You can archive stale repos — here's the dry-run." 
-- Do: Run `npm run start -w gh-cleanup -- archive-stale-repos` and show output.
-- Say: "Detect empty repos — these are size 0 and have no commits or PRs. The tool treats 409 responses from the commits API as empty." 
-- Do: Run `npm run start -w gh-cleanup -- delete-empty-repos` and emphasize dry-run.
-- Say: "If you want a catalog for a static site, use `categorize-repos` with `--fetch` to pull languages and README and write a Markdown table." 
-- Do: Run `npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=generated/catalog.md`, then open `generated/catalog.md` in an editor.
+- Say: "First, dry-run the full pipeline to see what will happen. This won't change anything." 
+- Do: Show running the runner without `--apply` which performs dry-runs and writes outputs to `generated/`.
+
+```bash
+./scripts/run-all.sh
+```
+
+- Say: "Review the generated files in `generated/` — `active.json`, `catalog.md`, `summary_*.md` and others contain the dry-run results." 
+- Do: Open `generated/summary-report.md` or `generated/active.json` in an editor and show snippets.
+
+- Say: "To actually apply safe, gated changes (archive/delete/patch), pass `--apply` to the runner. Be sure your `.env` contains `GH_TOKEN` with the right scopes; for description updates also set `OPENAI_API_KEY`."
+- Do: Show the command and emphasize the risk.
+
+```bash
+# WARNING: destructive when --apply is supplied; ensure .env has GH_TOKEN with required scopes
+./scripts/run-all.sh --apply
+```
+
+- Say: "If you only want to run the describe step (LLM-driven descriptions/topics), ensure `OPENAI_API_KEY` is set in your `.env` and run the describe command or let the runner include it when `OPENAI_API_KEY` is present."
+- Do: Show the describe command example:
+
+```bash
+# dry-run descriptions (requires OPENAI_API_KEY in .env)
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json
+
+# apply suggested description/topics (use with caution)
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json --apply --openai-key=$OPENAI_API_KEY
+```
 
 Safety & deleting (2:10-2:40)
 - Say: "Everything defaults to dry-run. To actually delete or archive, pass `--yes` and you'll be prompted to type `YES` unless you use `--force`. Be careful — deletion requires a token with `delete_repo` permission." 

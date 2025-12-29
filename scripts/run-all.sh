@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
+
+# Fail fast: exit on error, treat unset variables as errors, and propagate pipe failures.
+# This makes the script safer in CI and local runs so failures stop the pipeline early.
 set -euo pipefail
 
-# Root runner for repository-cleanup tasks. By default this performs safe dry-runs
-# and writes outputs to `generated/`. Pass `--apply` to perform destructive actions
-# (deletions/archiving) — use with caution.
+# Root runner for repository-cleanup tasks.
+# - Run this from the repository root (script resolves ROOT_DIR relative to its location).
+# - Requires `node`/`npm` on PATH to run package CLIs via `npm run start -w <pkg>`.
+# - By default the pipeline performs dry-runs and writes outputs to `generated/`.
+# - Pass `--apply` to forward destructive flags to commands (deletes/archives/patches).
+#   Use with caution and ensure `GH_TOKEN` has appropriate scopes in CI.
 
 ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 OUT_DIR="$ROOT_DIR/generated"
@@ -21,7 +27,11 @@ done
 echo "Running repository-cleanup pipeline (apply=$APPLY)" >&2
 TS=$(date -u +"%Y-%m-%dT%H%M%SZ")
 
-# Load a root .env file if present (export KEY=VALUE lines, ignore comments)
+# Load a root .env file if present (simple KEY=VALUE parser).
+# Supported format:
+# - Lines with KEY=VALUE, optionally quoted with single or double quotes.
+# - Blank lines and lines starting with `#` are ignored.
+# - Values are exported into the environment and will override existing vars for this run.
 if [ -f "$ROOT_DIR/.env" ]; then
   echo "Loading environment from $ROOT_DIR/.env" >&2
   # shellcheck disable=SC1090
@@ -43,23 +53,30 @@ fi
 # Ensure GH_TOKEN available warning
 if [ -z "${GH_TOKEN:-}" ]; then
   echo "Warning: GH_TOKEN is not set. Interactive or CI runs may fail without it." >&2
+  echo "  Note: for destructive operations the token should have delete_repo/admin scopes." >&2
 fi
 if [ -z "${GH_USER:-}" ]; then
   echo "Warning: GH_USER is not set. Some outputs may lack actor context." >&2
 fi
 
 run_cmd(){
+  # Print the command for visibility, then execute it.
+  # We use `eval` so complex quoted commands built above (with nested quotes) run as expected.
+  # This is intentional; commands are constructed internally and not from untrusted input.
   echo "\n==> $*" >&2
   eval "$*"
 }
 
 # 1) Initial summary run (produces active list and initial summary)
+#    - Outputs: $OUT_DIR/initial-active.md and $OUT_DIR/initial-summary.md
+#    - Dry-run by default; use --verify for extra checks when needed.
 run_cmd "npm run start -w gh-cleanup -- summary --output=md --out=\"$OUT_DIR/initial-active.md\" --summary-out=\"$OUT_DIR/initial-summary.md\""
 
 # 2) Categorize repos (fetch languages + README) -> catalog.md
 run_cmd "npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=\"$OUT_DIR/catalog.md\""
 
 # 3) Find empty repos (dry-run to JSON)
+#    - This step is destructive only when top-level --apply is passed (for automation).
 if [ "$APPLY" = true ]; then
   run_cmd "npm run start -w gh-cleanup -- delete-empty-repos --yes --out=\"$OUT_DIR/delete-empty.json\""
 else
@@ -67,6 +84,7 @@ else
 fi
 
 # 4) Remove forks (dry-run unless --apply)
+#    - Deletes are performed only when --apply is passed to this runner (for safety).
 if [ "$APPLY" = true ]; then
   run_cmd "npm run start -w gh-cleanup -- remove-forks --yes --out=\"$OUT_DIR/remove-forks.json\""
 else
@@ -74,6 +92,7 @@ else
 fi
 
 # 5) Archive stale repos (dry-run unless --apply)
+#    - Archival PATCHes are performed only when --apply is passed.
 if [ "$APPLY" = true ]; then
   run_cmd "npm run start -w gh-cleanup -- archive-stale-repos --yes --out=\"$OUT_DIR/stale.json\""
 else
@@ -83,6 +102,9 @@ fi
 run_cmd "npm run start -w gh-cleanup -- summary --output=json --out=\"$OUT_DIR/active.json\""
 
 # if the OPENAI_API_KEY is set, run descriptions
+# The describe step is optional and only runs when an OpenAI key is present.
+# When this runner was invoked with --apply we forward --apply to `describe-repos` so
+# the LLM suggestions may be applied to repositories (PATCHing description/topics).
 if [ -n "${OPENAI_API_KEY:-}" ]; then
   echo "\n==> Describing active repositories using LLM..." >&2
   if [ "$APPLY" = true ]; then
@@ -106,5 +128,10 @@ echo "Summary (files and sizes):" >&2
 find "$OUT_DIR" -maxdepth 1 -type f -printf "%s bytes\t%p\n" | sort -nr | awk '{printf "%10s %s\n", $1, $2}'
 
 echo "\nTo push generated files to a site repo, see .github/workflows/update-site.yml and set secrets TARGET_REPO and TARGET_REPO_TOKEN." >&2
+
+# Notes on failure behavior:
+# - The script uses `set -euo pipefail`, so any command that exits non-zero will stop the pipeline.
+# - `generated/` may contain partial outputs if a later step fails; consider using a temporary directory
+#   and promoting results atomically in CI if atomicity is required.
 
 exit 0

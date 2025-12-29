@@ -1,211 +1,120 @@
 # gh-cleanup
 
 Small CLI tooling to audit and clean GitHub repositories using the shared
-`github-rest` client in this workspace.
+`github-rest` client in this workspace. Commands default to dry-run; destructive
+actions require explicit confirmation and are gated behind `--yes`/`--force`
+flags and, where applicable, `--apply`.
 
-This package provides several small CLI commands to audit and clean GitHub
-repositories. All commands default to dry-run and will not perform destructive
-actions unless `--yes` is provided. Use `--force` to skip typed confirmation
-prompts (use carefully for automation).
+Quick overview
+- Purpose: audit, categorize, and (optionally) clean repositories owned by the
+  authenticated account.
+- Safe-by-default: all destructive commands are dry-run unless you pass the
+  appropriate confirmation flags.
+- Integration: commonly invoked from `scripts/run-all.sh` which orchestrates the
+  pipeline across commands (see repository root).
+
+Common flags
+- `--out=<path>`: write JSON or Markdown output to a file.
+- `--output=json|md`: choose output format (where supported).
+- `--yes`: perform destructive operations (still prompts unless `--force`).
+- `--force`: skip typed confirmation prompts — use carefully in automation.
 
 Commands
 
 - `remove-forks`
-	- Description: List forked repositories owned by the authenticated user and
-		optionally delete them.
-	- Flags: `--yes` (perform deletion), `--force` (skip typed `YES` confirmation), `--out=<path>` (write JSON details), `--no-audit` (omit permissions from output)
-	- Example:
-		```bash
-		# dry-run (default)
-		npm run start -w gh-cleanup -- remove-forks
-
-		# actually delete (interactive confirmation)
-		npm run start -w gh-cleanup -- remove-forks --yes
-
-		# save dry-run details to a file (including permissions)
-		npm run start -w gh-cleanup -- remove-forks --out=generated/remove-forks.json
-
-		# save dry-run details without permissions
-		npm run start -w gh-cleanup -- remove-forks --out=generated/remove-forks-noaudit.json --no-audit
-		```
+  - List (and optionally delete) forked repositories owned by the authenticated user.
+  - Flags: `--yes`, `--force`, `--out=<path>`, `--no-audit` (omit permissions).
 
 - `archive-stale-repos`
-	- Description: Find repositories with no activity older than N days and
-		optionally archive them. Forks are excluded by default.
-	- Flags: `--older-than-days=<n>` (default 365), `--yes`, `--force`,
-		`--allow-forks` (include forks), `--out=<path>` (write JSON details)
-	- Example:
-		```bash
-		# dry-run: list repos older than 365 days
-		npm run start -w gh-cleanup -- archive-stale-repos --yes
-
-		# archive repos older than 730 days
-		npm run start -w gh-cleanup -- archive-stale-repos --older-than-days=730 --yes
-
-		# save dry-run list to a file
-		npm run start -w gh-cleanup -- archive-stale-repos --out=generated/stale.json
-		```
+  - Archive repositories with no activity older than `N` days (default 365).
+  - Flags: `--older-than-days=<n>`, `--yes`, `--force`, `--allow-forks`, `--out=<path>`.
 
 - `delete-empty-repos`
-	- Description: Detect repositories with `size === 0` (0 KB), confirm no commits
-	and no pull requests, and optionally delete them. Forks are excluded by
-	default.
-	- Flags: `--yes`, `--force`, `--allow-forks`, `--out=<path>` (write JSON details), `--no-audit` (omit permissions from output)
-	- Example:
-		```bash
-		# dry-run
-		npm run start -w gh-cleanup -- delete-empty-repos
-
-		# delete matched repos
-		npm run start -w gh-cleanup -- delete-empty-repos --yes
-
-		# save deletion plan to file (including permissions)
-		npm run start -w gh-cleanup -- delete-empty-repos --out=generated/delete-empty.json
-
-		# save deletion plan without permissions
-		npm run start -w gh-cleanup -- delete-empty-repos --out=generated/delete-empty-noaudit.json --no-audit
-		```
+  - Detect repositories with `size === 0` and optionally delete them.
+  - Flags: `--yes`, `--force`, `--allow-forks`, `--out=<path>`, `--no-audit`.
 
 - `categorize-repos`
-	- Description: Heuristic categorization (library, cli, infra, docs,
-		sample, etc.) with optional metadata fetch (languages + README). Outputs
-		JSON or Markdown.
-	- Flags: `--fetch` (fetch languages + README), `--output=json|md`
-		(default `json`), `--out=<path>` (write output)
-	- Example:
-		```bash
-		# JSON to stdout (no extra fetches)
-		npm run start -w gh-cleanup -- categorize-repos
+  - Heuristic categorization (library, cli, infra, docs, sample, etc.).
+  - Flags: `--fetch` (languages + README), `--output=json|md`, `--out=<path>`, `--rules=<path>`.
+  - Output: JSON or Markdown catalog; default rules are in `src/config/categorization.rules.ts`.
 
-		# fetch languages/README and output Markdown file
-		npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=generated/catalog.md
-		```
+- `summary`
+  - Produce counts for forks, stale repos, empty repos, and an active repo table.
+  - Flags: `--older-than-days=<n>`, `--allow-forks`, `--verify` (fetch commits/PRs), `--output=json|md`, `--out=<path>`, `--summary-out=<path>`.
+  - Note: the summary now includes public/private totals and per-category public/private splits.
 
-	- Notes:
-		- **Custom rules:** You can pass `--rules=/path/to/rules.json` to load a custom rules file. Rules follow the bundled shape (see below).
-		- **Bundled rules:** Default heuristics live in `packages/gh-cleanup/src/config/categorization.rules.ts`.
-		- **Output directories:** Parent directories for `--out` are created automatically.
+- `describe-repo` / `describe-repos`
+  - Generate short/long descriptions, suggested topics, and related links using an LLM.
+  - Use `describe-repo` for a single repo and `describe-repos` for batch JSON inputs.
+  - Flags:
+    - `--openai-key=` or set `OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` in env.
+    - `--openai-model=`, `--openai-temp=`, `--openai-endpoint=` — provider overrides.
+    - `--prompt=/path/to/prompt.md` — override the prompt file. If omitted the CLI searches
+      upward for `.github/LLM_DESCRIBE_REPO_PROMPT.md`.
+    - `--apply` — apply suggested description/topics to repositories (forwarded by `run-all.sh` when invoked with `--apply`).
+    - `--out=<path.json|path.md>` — aggregated output with `ai` and `applied` annotations.
 
+  - Input JSON shapes (plural): accepts an array of strings or objects, or a top-level object
+    with `items|repos|repositories` fields. Objects may contain `full_name`, or `owner`+`name`.
 
-	- `summary`
-		- Description: Produce a quick summary of your repositories — counts of
-		forks you own, stale repositories (no activity older than N days), and
-		repositories with size === 0 (0 KB). Can optionally verify counts by fetching
-		commit and pull request metadata (slower).
-		- Flags: `--older-than-days=<n>` (default 365), `--allow-forks`, `--verify`, `--summary-out=<path>` (write full summary Markdown)
-			(`--verify` will fetch commits/PRs for more accurate classification)
-		- Example:
-			```bash
-			# quick summary (dry-run)
-			npm run start -w gh-cleanup -- summary
+Output annotations
+- The describe step writes structured output where each item includes:
+  - `ai`: the model-generated object (short/long descriptions, topics, links).
+  - `applied`: boolean flags indicating which fields were actually patched on the repo.
 
-			# include forks in calculations
-			npm run start -w gh-cleanup -- summary --allow-forks
+Prompt & key behavior
+- The CLI prefers `--openai-key` flag, then `OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` env vars.
+- Prompt resolution: if `--prompt` is not provided the CLI searches upward from the
+  current working directory for `.github/LLM_DESCRIBE_REPO_PROMPT.md` and errors if none is found.
 
-			# verify by fetching commits & PR counts (slower)
-			npm run start -w gh-cleanup -- summary --verify
-
-			# write markdown to file (active repos table)
-			npm run start -w gh-cleanup -- summary --output=md --out=generated/active.md
-
-			# write JSON instead
-			npm run start -w gh-cleanup -- summary --output=json --out=generated/active.json
-
-			# write a full summary Markdown file (counts + active repo table)
-			npm run start -w gh-cleanup -- summary --summary-out=generated/summary.md
-			```
-
-	- `describe-repo`
-		- Description: Generate a short description and suggested topics for a repository using the configured LLM prompt. Can operate on a single `owner/repo` or on a JSON file containing repositories.
-		- Flags: `--openai-key=`, `--openai-model=`, `--openai-temp=`, `--openai-endpoint=`, `--apply` (apply description/topics), `--out=<path.json|path.md>` (write aggregated output)
-		- Flags: `--openai-key=`, `--openai-model=`, `--openai-temp=`, `--openai-endpoint=`, `--prompt=/path/to/prompt.md` (override prompt file), `--apply` (apply description/topics), `--out=<path.json|path.md>` (write aggregated output)
-		- Example:
-			```bash
-			# single repo to stdout
-			npm run start -w gh-cleanup -- describe-repo --repo=owner/repo
-
-			# process JSON list (array of repo strings or objects) and write JSON output
-			npm run start -w gh-cleanup -- describe-repos --input=generated/active.json --out=generated/descriptions.json
-
-			# process JSON list and write Markdown output
-			npm run start -w gh-cleanup -- describe-repos --input=generated/active.json --out=generated/descriptions.md
-
-			# apply changes (update repo description & topics) for a single repo
-			npm run start -w gh-cleanup -- describe-repo --repo=owner/repo --apply --openai-key=YOUR_KEY
-			```
-
-			# specify a prompt file explicitly (plural)
-			npm run start -w gh-cleanup -- describe-repos --input=generated/active.json --prompt=.github/LLM_DESCRIBE_REPO_PROMPT.md --out=generated/descriptions.json
-
-			# or provide an absolute path
-			npm run start -w gh-cleanup -- describe-repos --input=generated/active.json --prompt=/full/path/to/LLM_DESCRIBE_REPO_PROMPT.md --out=generated/descriptions.json
-
-			# note: if `--prompt` is omitted the CLI searches upward from the current working directory for `.github/LLM_DESCRIBE_REPO_PROMPT.md` and will error if none is found
-
-		- Input JSON shape:
-			- The command accepts either an array or a single file object. Supported shapes:
-				- Array of strings: `["owner/repo", "owner2/repo2"]`.
-				- Array of objects: `[{ "full_name": "owner/repo" }, { "owner": "owner", "name": "repo" }]`.
-				- Top-level object with an array field: `{ "items": [...], "repos": [...], "repositories": [...] }` — the CLI will look for `items`, `repos`, or `repositories`.
-			- For objects the CLI looks for `full_name`, `owner`+`name`, or `repo` fields. It also accepts GitHub search results where each item contains a `full_name`.
-			- (Optional) The CLI does not currently extract owner/repo from `html_url`; provide `full_name` or `owner`+`name` when possible.
+Integration with pipeline
+- `scripts/run-all.sh` orchestrates the end-to-end flow and will conditionally run the
+  describe step when `OPENAI_API_KEY` is set. Passing `--apply` to the runner forwards
+  `--apply` to `describe-repos` so suggested changes can be applied during automated runs.
 
 Prerequisites
-
-- Set `GH_TOKEN` in environment or place a `.env` at the repository root.
-- Node >= 22
+- `GH_TOKEN` in environment (or `.env` file at repo root) for GitHub operations.
+- Node >= 22.
 
 Important token note
-
-- For destructive operations (deleting repositories) use a classic Personal
-	Access Token (PAT) that includes the `delete_repo` permission. Fine-grained
-	tokens or tokens missing `delete_repo` may not be allowed to remove
-	repositories even if they include `repo` or other scopes. Additionally the
-	token must have `admin` permission on each repository to perform deletions.
-
-Safety
-
-- All commands default to dry-run. To perform destructive actions pass
-	`--yes` and type `YES` when prompted (unless using `--force`).
-- Ensure the `GH_TOKEN` has the necessary scopes (repo/admin) for destructive
-	operations.
+- For destructive operations (deleting repositories) a token with `delete_repo` or
+  equivalent admin permissions is required. Fine-grained tokens may not allow deletion.
 
 Developer notes
+- Implementation lives under `packages/gh-cleanup/src`. Shared helpers:
+  - `describe-common.ts` — LLM prompt resolution and sanitization.
+  - `describe-validator.ts` — validates model output shape.
+  - `repo-utils.ts` / `report.ts` — utilities for fetching repo metadata and producing Markdown.
+- `github-rest` in `packages/github-rest` is the low-level client used by these commands.
 
-- `github-rest` provides the low-level client under `packages/github-rest`.
-- `gh-cleanup` implements CLI orchestration and reporting under
-	`packages/gh-cleanup/src`.
-- To run the CLI from source in development use `ts-node` or run the built
-	`.js` output from `dist` after `npm run build` in the package directory.
-
-Quick CLI help
-
-You can print a concise help summary from the entrypoint:
+Quick help
 
 ```bash
-# using npm run start wrapper
+# general CLI help
 npm run start -w gh-cleanup -- --help
 
-# or directly (after build)
-node packages/gh-cleanup/dist/bin/cli.js --help
+# describe repos dry-run (requires OPENAI key in env)
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json
+
+# run full pipeline and apply changes (use with extreme caution)
+./scripts/run-all.sh --apply
 ```
 
-The help output lists available commands and common flags such as `--yes`, `--force`, `--out=<path>`, and `--output=json|md`.
-
 Rules file shape (example)
-
-The rules are an array of objects with optional match fields. Example minimal rule:
-
 ```json
 {
-	"category": "cli",
-	"confidence": 0.85,
-	"topicsContains": ["cli"],
-	"readmeContains": ["cli"],
-	"languagesContains": ["go", "shell"]
+  "category": "cli",
+  "confidence": 0.85,
+  "topicsContains": ["cli"],
+  "readmeContains": ["cli"],
+  "languagesContains": ["go", "shell"]
 }
 ```
 
 Generated Markdown
+- Outputs from `categorize-repos` and `summary` include a `generated_at` ISO timestamp
+  in YAML frontmatter and the `summary` file now includes per-category public/private counts.
 
-Markdown outputs produced by `categorize-repos` and `summary` include a `generated_at` ISO timestamp in the YAML frontmatter.
+```
+npm run start -w gh-cleanup -- describe-repo --repo=owner/repo
+```
