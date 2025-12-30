@@ -1,4 +1,5 @@
-name: Check GitHub Action Versions
+name: Check Action Versions
+description: "Checks workflows for outdated GitHub Actions and files an issue when updates are available. Runs manually (workflow_dispatch) and can be scheduled weekly."
 
 on:
   #schedule:

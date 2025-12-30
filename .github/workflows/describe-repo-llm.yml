@@ -1,4 +1,5 @@
 name: Describe repo with LLM
+description: "Generates a natural-language description of the repository using the LLM-based describe tool. Runs weekly (Monday UTC) and can be triggered manually."
 
 on:
   workflow_dispatch:

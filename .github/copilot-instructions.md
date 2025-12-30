@@ -7,6 +7,7 @@ Welcome to the project! This file provides guidance for GitHub Copilot and other
 - The SDK is written in TypeScript and targets Node.js 22+ (uses native fetch).
 - All HTTP requests to GitHub APIs are centralized in `src/core/request.ts` using the `ghRequest` utility.
 - Each API module (e.g., `dependabotAlerts.ts`) should use the base request utility for consistency and maintainability.
+- **Package placement:** See the detailed placement rules in [/.github/package-placement-rules.md](.github/package-placement-rules.md).
 
 ## Preferred Frameworks & Tools
 - **Language:** TypeScript (strict mode recommended)

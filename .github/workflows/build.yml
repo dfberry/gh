@@ -1,4 +1,5 @@
-name: GH SDK CI
+name: BUILD
+description: "Builds and tests the GitHub SDK package (`packages/gh`) on pushes and pull requests that touch that package."
 
 on:
   push:
