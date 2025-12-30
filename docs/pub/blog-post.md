@@ -1,4 +1,4 @@
-# Clean Up Your GitHub account repositories
+# Clean up my many GitHub account repositories
 
 My end of year project is a GitHub account repository-cleanup tool to provide safe, repeatable auditing and cleanup for my GitHub accounts. I also wanted to create a catalog of my active repos. This repo focuses on repository-level cleanup (archive/delete/catalog), but the same audit run can help you discover candidates for cloud-resource reclamation and CI/workflow maintenance.
 
@@ -30,7 +30,7 @@ The high-level architecture of the npm workspace monorepo:
 - `.github` - Workflows and prompt files. 
 - `scripts` - Top level script to clean up GitHub account, also used by 
 
-## Short prerequisites
+## Prerequisites
 
 This repo can be opened with Codespaces or locally with `.devcontainer/devcontainer.json`. The development container has all the developer setup for this project including Node.js. Once you have the repo open with the environment, create a GitHub token and an OpenAI key and an LLM model. Set these values in the root level `.env`.
 
