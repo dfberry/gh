@@ -27,6 +27,9 @@ done
 echo "Running repository-cleanup pipeline (apply=$APPLY)" >&2
 TS=$(date -u +"%Y-%m-%dT%H%M%SZ")
 
+# Build all workspace packages once to avoid repeated builds per command.
+run_cmd "npm run build"
+
 # Load a root .env file if present (simple KEY=VALUE parser).
 # Supported format:
 # - Lines with KEY=VALUE, optionally quoted with single or double quotes.
@@ -70,36 +73,36 @@ run_cmd(){
 # 1) Initial summary run (produces active list and initial summary)
 #    - Outputs: $OUT_DIR/initial-active.md and $OUT_DIR/initial-summary.md
 #    - Dry-run by default; use --verify for extra checks when needed.
-run_cmd "npm run start -w gh-cleanup -- summary --output=md --out=\"$OUT_DIR/initial-active.md\" --summary-out=\"$OUT_DIR/initial-summary.md\""
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/initial-active.md\" --summary-out=\"$OUT_DIR/initial-summary.md\""
 
 # 2) Categorize repos (fetch languages + README) -> catalog.md
-run_cmd "npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=\"$OUT_DIR/catalog.md\""
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" categorize-repos --fetch --output=md --out=\"$OUT_DIR/catalog.md\""
 
 # 3) Find empty repos (dry-run to JSON)
 #    - This step is destructive only when top-level --apply is passed (for automation).
 if [ "$APPLY" = true ]; then
-  run_cmd "npm run start -w gh-cleanup -- delete-empty-repos --yes --out=\"$OUT_DIR/delete-empty.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" delete-empty-repos --yes --out=\"$OUT_DIR/delete-empty.json\""
 else
-  run_cmd "npm run start -w gh-cleanup -- delete-empty-repos --out=\"$OUT_DIR/delete-empty.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" delete-empty-repos --out=\"$OUT_DIR/delete-empty.json\""
 fi
 
 # 4) Remove forks (dry-run unless --apply)
 #    - Deletes are performed only when --apply is passed to this runner (for safety).
 if [ "$APPLY" = true ]; then
-  run_cmd "npm run start -w gh-cleanup -- remove-forks --yes --out=\"$OUT_DIR/remove-forks.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" remove-forks --yes --out=\"$OUT_DIR/remove-forks.json\""
 else
-  run_cmd "npm run start -w gh-cleanup -- remove-forks --out=\"$OUT_DIR/remove-forks.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" remove-forks --out=\"$OUT_DIR/remove-forks.json\""
 fi
 
 # 5) Archive stale repos (dry-run unless --apply)
 #    - Archival PATCHes are performed only when --apply is passed.
 if [ "$APPLY" = true ]; then
-  run_cmd "npm run start -w gh-cleanup -- archive-stale-repos --yes --out=\"$OUT_DIR/stale.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" archive-stale-repos --yes --out=\"$OUT_DIR/stale.json\""
 else
-  run_cmd "npm run start -w gh-cleanup -- archive-stale-repos --out=\"$OUT_DIR/stale.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" archive-stale-repos --out=\"$OUT_DIR/stale.json\""
 fi
 
-run_cmd "npm run start -w gh-cleanup -- summary --output=json --out=\"$OUT_DIR/active.json\""
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=json --out=\"$OUT_DIR/active.json\""
 
 # if the OPENAI_API_KEY is set, run descriptions
 # The describe step is optional and only runs when an OpenAI key is present.
@@ -108,9 +111,9 @@ run_cmd "npm run start -w gh-cleanup -- summary --output=json --out=\"$OUT_DIR/a
 if [ -n "${OPENAI_API_KEY:-}" ]; then
   echo "\n==> Describing active repositories using LLM..." >&2
   if [ "$APPLY" = true ]; then
-    run_cmd "npm run start -w gh-cleanup -- describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\" --apply"
+    run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\" --apply"
   else
-    run_cmd "npm run start -w gh-cleanup -- describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\""
+    run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\""
   fi
 else
   echo "\n==> Skipping repository description step as OPENAI_API_KEY is not set." >&2
@@ -118,7 +121,7 @@ fi
 
 # 6) Final log of activity
 # 5b) Final summary run after all operations (refresh active list + summary)
-run_cmd "npm run start -w gh-cleanup -- summary --output=md --out=\"$OUT_DIR/summary-active.md\" --summary-out=\"$OUT_DIR/summary-report.md\""
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/summary-active.md\" --summary-out=\"$OUT_DIR/summary-report.md\""
 
 echo "\nPipeline finished at: $(date -u --iso-8601=seconds)" >&2
 echo "Generated outputs:" >&2
