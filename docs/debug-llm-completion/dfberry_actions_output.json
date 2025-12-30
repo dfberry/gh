@@ -1,0 +1,88 @@
+{
+  "choices": [
+    {
+      "content_filter_results": {
+        "hate": {
+          "filtered": false,
+          "severity": "safe"
+        },
+        "protected_material_code": {
+          "filtered": false,
+          "detected": false
+        },
+        "protected_material_text": {
+          "filtered": false,
+          "detected": false
+        },
+        "self_harm": {
+          "filtered": false,
+          "severity": "safe"
+        },
+        "sexual": {
+          "filtered": false,
+          "severity": "safe"
+        },
+        "violence": {
+          "filtered": false,
+          "severity": "safe"
+        }
+      },
+      "finish_reason": "stop",
+      "index": 0,
+      "logprobs": null,
+      "message": {
+        "annotations": [],
+        "content": "{\n  \"short_description\": \"Shell scripts that automate GitHub Actions workflows for learners\",\n  \"long_description\": \"This repository provides easy-to-use shell scripts designed to help learners automate their GitHub Actions workflows. It simplifies common CI/CD and DevOps tasks by offering ready-made scripts that can be integrated into your projects. Whether you're new to GitHub Actions or looking to streamline your automation, these scripts serve as practical examples and tools.\\n\\nGet started by exploring the scripts and adapting them to your own workflows. The repo is perfect for learners who want hands-on experience with scripting and automation in a real-world context.\",\n  \"topics\": [\n    \"automation\",\n    \"ci-cd\",\n    \"devops\",\n    \"github-actions\",\n    \"learners\",\n    \"scripting\",\n    \"shell-scripts\",\n    \"workflow\"\n  ],\n  \"suggested_readme_sections\": [\n    \"Getting started\",\n    \"Examples\",\n    \"How to use\",\n    \"Contributing\"\n  ],\n  \"topic_rationale\": {\n    \"automation\": \"Focuses on automating tasks using scripts\",\n    \"ci-cd\": \"Supports continuous integration and deployment workflows\",\n    \"devops\": \"Related to development and operations practices\",\n    \"github-actions\": \"Built specifically for GitHub Actions workflows\",\n    \"learners\": \"Targeted at people learning automation and scripting\",\n    \"scripting\": \"Uses shell scripts to perform tasks\",\n    \"shell-scripts\": \"Implemented in shell scripting language\",\n    \"workflow\": \"Helps manage and automate workflow processes\"\n  }\n}",
+        "refusal": null,
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1767052202,
+  "id": "chatcmpl-CsHHu97Sr4D76RqhO4zJzIB01Jhu1",
+  "model": "gpt-4.1-mini-2025-04-14",
+  "object": "chat.completion",
+  "prompt_filter_results": [
+    {
+      "prompt_index": 0,
+      "content_filter_results": {
+        "hate": {
+          "filtered": false,
+          "severity": "safe"
+        },
+        "jailbreak": {
+          "filtered": false,
+          "detected": false
+        },
+        "self_harm": {
+          "filtered": false,
+          "severity": "safe"
+        },
+        "sexual": {
+          "filtered": false,
+          "severity": "safe"
+        },
+        "violence": {
+          "filtered": false,
+          "severity": "safe"
+        }
+      }
+    }
+  ],
+  "system_fingerprint": "fp_3dcd5944f5",
+  "usage": {
+    "completion_tokens": 323,
+    "completion_tokens_details": {
+      "accepted_prediction_tokens": 0,
+      "audio_tokens": 0,
+      "reasoning_tokens": 0,
+      "rejected_prediction_tokens": 0
+    },
+    "prompt_tokens": 2124,
+    "prompt_tokens_details": {
+      "audio_tokens": 0,
+      "cached_tokens": 0
+    },
+    "total_tokens": 2447
+  }
+}

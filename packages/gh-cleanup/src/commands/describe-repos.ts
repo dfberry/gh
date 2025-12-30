@@ -21,6 +21,8 @@ import { describeRepoWithLLM, createClient } from '../lib/describe-common.js';
       if (a.startsWith('--prompt=')) promptFlag = a.split('=')[1];
       if (a.startsWith('--input=')) inputFlags.push(a.split('=')[1]);
       if (a.startsWith('--repos=')) inputFlags.push(...a.split('=')[1].split(',').map(s => s.trim()).filter(Boolean));
+      if (a === '--debug') cfg.debug = { ...(cfg.debug || {}), enabled: true };
+      if (a.startsWith('--debug-dir=')) cfg.debug = { ...(cfg.debug || {}), dir: a.split('=')[1], enabled: true };
     }
 
     if (inputFlags.length === 0) {

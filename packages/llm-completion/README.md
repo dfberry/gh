@@ -11,6 +11,105 @@ Purpose
   the HTTP/calling logic and response sanitization here.
 
 What it exports
+- `callOpenAI(prompt: string, cfg?: LLMConfig, opts?: { name?: string }): Promise<string>` — main entry used by the CLI. The function returns the model's text output; callers in `gh-cleanup` parse and validate JSON from that output.
+
+Key types (informal)
+- `LLMConfig`:
+  - `key?: string` — API key override.
+  - `model?: string` — model/deployment id.
+  - `endpoint?: string` — base URL for OpenAI-compatible endpoints.
+  - `temperature?: number` — sampling temperature.
+  - `debug?: { enabled?: boolean; dir?: string }` — optional debug recording settings.
+- `callOpenAI` `opts` parameter:
+  - `name?: string` — optional short name used as the debug filename base (e.g., `owner_repo`). If omitted the client writes timestamped files with a `llm_` prefix.
+
+How `gh-cleanup` uses this package
+- `gh-cleanup` builds a prompt (repository metadata, README excerpts, examples) and calls
+  `callOpenAI(prompt, cfg, { name })`.
+- The helper normalizes the response (removes ```json fences, extracts the first JSON
+  object if present) and returns structured fields for downstream validation and
+  application to GitHub repositories.
+
+Environment & configuration
+- `OPENAI_API_KEY` or `AZURE_OPENAI_API_KEY` — preferred environment variables. The
+  CLI also accepts `--openai-key` for ad-hoc runs.
+- `OPENAI_ENDPOINT` — custom base URL for the OpenAI-compatible API (used for Azure or
+  private endpoints).
+- `OPENAI_MODEL` and `OPENAI_TEMPERATURE` — optional defaults used when callers do not
+  pass explicit overrides.
+
+Debugging / recording calls
+- The client supports an optional debug mode via the `LLMConfig.debug` field. When
+  `debug.enabled` is true and `debug.dir` is set the client will write two files per
+  request into the directory:
+  - `<name>_input.txt` — the prompt that was sent to the model.
+  - `<name>_output.json` — the full provider response JSON.
+- The caller may pass an optional `opts.name` to `callOpenAI` which is used as the
+  filename base (sanitized). If omitted the client uses a timestamped basename
+  prefixed with `llm_` (for example `llm_2025-12-29T12-34-56.789Z_output.json`).
+- Debug write failures do not cause the LLM call to fail; they are logged as warnings.
+
+Examples
+- Basic usage from code (TypeScript):
+
+```ts
+import { callOpenAI } from '@workspace/llm-completion'
+
+const cfg = { debug: { enabled: true, dir: './debug/llm' } };
+const resultText = await callOpenAI(prompt, cfg, { name: `${owner}_${repo}` });
+```
+
+- As part of the `gh-cleanup` CLI the package is invoked indirectly; typical runner
+  (from repository root) to run the describe step is:
+
+```bash
+# dry-run descriptions (requires OPENAI_API_KEY in env)
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json
+
+# apply suggested changes to repositories (use with caution)
+npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json --apply
+```
+
+Testing & development
+- Build the package locally:
+
+```bash
+npm run build --workspace=@workspace/llm-completion
+```
+
+- Unit tests should mock network calls; within the monorepo we favor `vitest` and
+  `globalThis.fetch` mocking. Example in tests:
+
+```ts
+vi.stubGlobal('fetch', vi.fn(async () => ({
+  ok: true,
+  text: async () => '```json\n{"short":"desc"}\n```',
+  json: async () => ({})
+})))
+```
+
+Notes and guidance
+- This package intentionally returns both the raw provider JSON and the model text
+  so callers can surface both when diagnosing parse failures.
+- Keep prompt construction in `gh-cleanup` so the describe flow remains auditable;
+  use this package only for making the HTTP call and sanitizing responses.
+
+Maintainer contact
+- See `packages/gh-cleanup/README.md` for examples of how the module is used in the
+  repo-level pipeline and how to configure keys/secrets for CI runs.
+# llm-completion
+
+This package provides a small, focused wrapper around an OpenAI-compatible completion API used
+by the `gh-cleanup` tools to generate human-friendly repository descriptions, short/long
+descriptions, recommended topics, and related links.
+
+Purpose
+- Offer a single place to configure model/endpoint/timeout behavior and to normalize LLM
+  responses (strip fences, extract JSON payloads, and surface parse errors).
+- Keep the higher-level CLI and prompt construction in `gh-cleanup` while centralizing
+  the HTTP/calling logic and response sanitization here.
+
+What it exports
 - `callOpenAI(opts: CallOpenAIOptions): Promise<LLMResult>` — main entry used by the CLI.
 
 Key types (informal)

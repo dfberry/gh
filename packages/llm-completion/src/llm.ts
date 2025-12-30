@@ -3,9 +3,13 @@ export type LLMConfig = {
   model?: string;
   temperature?: number;
   endpoint?: string; // full completions endpoint
+  debug?: {
+    enabled?: boolean;
+    dir?: string; // directory to write debug files
+  };
 };
 
-export async function callOpenAI(prompt: string, cfg?: LLMConfig) : Promise<string> {
+export async function callOpenAI(prompt: string, cfg?: LLMConfig, opts?: { name?: string }) : Promise<string> {
   const apiKey = cfg?.key ?? process.env.OPENAI_API_KEY ?? process.env.AZURE_OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI API key not set (provide via config.key or OPENAI_API_KEY)');
 
@@ -28,5 +32,30 @@ export async function callOpenAI(prompt: string, cfg?: LLMConfig) : Promise<stri
     body: JSON.stringify(body)
   });
   const json = await res.json();
+
+  // optionally write debug files: input prompt and full response JSON
+  try {
+    const dbg = cfg?.debug ?? undefined;
+    if (dbg?.enabled && dbg.dir) {
+      // lazy import fs to avoid Node-only dependency in non-node envs
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const fs = await import('fs');
+      const path = await import('path');
+      const dir = dbg.dir;
+      await fs.promises.mkdir(dir, { recursive: true });
+      const ts = new Date().toISOString().replace(/[:]/g, '-');
+      const nameBase = opts?.name
+        ? String(opts.name).replace(/[^a-zA-Z0-9._-]/g, '_')
+        : `llm_${ts}`;
+      const inFile = path.join(dir, `${nameBase}_input.txt`);
+      const outFile = path.join(dir, `${nameBase}_output.json`);
+      await fs.promises.writeFile(inFile, prompt, { encoding: 'utf8' });
+      await fs.promises.writeFile(outFile, JSON.stringify(json, null, 2), { encoding: 'utf8' });
+    }
+  } catch (e) {
+    // Do not fail the call due to debug write errors — just console.warn if available
+    try { console.warn && console.warn('llm debug write failed', e); } catch (_) {}
+  }
+
   return json?.choices?.[0]?.message?.content ?? '';
 }

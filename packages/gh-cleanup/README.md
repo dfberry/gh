@@ -53,6 +53,8 @@ Commands
       upward for `.github/LLM_DESCRIBE_REPO_PROMPT.md`.
     - `--apply` — apply suggested description/topics to repositories (forwarded by `run-all.sh` when invoked with `--apply`).
     - `--out=<path.json|path.md>` — aggregated output with `ai` and `applied` annotations.
+    - `--debug` — enable debug recording of prompt & response JSON to disk.
+    - `--debug-dir=<path>` — directory to write debug files (implies `--debug`).
 
   - Input JSON shapes (plural): accepts an array of strings or objects, or a top-level object
     with `items|repos|repositories` fields. Objects may contain `full_name`, or `owner`+`name`.

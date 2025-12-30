@@ -108,7 +108,7 @@ export async function describeRepoWithLLM(client: any, cfg: LLMConfig, promptFla
   if (!cfg.key) throw new Error('OpenAI API key not provided. Pass --openai-key=... or set OPENAI_API_KEY env var.');
   let llmResp: string;
   try {
-    llmResp = await callOpenAI(prompt, cfg);
+    llmResp = await callOpenAI(prompt, cfg, { name: `${owner}_${repo}` });
   } catch (err: any) {
     throw new Error(`OpenAI request failed for ${owner}/${repo}: ${err?.message || String(err)}`);
   }

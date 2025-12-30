@@ -20,6 +20,8 @@ export async function describeRepoCommand(argv: string[]) {
     if (a.startsWith('--out=')) outPath = a.split('=')[1];
     if (a.startsWith('--prompt=')) promptFlag = a.split('=')[1];
     if (a.startsWith('--repo=')) repoFlag = a.split('=')[1];
+    if (a === '--debug') cfg.debug = { ...(cfg.debug || {}), enabled: true };
+    if (a.startsWith('--debug-dir=')) cfg.debug = { ...(cfg.debug || {}), dir: a.split('=')[1], enabled: true };
   }
 
   if (!repoFlag) {

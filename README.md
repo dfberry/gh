@@ -150,12 +150,18 @@ Apply LLM suggestions to repos (if you want descriptions/topics applied to GitHu
 npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json --apply
 ```
 
-- Switches used:
+Switches used:
 	- `--repos=FILE` (alias `--input=FILE`): input JSON file with the active list (array or object shapes supported).
 	- `--out=FILE`: write aggregated AI outputs (JSON or `.md` inferred by extension).
 	- `--prompt=PATH`: override the prompt template file (otherwise searches upward for `.github/LLM_DESCRIBE_REPO_PROMPT.md`).
 	- `--openai-key=KEY`: supply OpenAI key; otherwise `OPENAI_API_KEY` env var is used.
 	- `--apply`: PATCH repository description and update topics on GitHub (destructive; requires `GH_TOKEN` with repo permissions).
+
+Debugging LLM calls
+- The describe commands support optional debug flags to record prompts and provider responses for inspection:
+	- `--debug`: enable debug recording.
+	- `--debug-dir=<path>`: directory to write debug files (input prompt and full response JSON).
+	- These map to the `LLMConfig.debug` settings passed to the LLM client; callers may also enable debugging programmatically.
 
 
 ## Generate repo descriptions and topics
@@ -183,6 +189,12 @@ Variable descriptions:
 - `OPENAI_ENDPOINT`: (optional) full endpoint URL for Azure OpenAI or other hosted endpoints when not using the default OpenAI API base. Example value is the Azure-style chat completions endpoint with deployment and api-version.
 - `OPENAI_MODEL`: (optional) the model/deployment identifier to use for generation (e.g., `gpt-4.1-mini`). When omitted a sensible default is used by the LLM client.
 - `OPENAI_TEMPERATURE`: (optional) sampling temperature for LLM completions (0-1 scale). Lower values produce more deterministic results; higher values increase creativity.
+
+Debugging LLM calls
+- The describe commands support optional debug flags to record prompts and provider responses for inspection:
+	- `--debug`: enable debug recording.
+	- `--debug-dir=<path>`: directory to write debug files (input prompt and full response JSON).
+	- These map to the `LLMConfig.debug` settings passed to the LLM client; callers may also enable debugging programmatically.
 
 Notes:
 

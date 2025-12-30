@@ -1,0 +1,47 @@
+You are a helpful assistant that creates a short repository description and a set of repository topics for GitHub, targeted at learners. Use the repository data provided (metadata, README, primary language, package manifests, docs, contributors, recent activity, license, existing topics). Provide a concise JSON output only (no extra text) matching the schema below.
+
+Tone: casual and descriptive for learners.
+
+Constraints & rules
+- `short_description`: max 100 characters. One-line, present-tense, audience: learners.
+- `long_description`: 1–3 short paragraphs (explain purpose, primary use-cases, quick start hints).
+- `topics`: 1–10 recommended (max 20 allowed by GitHub). Lowercase, hyphen-separated for multiword terms, letters/numbers/hyphen/underscore only.
+- `suggested_readme_sections`: optional list of markdown section headings that would improve the README (e.g., "Getting started", "Examples").
+- `topic_rationale`: mapping of topic -> short reason.
+- Return strictly valid JSON with the exact fields defined in the Schema below.
+
+Schema (JSON):
+{
+  "short_description": "string (<=100 chars)",
+  "long_description": "string",
+  "topics": ["string", "..."],
+  "suggested_readme_sections": ["string", "..."],
+  "topic_rationale": { "topic": "reason", "topic2": "reason2" }
+}
+
+Data available (examples):
+- repo: name, current_description, topics, primary_language, stars, forks, open_issues
+- README: full text
+- package_manifests: package.json / pyproject / Cargo.toml contents (if present)
+- docs and key files matched by globs
+- recent commits summary (last 10)
+- contributors list and counts
+- releases/latest
+
+Instructions for reasoning:
+1. Use package manifests and README to detect purpose, runtime, frameworks, and language.
+2. Prefer descriptive topics that help discoverability and learning (e.g., "library", "cli", "python", "nodejs").
+3. Avoid noise: omit author names, project-specific internal tokens, or unrelated words.
+4. If insufficient info, be explicit in `long_description` and suggest README sections to clarify missing pieces.
+
+Example output:
+{
+  "short_description": "A beginner-friendly Node.js CLI for formatting JSON",
+  "long_description": "A casual paragraph ...",
+  "topics": ["nodejs","cli","json","formatter"],
+  "suggested_readme_sections": ["Getting started","Examples","Contributing"],
+  "topic_rationale": { "nodejs": "Implemented in Node.js and published via npm", "cli": "Provides a command-line interface" }
+}
+
+
+{"repo":{"id":575700982,"node_id":"R_kgDOIlB_9g","name":"actions","full_name":"dfberry/actions","private":false,"owner":{"login":"dfberry","id":1517008,"node_id":"MDQ6VXNlcjE1MTcwMDg=","avatar_url":"https://avatars.githubusercontent.com/u/1517008?v=4","gravatar_id":"","url":"https://api.github.com/users/dfberry","html_url":"https://github.com/dfberry","followers_url":"https://api.github.com/users/dfberry/followers","following_url":"https://api.github.com/users/dfberry/following{/other_user}","gists_url":"https://api.github.com/users/dfberry/gists{/gist_id}","starred_url":"https://api.github.com/users/dfberry/starred{/owner}{/repo}","subscriptions_url":"https://api.github.com/users/dfberry/subscriptions","organizations_url":"https://api.github.com/users/dfberry/orgs","repos_url":"https://api.github.com/users/dfberry/repos","events_url":"https://api.github.com/users/dfberry/events{/privacy}","received_events_url":"https://api.github.com/users/dfberry/received_events","type":"User","user_view_type":"public","site_admin":false},"html_url":"https://github.com/dfberry/actions","description":"Shell scripts to automate GitHub Actions workflows for learners","fork":false,"url":"https://api.github.com/repos/dfberry/actions","forks_url":"https://api.github.com/repos/dfberry/actions/forks","keys_url":"https://api.github.com/repos/dfberry/actions/keys{/key_id}","collaborators_url":"https://api.github.com/repos/dfberry/actions/collaborators{/collaborator}","teams_url":"https://api.github.com/repos/dfberry/actions/teams","hooks_url":"https://api.github.com/repos/dfberry/actions/hooks","issue_events_url":"https://api.github.com/repos/dfberry/actions/issues/events{/number}","events_url":"https://api.github.com/repos/dfberry/actions/events","assignees_url":"https://api.github.com/repos/dfberry/actions/assignees{/user}","branches_url":"https://api.github.com/repos/dfberry/actions/branches{/branch}","tags_url":"https://api.github.com/repos/dfberry/actions/tags","blobs_url":"https://api.github.com/repos/dfberry/actions/git/blobs{/sha}","git_tags_url":"https://api.github.com/repos/dfberry/actions/git/tags{/sha}","git_refs_url":"https://api.github.com/repos/dfberry/actions/git/refs{/sha}","trees_url":"https://api.github.com/repos/dfberry/actions/git/trees{/sha}","statuses_url":"https://api.github.com/repos/dfberry/actions/statuses/{sha}","languages_url":"https://api.github.com/repos/dfberry/actions/languages","stargazers_url":"https://api.github.com/repos/dfberry/actions/stargazers","contributors_url":"https://api.github.com/repos/dfberry/actions/contributors","subscribers_url":"https://api.github.com/repos/dfberry/actions/subscribers","subscription_url":"https://api.github.com/repos/dfberry/actions/subscription","commits_url":"https://api.github.com/repos/dfberry/actions/commits{/sha}","git_commits_url":"https://api.github.com/repos/dfberry/actions/git/commits{/sha}","comments_url":"https://api.github.com/repos/dfberry/actions/comments{/number}","issue_comment_url":"https://api.github.com/repos/dfberry/actions/issues/comments{/number}","contents_url":"https://api.github.com/repos/dfberry/actions/contents/{+path}","compare_url":"https://api.github.com/repos/dfberry/actions/compare/{base}...{head}","merges_url":"https://api.github.com/repos/dfberry/actions/merges","archive_url":"https://api.github.com/repos/dfberry/actions/{archive_format}{/ref}","downloads_url":"https://api.github.com/repos/dfberry/actions/downloads","issues_url":"https://api.github.com/repos/dfberry/actions/issues{/number}","pulls_url":"https://api.github.com/repos/dfberry/actions/pulls{/number}","milestones_url":"https://api.github.com/repos/dfberry/actions/milestones{/number}","notifications_url":"https://api.github.com/repos/dfberry/actions/notifications{?since,all,participating}","labels_url":"https://api.github.com/repos/dfberry/actions/labels{/name}","releases_url":"https://api.github.com/repos/dfberry/actions/releases{/id}","deployments_url":"https://api.github.com/repos/dfberry/actions/deployments","created_at":"2022-12-08T05:15:32Z","updated_at":"2025-12-29T17:16:28Z","pushed_at":"2025-10-14T22:01:11Z","git_url":"git://github.com/dfberry/actions.git","ssh_url":"git@github.com:dfberry/actions.git","clone_url":"https://github.com/dfberry/actions.git","svn_url":"https://github.com/dfberry/actions","homepage":null,"size":194,"stargazers_count":0,"watchers_count":0,"language":"Shell","has_issues":true,"has_projects":true,"has_downloads":true,"has_wiki":true,"has_pages":false,"has_discussions":false,"forks_count":1,"mirror_url":null,"archived":false,"disabled":false,"open_issues_count":1,"license":null,"allow_forking":true,"is_template":false,"web_commit_signoff_required":false,"topics":["automation","ci-cd","devops","github-actions","learners","scripting","shell-scripts","workflow"],"visibility":"public","forks":1,"open_issues":1,"watchers":0,"default_branch":"main","permissions":{"admin":true,"maintain":true,"push":true,"triage":true,"pull":true},"temp_clone_token":"","allow_squash_merge":true,"allow_merge_commit":true,"allow_rebase_merge":true,"allow_auto_merge":false,"delete_branch_on_merge":false,"allow_update_branch":false,"use_squash_pr_title_as_default":false,"squash_merge_commit_message":"COMMIT_MESSAGES","squash_merge_commit_title":"COMMIT_OR_PR_TITLE","merge_commit_message":"PR_TITLE","merge_commit_title":"MERGE_MESSAGE","security_and_analysis":{"secret_scanning":{"status":"disabled"},"secret_scanning_push_protection":{"status":"disabled"},"dependabot_security_updates":{"status":"disabled"},"secret_scanning_non_provider_patterns":{"status":"disabled"},"secret_scanning_validity_checks":{"status":"disabled"}},"network_count":1,"subscribers_count":1},"readme":"# Readme.md\n\n* [Awesome actions](https://github.com/sdras/awesome-actions)\n\n## References\n\n* [Use Key Vault secret in GitHub Action](https://learn.microsoft.com/en-us/azure/developer/github/github-key-vault)","topics":["automation","ci-cd","devops","github-actions","learners","scripting","shell-scripts","workflow"]}
