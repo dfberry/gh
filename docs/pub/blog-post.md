@@ -1,3 +1,42 @@
+# Clean Up Your GitHub Repos — Project overview
+
+This document is a concise overview of the repository-cleanup tooling: its purpose, high-level architecture, and where to find the relevant code. For step-by-step usage and runnable examples, see the repository `README.md` and the quick-start docs — this post intentionally focuses on project intent and file layout.
+
+Purpose
+- Provide safe, repeatable tooling to audit and clean personal or small org GitHub accounts: archive stale repositories, detect/delete empty repositories, remove forks, and generate a catalog of repos for publishing.
+- Expose reusable helpers for GitHub API calls and site-ready Markdown outputs.
+
+High-level architecture
+- `packages/github-rest` — GitHub REST helpers, typed endpoint wrappers, and shared network utilities.
+- `packages/gh-cleanup` — CLI commands and orchestration: categorization rules, scoring, reporting, and the runner that coordinates dry-run and apply flows.
+- `packages/llm-completion` — LLM/AI utilities: prompt helpers, request wrappers, retries, and response sanitization used by the describe step.
+- `generated/` — Example outputs created by dry-run executions: `catalog.md`, `active.json`, `descriptions.json`, summaries, etc.
+
+When to use this project
+- Periodic account maintenance (end-of-year or scheduled audits).
+- Before publishing a portfolio or transferring repositories.
+- When you want a reproducible audit with a dry-run-first approach.
+
+Short prerequisites
+- Node.js >= 22
+- A GitHub token in `GH_TOKEN` (classic PAT with `repo` scopes; `delete_repo` only required for destructive operations)
+
+Where to look in the codebase
+- `packages/github-rest` — low-level GitHub API helpers and types.
+- `packages/gh-cleanup` — commands, categorizers, and report generators used by the runner.
+- `packages/llm-completion` — centralized LLM logic and helpers.
+- `generated/` — outputs from dry-run runs to inspect and publish.
+- `.github/package-placement-rules.md` — guidance for where helpers should live across packages.
+
+Quick guidance (pointer)
+- This overview omits copy-paste commands. For a minimal, safe quick-start follow the repository `README.md` and run the tool in dry-run mode first; inspect the `generated/` outputs before applying changes.
+
+Next steps (short)
+- Consider a Docker runner for users without Node locally.
+- Add an official GitHub Action for scheduled audits and catalog publishing.
+- Improve heuristics for categorization and add more integration tests.
+
+If you'd like, I can produce a one-page quick-start to live alongside this post with the exact commands and a short checklist for safely applying changes.
 # Clean Up Your GitHub Repos — End-of-Year Side Project
 
 A short guide to using the repository-cleanup tooling in this repo to audit and clean personal GitHub accounts. This is a practical, quick project you can run on your account to remove forks, archive stale repos, delete empty repos, and produce a catalog of the projects you want to keep.

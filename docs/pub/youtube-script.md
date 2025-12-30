@@ -20,7 +20,7 @@ Example: create a working `.env` from `sample.env` (local, non-secret values may
 
 ```bash
 # copy and edit sample.env to .env, then add your secrets
-cp scripts/sample.env .env
+cp sample.env .env
 # edit .env and set GH_TOKEN and optionally OPENAI_API_KEY
 ${EDITOR:-vi} .env
 ```
@@ -60,8 +60,8 @@ Safety & deleting (2:10-2:40)
 - Do: Show prompt/confirmation text in the terminal (no destructive action).
 
 Wrap-up (2:40-3:00)
-- Say: "That's it — quick, safe, and reusable. The code is in `packages/github-rest` (shared helpers) and `packages/gh-cleanup` (commands). Check the docs and generated examples in the repo."
-- Do: Show repo README and point to `docs/blog-post.md` and `generated/` folder.
+- Say: "That's it — quick, safe, and reusable. Inspect the `generated/` folder to review dry-run outputs, and see the repository `README.md` for more details and advanced options."
+- Do: Show repo README and the `generated/` folder in your editor.
 
 Call to action (3:00-3:15)
 - Say: "If you try it, back up your data and share any improvements as a PR. If you want I can make a Docker image or walk through adding more checks. Thanks for watching!"
