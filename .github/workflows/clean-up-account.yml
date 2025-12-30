@@ -1,5 +1,5 @@
-name: Generate Repo Catalog and Update Site
-description: "Builds the generated repository catalog and opens a PR to the target site repo. Runs weekly (Sunday UTC) and can be triggered manually."
+name: Clean up account
+description: "Cleans account repos and builds the generated repository catalog and opens a PR to the target site repo. Runs weekly (Sunday UTC) and can be triggered manually."
 
 on:
   workflow_dispatch:
