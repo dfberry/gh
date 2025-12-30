@@ -89,6 +89,12 @@ export function sanitizeAndParseLLMResponse(llmResp: string | undefined, owner: 
   }
 }
 
+export async function buildPromptString(promptFlag: string | undefined, bundle: { repo: any; readme?: string | undefined; topics?: string[] | undefined }) {
+  const promptFile = await resolvePromptFile(promptFlag);
+  const promptTemplate = await fs.readFile(promptFile, 'utf8');
+  return `${promptTemplate}\n\n${JSON.stringify(bundle)}`;
+}
+
 export async function describeRepoWithLLM(client: any, cfg: LLMConfig, promptFlag: string | undefined, owner: string, repo: string) {
   const repoMeta: any = await describeHelpers.getRepo(client, owner, repo);
   const readmeResp: any = await describeHelpers.getReadme(client, owner, repo).catch(()=>null);
@@ -100,10 +106,8 @@ export async function describeRepoWithLLM(client: any, cfg: LLMConfig, promptFla
   const topicsResp: any = await describeHelpers.getTopics(client, owner, repo).catch(()=>null);
   const topics: string[] = topicsResp?.names || repoMeta?.topics || [];
 
-  const promptFile = await resolvePromptFile(promptFlag);
-  const promptTemplate = await fs.readFile(promptFile, 'utf8');
   const bundle = { repo: repoMeta, readme, topics };
-  const prompt = `${promptTemplate}\n\n${JSON.stringify(bundle)}`;
+  const prompt = await buildPromptString(promptFlag, bundle);
   if (!cfg.key) cfg.key = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY || process.env.AZURE_OPENAI_API_KEY;
   if (!cfg.key) throw new Error('OpenAI API key not provided. Pass --openai-key=... or set OPENAI_API_KEY env var.');
   let llmResp: string;

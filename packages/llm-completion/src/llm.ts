@@ -26,12 +26,52 @@ export async function callOpenAI(prompt: string, cfg?: LLMConfig, opts?: { name?
 
   const fetchFn = (globalThis as any).fetch;
   if (typeof fetchFn !== 'function') throw new Error('global fetch is not available in this environment');
-  const res = await fetchFn(endpoint, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  const json = await res.json();
+
+  // Simple retry with exponential backoff. Respect Retry-After header when present.
+  const maxRetries = 3;
+  let attempt = 0;
+  let lastErr: any = null;
+  let json: any = null;
+  while (attempt <= maxRetries) {
+    try {
+      const res = await fetchFn(endpoint, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const ra = res.headers.get('retry-after');
+        const status = res.status;
+        const text = await res.text().catch(()=>'');
+        lastErr = new Error(`HTTP ${status} ${text}`);
+        if (ra) {
+          const delay = Number(ra) * 1000 || 1000;
+          await new Promise(r => setTimeout(r, delay));
+          attempt++;
+          continue;
+        }
+        if (status === 429 || (status >= 500 && status < 600)) {
+          const backoff = Math.pow(2, attempt) * 1000;
+          await new Promise(r => setTimeout(r, backoff));
+          attempt++;
+          continue;
+        }
+        // non-retriable
+        const maybeJson = (() => { try { return JSON.parse(text); } catch { return null; } })();
+        json = maybeJson;
+        break;
+      }
+      json = await res.json();
+      break;
+    } catch (e) {
+      lastErr = e;
+      const backoff = Math.pow(2, attempt) * 1000;
+      await new Promise(r => setTimeout(r, backoff));
+      attempt++;
+      continue;
+    }
+  }
+  if (!json && lastErr) throw lastErr;
 
   // optionally write debug files: input prompt and full response JSON
   try {

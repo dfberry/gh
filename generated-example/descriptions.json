@@ -1,0 +1,330 @@
+[
+  {
+    "repo": "dfberry/actions",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/ai-chat-one-shot",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/ai-one-shot",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/azure",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/azure-container-app-express-with-azd-rsa-key",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/azure-deploy-with-avm",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/azure-fullstack-container-app-dotnet-js",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/azure-notes",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/azure-rust-mcp-server-apim",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/dev-diary",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/developer-survey",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/do-1",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/DockerFiles",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/gh",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/github-action-local-development",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/github-octokit-api",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/hello-world",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/my-langchain",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/node-azd-aca-quickstart",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/nodejs",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/presentation-github-actions",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/python",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/repo-security",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/rust",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/rust-aca-azd-port-3000",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/rust-axum-chat",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/rust-axum-server",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/rust-azd-aca-quickstart",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/rust-cosmosdb-business-intelligence-ai",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/rust-on-azure-container-apps",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/samples-security",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/scheduler",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/source-board",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/source-board-api-pg",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/source-board-crates",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/source-board-docs",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/terraform-on-azure",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/test",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/typespec-notes",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/weaver-framework",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
+    "repo": "dfberry/yew-quickstart-with-environment",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  }
+]

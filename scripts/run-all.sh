@@ -15,6 +15,14 @@ ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 OUT_DIR="$ROOT_DIR/generated"
 mkdir -p "$OUT_DIR"
 
+# Helper to run and echo commands for visibility.
+run_cmd(){
+  # Print the command for visibility, then execute it.
+  # We use `eval` so complex quoted commands run as expected.
+  echo "\n==> $*" >&2
+  eval "$*"
+}
+
 APPLY=false
 for arg in "$@"; do
   case "$arg" in
@@ -62,13 +70,6 @@ if [ -z "${GH_USER:-}" ]; then
   echo "Warning: GH_USER is not set. Some outputs may lack actor context." >&2
 fi
 
-run_cmd(){
-  # Print the command for visibility, then execute it.
-  # We use `eval` so complex quoted commands built above (with nested quotes) run as expected.
-  # This is intentional; commands are constructed internally and not from untrusted input.
-  echo "\n==> $*" >&2
-  eval "$*"
-}
 
 # 1) Initial summary run (produces active list and initial summary)
 #    - Outputs: $OUT_DIR/initial-active.md and $OUT_DIR/initial-summary.md
@@ -111,9 +112,9 @@ run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output
 if [ -n "${OPENAI_API_KEY:-}" ]; then
   echo "\n==> Describing active repositories using LLM..." >&2
   if [ "$APPLY" = true ]; then
-    run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\" --apply"
+    run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\" --apply --debug --debug-dir=\"$OUT_DIR/llm\""
   else
-    run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\""
+    run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
   fi
 else
   echo "\n==> Skipping repository description step as OPENAI_API_KEY is not set." >&2
