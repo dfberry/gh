@@ -101,18 +101,9 @@ npm run run-all:apply
 
 The `apply` means empty repos are deleted and active repos are updated for description and topics. 
 
-## AI Code assist
+## AI-assisted development
 
-I've been using AI for over a year now to augument a wide variety of tasks including this side project. Here's how I use it:
-
-- My personal account has a Copilot yearly subscription. I've careful with my model usage and cost. 
-- I use `Ask`, `Plan`, and `Agent` and I commit when I'm satisfied with the current state of the code which is frequently. If you don't commit frequently or don't use squash/merge, you should change your habits before moving to full time AI code assist. The instruction file, AI type (Ask, Plan, Agent), and commits allow me to know when to let AI go and when to watch it very carefully - literally reading every line response from AI. 
-- Now that VSCode has multi-agent support including background and cloud, I'm altering where I use Copliot and how many sessions I have going. This ability to continue to expand my AI use with local, background, and cloud is important - knowing when to use each is just as important as knowing which language, framework, or cloud resource.
-- I don't let the AI churn on its own files and ideas for long. The end goal is specific and somewhat clear. 
-- I change models if the AI responses aren't doing what I want. This is also true for the use of the LLM completion in the project to generate repo descriptions and topics. 
-- I had a general idea of how I wanted to the project organized with copilot instructions, workflows, npm packages, and a monorepo. I also have my own very personal opinions on what I want the code to look like and interact with other packages and services. I changed some things Copilot created and some I left as is. 
-- I scaffold out the repo organziation first, then start on individual packages. The functionality is built up over time and manually tested. This allows me to alter the `console.log` and file generation I'm looking for as feedback for progress. 
-- I know I will forgot the details of this project over time so documenting is critical so I can quickly come back to it, extend it with AI code assist and move on the next thing on the list. Copilot creates the comments, and the documentation including mermaid files. I review and alter as needed.
+I use AI tools (Copilot, Ask/Plan/Agent) to speed development while keeping human oversight. I commit frequently and review AI suggestions line-by-line. Choose models and session types (local, background, cloud) deliberately to control cost and behavior. Never let AI run unattended on critical changes—use dry runs and manual tests. I scaffold the repo, add features incrementally, and document decisions so I can return later. Copilot helps with comments and diagrams, but I always review and adjust its output.
 
 ## Next steps
 
