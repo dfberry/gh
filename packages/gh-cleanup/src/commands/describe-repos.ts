@@ -1,5 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
+import * as readline from 'readline';
 import { LLMConfig } from 'llm-completion';
 import { describeHelpers } from 'github-rest';
 import { describeRepoWithLLM, createClient, buildPromptString } from '../lib/describe-common.js';
@@ -136,7 +137,7 @@ import { describeRepoWithLLM, createClient, buildPromptString } from '../lib/des
     const autoApprove = process.env.OPENAI_AUTO_APPROVE === 'true' || process.env.CI === 'true' || !!process.env.NON_INTERACTIVE;
     if (apply && candidates.length > 0 && !autoApprove) {
       // ask user to confirm cost
-      const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout });
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
       const answer = await new Promise<string>((res) => rl.question(`Proceed with ${candidates.length} LLM call(s) (~${totalTokens} tokens)? Type YES to continue: `, (a: string) => { rl.close(); res(a); }));
       if (String(answer).trim().toLowerCase() !== 'yes') {
         console.log('Aborting LLM describe step by user.');
