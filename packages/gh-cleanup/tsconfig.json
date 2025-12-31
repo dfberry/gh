@@ -3,11 +3,6 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "baseUrl": "..",
-    "paths": {
-      "@workspace/llm-completion": ["llm-completion/src/index.ts"],
-      "llm-completion": ["../llm-completion/src/index.ts"]
-    },
     "lib": ["ES2022","DOM"],
     "strict": true,
     "esModuleInterop": false,
