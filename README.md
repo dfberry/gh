@@ -6,7 +6,7 @@ This repository is a small monorepo with two primary packages and supporting doc
 - packages/gh-cleanup: CLI tools that implement repository-cleanup features (commands: remove-forks, archive-stale-repos, delete-empty-repos, categorize-repos, summary). See [packages/gh-cleanup/README.md](packages/gh-cleanup/README.md) for CLI options and examples.
 
 Docs and artifacts
-- `generated/` contains example or generated markdown outputs (e.g., catalogs and summaries) produced by the CLI for site consumption. These are intended as the site/content inputs for `dfberry.github.io` or similar static sites.
+- `generated/` contains example or generated markdown outputs (e.g., catalogs and summaries) produced by the CLI for site consumption. These are intended as the site/content inputs for `dfberry.github.io` or similar static sites. To place the `generated` folder at the root of the repo, use `../../generated`.
 - `docs/GET-GITHUB-TOKEN.md` documents how to create a GitHub token with the right scopes for dry-run and destructive operations (delete/archive/update). Use this when preparing CI or local runs.
 - `scripts/` holds utility scripts used by maintainers — notably `scripts/run-all.sh` which runs the full pipeline (summary, categorize, delete-empty, remove-forks, archive-stale, describe-repos) in a safe, mostly dry-run flow and forwards `--apply` for destructive steps.
 - `.github/` contains repository-maintenance artifacts and CI/workflow definitions:
@@ -50,7 +50,7 @@ Run one example command per main feature (uses the npm wrapper to run the packag
 - Summary (initial active list + summary Markdown — matches `scripts/run-all.sh` step 1):
 
 ```bash
-npm run start -w gh-cleanup -- summary --output=md --out=generated/initial-active.md --summary-out=generated/initial-summary.md
+npm run start -w gh-cleanup -- summary --output=md --out=../../generated/initial-active.md --summary-out=../../generated/initial-summary.md
 ```
 
 - Switches used:
@@ -64,7 +64,7 @@ npm run start -w gh-cleanup -- summary --output=md --out=generated/initial-activ
 - Categorize repositories (fetch languages + README and output Markdown — matches `scripts/run-all.sh` step 2):
 
 ```bash
-npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=generated/catalog.md
+npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=../../generated/catalog.md
 ```
 
 - Switches used:
@@ -77,12 +77,12 @@ npm run start -w gh-cleanup -- categorize-repos --fetch --output=md --out=genera
 
 Dry-run:
 ```bash
-npm run start -w gh-cleanup -- delete-empty-repos --out=generated/delete-empty.json
+npm run start -w gh-cleanup -- delete-empty-repos --out=../../generated/delete-empty.json
 ```
 
 Apply (destructive):
 ```bash
-npm run start -w gh-cleanup -- delete-empty-repos --yes --out=generated/delete-empty.json
+npm run start -w gh-cleanup -- delete-empty-repos --yes --out=../../generated/delete-empty.json
 ```
 
 - Switches used:
@@ -96,12 +96,12 @@ npm run start -w gh-cleanup -- delete-empty-repos --yes --out=generated/delete-e
 
 Dry-run:
 ```bash
-npm run start -w gh-cleanup -- remove-forks --out=generated/remove-forks.json
+npm run start -w gh-cleanup -- remove-forks --out=../../generated/remove-forks.json
 ```
 
 Apply (destructive):
 ```bash
-npm run start -w gh-cleanup -- remove-forks --yes --out=generated/remove-forks.json
+npm run start -w gh-cleanup -- remove-forks --yes --out=../../generated/remove-forks.json
 ```
 
 - Switches used:
@@ -114,12 +114,12 @@ npm run start -w gh-cleanup -- remove-forks --yes --out=generated/remove-forks.j
 
 Dry-run (default cutoff 365 days):
 ```bash
-npm run start -w gh-cleanup -- archive-stale-repos --out=generated/stale.json
+npm run start -w gh-cleanup -- archive-stale-repos --out=../../generated/stale.json
 ```
 
 Apply (archive matched repos):
 ```bash
-npm run start -w gh-cleanup -- archive-stale-repos --older-than-days=365 --yes --out=generated/stale.json
+npm run start -w gh-cleanup -- archive-stale-repos --older-than-days=365 --yes --out=../../generated/stale.json
 ```
 
 - Switches used:
@@ -131,7 +131,7 @@ npm run start -w gh-cleanup -- archive-stale-repos --older-than-days=365 --yes -
 - Produce active list JSON (used by the run-all pipeline before describing repos):
 
 ```bash
-npm run start -w gh-cleanup -- summary --output=json --out=generated/active.json
+npm run start -w gh-cleanup -- summary --output=json --out=../../generated/active.json
 ```
 
 - Switches used:
@@ -142,12 +142,12 @@ npm run start -w gh-cleanup -- summary --output=json --out=generated/active.json
 
 Dry-run against active JSON:
 ```bash
-npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json
+npm run start -w gh-cleanup -- describe-repos --repos=../../generated/active.json --out=../../generated/descriptions.json
 ```
 
 Apply LLM suggestions to repos (if you want descriptions/topics applied to GitHub):
 ```bash
-npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --out=generated/descriptions.json --apply
+npm run start -w gh-cleanup -- describe-repos --repos=../../generated/active.json --out=../../generated/descriptions.json --apply
 ```
 
 Switches used:
