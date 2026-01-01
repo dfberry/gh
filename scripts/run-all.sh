@@ -142,8 +142,18 @@ else
   echo "\n==> Skipping repository description step as OPENAI_API_KEY is not set." >&2
 fi
 
-# 6) Final log of activity
-# 5b) Final summary run after all operations (refresh active list + summary)
+# 5.5) Evaluate GitHub Actions workflows across active repositories
+#      - Produces $OUT_DIR/actions.md containing a Markdown table of per-repo
+#        workflow metadata (use --output=md to request table output)
+if [ -z "${GH_TOKEN:-}" ]; then
+  echo "\n==> Skipping evaluate-actions as GH_TOKEN is not set." >&2
+else
+  echo "\n==> Evaluating GitHub Actions workflows across repositories..." >&2
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" evaluate-actions --output=md --out=\"$OUT_DIR/actions.md\" --debug --debug-dir=\"$OUT_DIR/actions\""
+fi
+
+# 6a) Final log of activity
+# 6b) Final summary run after all operations (refresh active list + summary)
 run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/summary-active.md\" --summary-out=\"$OUT_DIR/summary-report.md\" --debug --debug-dir=\"$OUT_DIR/llm\""
 
 echo "\nPipeline finished at: $(date -u --iso-8601=seconds)" >&2

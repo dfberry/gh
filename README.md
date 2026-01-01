@@ -3,7 +3,7 @@
 This repository is a small monorepo with two primary packages and supporting docs:
 
 - packages/github-rest: a lightweight GitHub REST client and reusable helpers (endpoints, pagination, permissions). See [packages/github-rest/README.md](packages/github-rest/README.md) for usage and exported helpers.
-- packages/gh-cleanup: CLI tools that implement repository-cleanup features (commands: remove-forks, archive-stale-repos, delete-empty-repos, categorize-repos, summary). See [packages/gh-cleanup/README.md](packages/gh-cleanup/README.md) for CLI options and examples.
+- packages/gh-cleanup: CLI tools that implement repository-cleanup features (commands: remove-forks, archive-stale-repos, delete-empty-repos, categorize-repos, summary, evaluate-actions). See [packages/gh-cleanup/README.md](packages/gh-cleanup/README.md) for CLI options and examples.
 
 Docs and artifacts
 - `generated/` contains example or generated markdown outputs (e.g., catalogs and summaries) produced by the CLI for site consumption. These are intended as the site/content inputs for `dfberry.github.io` or similar static sites. To place the `generated` folder at the root of the repo, use `../../generated`.
@@ -156,6 +156,11 @@ Switches used:
 	- `--prompt=PATH`: override the prompt template file (otherwise searches upward for `.github/LLM_DESCRIBE_REPO_PROMPT.md`).
 	- `--openai-key=KEY`: supply OpenAI key; otherwise `OPENAI_API_KEY` env var is used.
 	- `--apply`: PATCH repository description and update topics on GitHub (destructive; requires `GH_TOKEN` with repo permissions).
+
+	- Evaluate GitHub Actions workflows (dry-run):
+	```bash
+	npm run start -w gh-cleanup -- evaluate-actions --out=../../generated/actions.json
+	```
 
 Debugging LLM calls
 - The describe commands support optional debug flags to record prompts and provider responses for inspection:

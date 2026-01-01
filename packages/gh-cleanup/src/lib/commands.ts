@@ -29,6 +29,10 @@ const commands: Record<string, CommandRunner> = {
     const m = await import('../commands/delete-empty-repos.js');
     await m.deleteEmptyReposCommand(argv);
   },
+  'evaluate-actions': async (argv: string[]) => {
+    const m = await import('../commands/evaluate-actions.js');
+    await m.evaluateActionsCommand(argv);
+  },
 };
 
 export function availableCommands(): string[] {

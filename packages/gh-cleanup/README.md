@@ -46,6 +46,11 @@ Commands
   - Note: the summary now includes public/private totals and per-category public/private splits.
 
 - `describe-repo` / `describe-repos`
+  
+- `evaluate-actions`
+  - Inspect GitHub Actions workflows across repositories owned by the authenticated user and produce a per-repo report. For each workflow the output includes: file path (workflow YAML file), workflow `name`, `description` (if present in the workflow file), `created_at`, `last_run`, and `last_successful_run`.
+  - Flags: `--output=json|md`, `--out=<path>` (destination file), common flags from `parseBaseFlags()` (e.g. `--debug`, `--debug-dir`).
+  - Notes: this command queries the Actions workflow list and workflow runs; ensure the `GH_TOKEN` has `repo` or read scopes for private repos.
   - Generate short/long descriptions, suggested topics, and related links using an LLM.
   - Use `describe-repo` for a single repo and `describe-repos` for batch JSON inputs.
   - Flags:
