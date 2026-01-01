@@ -56,6 +56,22 @@ For any new feature or command added to this repository, include the following i
 - Documentation: update relevant `README.md` files (package-level and repository-level) to document CLI flags, examples, and input/output shapes.
 - CI: update GitHub Actions/workflows if the feature requires new build, lint, or test steps, or additional secrets; add workflow changes to the same PR.
 
+### Enforcement and verification
+
+- Required: when adding or modifying CLI commands under `packages/gh-cleanup/src/commands/` the PR MUST update documentation as described below. If documentation is not updated the PR description must include a justification and a TODO for the follow-up docs change.
+- Documentation targets that MUST be updated for command changes:
+	- package-level README: `packages/gh-cleanup/README.md` (add the command entry, flags, and examples).
+	- repository-level README: `README.md` (update the high-level command list and pipeline examples where applicable).
+	- any `docs/*.md` or `.github/*` files that reference the command or its flags.
+- Verification: before merging, run a quick grep to ensure command name appears in documentation. Example:
+
+```bash
+# run from repo root - replace <cmd> with the command name
+grep -R "<cmd>" README.md packages/**/README.md docs || true
+```
+
+- Optional CI: maintainers are encouraged to add a lightweight `verify-docs` job to CI that fails when new commands are added without updating docs. See `docs/` for examples.
+
 Including these items ensures consistent reviews, reproducible builds, and clear usage for maintainers and users.
 
 ## Command File Change Policy
