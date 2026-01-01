@@ -11,7 +11,7 @@
  *   - `evaluateActionsCommand(argv)` — thin CLI wrapper used by the bin
  */
 
-import { GitHubClient, repos, pagination } from 'github-rest';
+import { GitHubClient, repos, pagination, actions } from 'github-rest';
 import { emitOutput, formatJsonOutput, addGeneratedTimestamp } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 
@@ -57,7 +57,7 @@ export async function runCommand(client: GitHubClient, args: Args): Promise<any>
     const owner = r.owner.login;
     const name = r.name;
     try {
-      const wfRes: any = await client.get(`/repos/${owner}/${name}/actions/workflows`);
+      const wfRes: any = await actions.listRepoWorkflows(client, owner, name);
       const workflows: any[] = (wfRes && wfRes.workflows) || [];
       if (!workflows || workflows.length === 0) continue;
 
@@ -76,17 +76,19 @@ export async function runCommand(client: GitHubClient, args: Args): Promise<any>
 
         // try to get description from workflow file contents
         try {
-          const contents = await client.get(`/repos/${owner}/${name}/contents/${encodeURIComponent(wf.path)}`);
-          const decoded = decodeContent(contents?.content ?? contents?.raw_content, contents?.encoding);
-          const desc = extractDescriptionFromWorkflow(decoded);
-          if (desc) wfEntry.description = desc;
+          if (wf.path) {
+            const contents = await actions.getRepoContent(client, owner, name, wf.path);
+            const decoded = decodeContent(contents?.content ?? contents?.raw_content, contents?.encoding);
+            const desc = extractDescriptionFromWorkflow(decoded);
+            if (desc) wfEntry.description = desc;
+          }
         } catch (e) {
           // ignore content fetch errors (private files, etc.)
         }
 
         // last run
         try {
-          const runsRes: any = await client.get(`/repos/${owner}/${name}/actions/workflows/${wf.id}/runs?per_page=1`);
+          const runsRes: any = await actions.listWorkflowRuns(client, owner, name, wf.id, 1);
           const runs = (runsRes && runsRes.workflow_runs) || [];
           if (runs.length > 0) wfEntry.last_run = runs[0].created_at ?? runs[0].updated_at ?? null;
         } catch (e) {
@@ -95,7 +97,7 @@ export async function runCommand(client: GitHubClient, args: Args): Promise<any>
 
         // last successful run — search recent runs for a successful conclusion
         try {
-          const runsRes2: any = await client.get(`/repos/${owner}/${name}/actions/workflows/${wf.id}/runs?per_page=50`);
+          const runsRes2: any = await actions.listWorkflowRuns(client, owner, name, wf.id, 50);
           const runs2 = (runsRes2 && runsRes2.workflow_runs) || [];
           const success = runs2.find((rr: any) => rr.conclusion === 'success');
           if (success) wfEntry.last_successful_run = success.created_at ?? success.updated_at ?? null;
