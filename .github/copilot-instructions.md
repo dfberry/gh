@@ -23,6 +23,7 @@ Welcome to the project! This file provides guidance for GitHub Copilot and other
 - Keep functions small and focused; prefer composition over inheritance.
 - Centralize error handling in utility functions where possible.
 - Use environment variables for secrets and tokens; never hardcode credentials.
+ - This repository uses ES Modules (ESM) across all packages. Avoid `require()` and CommonJS patterns; use `import`/`export` and ESM-compatible APIs.
 
 ## Testing Conventions
 - Place all test files next to the modules they test, using the `.test.ts` suffix.
@@ -34,6 +35,7 @@ Welcome to the project! This file provides guidance for GitHub Copilot and other
 - Add or update JSDoc comments for all public functions and types.
 - Update the `.github/copilot-instructions.md` file if project conventions change.
 - For user-facing documentation, update `README.md` or `INSTRUCTIONS.md` as appropriate.
+ - When a command's functionality or CLI switches change, update all relevant Markdown documentation files (for example `README.md`, package-level `README.md`, files in `docs/`, and any other `*.md` that reference the command or its flags) to reflect the changes.
 
 ## Extensibility
 - When adding new GitHub API endpoints, create a new module and use the shared request utility.
@@ -55,6 +57,20 @@ For any new feature or command added to this repository, include the following i
 - CI: update GitHub Actions/workflows if the feature requires new build, lint, or test steps, or additional secrets; add workflow changes to the same PR.
 
 Including these items ensures consistent reviews, reproducible builds, and clear usage for maintainers and users.
+
+## Command File Change Policy
+
+When editing command implementations located under `packages/gh-cleanup/src/commands/` (or similar CLI command folders), the change MUST be accompanied by a short analysis and review checklist describing the intent, safety considerations, and verification steps. This ensures we don't accidentally change runtime behaviour, CLI flags, or safety checks (for example: fork-deletion safeguards).
+
+Minimum required items to include in the change set or PR description when command files are modified:
+
+- **Summary:** One-paragraph summary of the behavioral change (what's changing and why).
+- **Safety checks:** Any runtime or API safety checks added or removed (e.g. skip-delete if active PRs exist).
+- **Flags/doc updates:** Confirm relevant Markdown docs and `--help` examples were updated to match flag changes.
+- **Testing/verification:** Describe how the change was validated locally (build, smoke-run, or unit tests) and any commands used to reproduce the verification.
+- **Backward-compatibility:** Note breaking changes and suggested migration steps for users.
+
+PR authors should add this checklist to the PR description and mark each item as satisfied. Reviewers should verify the checklist before approving the change. For safety-critical changes (deleting resources, destructive operations), include an explicit manual review approval by a repository maintainer in the PR comments.
 
 ---
 

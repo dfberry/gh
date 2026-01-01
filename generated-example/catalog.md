@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Repository Catalog"
-generated_at: "2025-12-30T21:53:41.439Z"
+generated_at: "2026-01-01T16:53:28.095Z"
 ---
 
 | Name | Description | Topics | Language | Category | Status | Last Updated | Link |
@@ -49,7 +49,7 @@ generated_at: "2025-12-30T21:53:41.439Z"
 | dfberry/dev_container |  |  |  | other (30%) | archived, public | 2024-04-24T00:18:48Z | [dfberry/dev_container](https://github.com/dfberry/dev_container) |
 | dfberry/dfberry |  |  |  | sample (85%) | archived, public | 2023-02-16T02:01:38Z | [dfberry/dfberry](https://github.com/dfberry/dfberry) |
 | dfberry/dfberry-blog |  |  | TypeScript | cli (85%) | archived, public | 2024-04-06T19:03:55Z | [dfberry/dfberry-blog](https://github.com/dfberry/dfberry-blog) |
-| dfberry/dfberry.github.io | A simple Docusaurus-based blog site with local search for learners | blog, devto, documentation, docusaurus, javascript, learner-friendly, local-search, markdown, npm, static-site | JavaScript | web (75%) | public | 2025-02-23T21:06:49Z | [dfberry/dfberry.github.io](https://github.com/dfberry/dfberry.github.io) |
+| dfberry/dfberry.github.io | A simple Docusaurus-based blog site with local search for learners | blog, devto, documentation, docusaurus, javascript, learner-friendly, local-search, markdown, npm, static-site | JavaScript | web (75%) | public | 2026-01-01T14:43:07Z | [dfberry/dfberry.github.io](https://github.com/dfberry/dfberry.github.io) |
 | dfberry/dfberry.io |  |  | JavaScript | cli (85%) | archived, private | 2023-01-21T15:08:06Z | [dfberry/dfberry.io](https://github.com/dfberry/dfberry.io) |
 | dfberry/do-1 | A TypeScript project for learners to explore coding concepts | beginner, coding-examples, education, learning, programming, typescript | TypeScript | cli (85%) | private | 2025-12-26T16:35:35Z | [dfberry/do-1](https://github.com/dfberry/do-1) |
 | dfberry/DockerFiles | A collection of annotated Dockerfiles for learning and CLI use | annotations, cli, containerization, containers, devops, docker, dockerfile, learning | Dockerfile | cli (85%) | public | 2025-03-23T12:14:19Z | [dfberry/DockerFiles](https://github.com/dfberry/DockerFiles) |
@@ -61,7 +61,7 @@ generated_at: "2025-12-30T21:53:41.439Z"
 | dfberry/fastify-router |  |  | TypeScript | web (75%) | archived, public | 2022-02-13T03:09:00Z | [dfberry/fastify-router](https://github.com/dfberry/fastify-router) |
 | dfberry/fluent-ui-datagrid-example | Created with CodeSandbox |  | TypeScript | library (80%) | archived, public | 2023-02-20T14:02:13Z | [dfberry/fluent-ui-datagrid-example](https://github.com/dfberry/fluent-ui-datagrid-example) |
 | dfberry/gcp |  |  | JavaScript | javascript (50%) | archived, public | 2023-06-16T04:16:14Z | [dfberry/gcp](https://github.com/dfberry/gcp) |
-| dfberry/gh | A TypeScript monorepo with GitHub REST client and repo cleanup CLI tools | automation, cli, github, github-api, monorepo, npm, opensource, repository-cleanup, rest-client, typescript | TypeScript | cli (85%) | public | 2025-12-30T20:13:19Z | [dfberry/gh](https://github.com/dfberry/gh) |
+| dfberry/gh | A TypeScript monorepo with GitHub REST client and repo cleanup CLI tools | automation, cli, github, github-api, monorepo, npm, opensource, repository-cleanup, rest-client, typescript | TypeScript | cli (85%) | public | 2025-12-31T16:34:04Z | [dfberry/gh](https://github.com/dfberry/gh) |
 | dfberry/gh-action-graphql |  |  | JavaScript | cli (85%) | archived, public | 2023-03-06T14:24:29Z | [dfberry/gh-action-graphql](https://github.com/dfberry/gh-action-graphql) |
 | dfberry/GIS |  |  | HTML | web (75%) | archived, public | 2016-07-18T13:13:34Z | [dfberry/GIS](https://github.com/dfberry/GIS) |
 | dfberry/github-action-local-development | A starter repo for developing GitHub Actions locally | automation, ci-cd, devtools, github-actions, learn-github-actions, local-development, starter-template, testing, workflow |  | other (30%) | private | 2025-03-20T16:43:36Z | [dfberry/github-action-local-development](https://github.com/dfberry/github-action-local-development) |
