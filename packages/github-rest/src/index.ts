@@ -9,3 +9,6 @@ export { findEmptyRepos } from './endpoints/repos.js';
 export * as auth from './core/auth.js';
 export { getActorWithScopeCheck } from './core/auth.js';
 export * as describeHelpers from './endpoints/describe-helpers.js';
+export * as actions from './endpoints/actions.js';
+export { createGitHubClient } from './core/factory.js';
+

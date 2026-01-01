@@ -1,55 +1,11 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { callOpenAI, LLMConfig } from 'llm-completion';
-import { describeHelpers } from 'github-rest';
+import { describeHelpers, createGitHubClient } from 'github-rest';
 import { validateDescribeOutput } from './describe-validator.js';
 
 export function createClient(token?: string) {
-  const API = 'https://api.github.com';
-  const auth = token ? { Authorization: `token ${token}` } : {};
-  const fetchFn = (globalThis as any).fetch;
-  if (typeof fetchFn !== 'function') throw new Error('global fetch is not available');
-  const client: any = {};
-  client.request = async (method: string, path: string, opts: any = {}) => {
-      const url = path.startsWith('http') ? path : API + path;
-      const headers: Record<string,string> = {
-        Accept: 'application/vnd.github+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'User-Agent': 'gh-cleanup/0.1',
-        ...(opts?.headers || {}),
-        ...auth
-      };
-      const init: any = { method, headers };
-      if (opts?.body !== undefined) {
-        init.body = typeof opts.body === 'string' ? opts.body : JSON.stringify(opts.body);
-        headers['Content-Type'] = headers['Content-Type'] ?? 'application/json';
-      }
-      const res = await fetchFn(url, init);
-      const rawHeaders: Record<string,string> = {};
-      res.headers.forEach((v: string, k: string) => rawHeaders[k.toLowerCase()] = v);
-      const contentType = res.headers.get('content-type') || '';
-      let body: any = undefined;
-      if (contentType.includes('application/json')) body = await res.json().catch(()=>undefined);
-      else body = await res.text().catch(()=>undefined);
-      if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status} ${method} ${path}`), { status: res.status, body: body });
-      return { body, headers: rawHeaders, status: res.status };
-  };
-  client.rawRequest = async (method: string, path: string, opts: any = {}) => {
-    return await client.request(method, path, opts);
-  };
-  client.get = async (p: string, opts?: any) => {
-    const r = await client.request('GET', p, opts);
-    return r.body;
-  };
-  client.patch = async (p: string, body: any) => {
-    const r = await client.request('PATCH', p, { body });
-    return r.body;
-  };
-  client.put = async (p: string, body: any) => {
-    const r = await client.request('PUT', p, { body });
-    return r.body;
-  };
-  return client as any;
+  return createGitHubClient({ token, userAgent: 'gh-cleanup/0.1' });
 }
 
 export async function resolvePromptFile(promptFlag?: string) {
