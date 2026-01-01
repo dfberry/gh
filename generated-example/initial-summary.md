@@ -1,7 +1,7 @@
 ---
 layout: page
 title: "Repository Summary"
-generated_at: "2025-12-30T21:51:57.248Z"
+generated_at: "2026-01-01T16:51:37.101Z"
 ---
 
 # Repository Summary
@@ -27,10 +27,10 @@ generated_at: "2025-12-30T21:51:57.248Z"
 | dfberry/azure-rust-mcp-server-apim | A Rust API serving random songs with Azure and MCP integration | azure, azure-api-management, azure-container-apps, example-project, mcp-server, openapi, rust | Bicep | library (80%) | public | 2025-05-25T16:29:15Z | [dfberry/azure-rust-mcp-server-apim](https://github.com/dfberry/azure-rust-mcp-server-apim) |
 | dfberry/dev-diary | A TypeScript project for learners to explore development diary concepts | code-tracking, development-diary, documentation, learning, typescript | TypeScript | cli (85%) | private | 2025-12-16T16:44:54Z | [dfberry/dev-diary](https://github.com/dfberry/dev-diary) |
 | dfberry/developer-survey | A simple repo for developer survey data and analysis | beginner-friendly, data-analysis, data-exploration, developer-survey, survey-data |  | other (30%) | public | 2025-08-22T22:12:49Z | [dfberry/developer-survey](https://github.com/dfberry/developer-survey) |
-| dfberry/dfberry.github.io | A simple Docusaurus-based blog site with local search for learners | blog, devto, documentation, docusaurus, javascript, learner-friendly, local-search, markdown, npm, static-site | JavaScript | web (75%) | public | 2025-02-23T21:06:49Z | [dfberry/dfberry.github.io](https://github.com/dfberry/dfberry.github.io) |
+| dfberry/dfberry.github.io | A simple Docusaurus-based blog site with local search for learners | blog, devto, documentation, docusaurus, javascript, learner-friendly, local-search, markdown, npm, static-site | JavaScript | web (75%) | public | 2026-01-01T14:43:07Z | [dfberry/dfberry.github.io](https://github.com/dfberry/dfberry.github.io) |
 | dfberry/do-1 | A TypeScript project for learners to explore coding concepts | beginner, coding-examples, education, learning, programming, typescript | TypeScript | cli (85%) | private | 2025-12-26T16:35:35Z | [dfberry/do-1](https://github.com/dfberry/do-1) |
 | dfberry/DockerFiles | A collection of annotated Dockerfiles for learning and CLI use | annotations, cli, containerization, containers, devops, docker, dockerfile, learning | Dockerfile | cli (85%) | public | 2025-03-23T12:14:19Z | [dfberry/DockerFiles](https://github.com/dfberry/DockerFiles) |
-| dfberry/gh | A TypeScript monorepo with GitHub REST client and repo cleanup CLI tools | automation, cli, github, github-api, monorepo, npm, opensource, repository-cleanup, rest-client, typescript | TypeScript | cli (85%) | public | 2025-12-30T20:13:19Z | [dfberry/gh](https://github.com/dfberry/gh) |
+| dfberry/gh | A TypeScript monorepo with GitHub REST client and repo cleanup CLI tools | automation, cli, github, github-api, monorepo, npm, opensource, repository-cleanup, rest-client, typescript | TypeScript | cli (85%) | public | 2025-12-31T16:34:04Z | [dfberry/gh](https://github.com/dfberry/gh) |
 | dfberry/github-action-local-development | A starter repo for developing GitHub Actions locally | automation, ci-cd, devtools, github-actions, learn-github-actions, local-development, starter-template, testing, workflow |  | other (30%) | private | 2025-03-20T16:43:36Z | [dfberry/github-action-local-development](https://github.com/dfberry/github-action-local-development) |
 | dfberry/github-octokit-api | TypeScript samples for querying GitHub data with AI and workflows | ai, automation, chatbot, database, github-api, nodejs, openai, samples, typescript, workflow | TypeScript | cli (85%) | public | 2025-07-27T15:31:04Z | [dfberry/github-octokit-api](https://github.com/dfberry/github-octokit-api) |
 | dfberry/hello-world | A simple repo for testing GitHub API with Octokit | api-testing, beginner-friendly, github-api, learning, octokit, rest-api |  | other (30%) | public | 2025-08-31T14:42:09Z | [dfberry/hello-world](https://github.com/dfberry/hello-world) |

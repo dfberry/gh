@@ -1,3 +1,20 @@
+/**
+ * Command: categorize-repos
+ *
+ * Purpose:
+ *   Analyze repositories and produce category assignments (library, cli, infra, docs, sample, etc.).
+ *
+ * Flags:
+ *   - `--fetch`: fetch languages and README to improve categorization
+ *   - `--output=json|md`, `--out=<path>`, `--rules=<path>`
+ *   - common base flags via `parseBaseFlags()` (e.g. `--debug`)
+ *
+ * Exports:
+ *   - `parseArgs(argv)`, `runCommand(client, args)`, `writeOutput(result, args)`
+ *
+ * Notes:
+ *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
+ */
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { toMarkdownTable, Categorized, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
 import * as fs from 'node:fs/promises';

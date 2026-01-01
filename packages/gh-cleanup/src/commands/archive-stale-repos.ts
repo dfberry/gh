@@ -1,3 +1,22 @@
+/**
+ * Command: archive-stale-repos
+ *
+ * Purpose:
+ *   Find repositories with no recent activity and optionally archive them.
+ *
+ * Flags:
+ *   - `--older-than-days=<n>`: days of inactivity to consider a repo stale (default 365)
+ *   - `--yes`, `--force`, `--out=<path>`, `--allow-forks`
+ *   - common flags from `parseBaseFlags()` (e.g. `--debug`, `--debug-dir`)
+ *
+ * Exports:
+ *   - `parseArgs(argv)`, `runCommand(client, args)`, `writeOutput(result, args)`
+ *   - `archiveStaleReposCommand(argv)` — thin CLI wrapper used by the bin
+ *
+ * Notes:
+ *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
+ */
+
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { requireTypedConfirmation } from '../lib/confirm.js';

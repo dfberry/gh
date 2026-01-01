@@ -1,3 +1,21 @@
+/**
+ * Command: delete-empty-repos
+ *
+ * Purpose:
+ *   Detect repositories that are effectively empty (size===0, no commits, no PRs)
+ *   and optionally delete them.
+ *
+ * Flags:
+ *   - `--yes`, `--force`, `--allow-forks`, `--out=<path>`, `--no-audit`
+ *   - common base flags via `parseBaseFlags()` (e.g. `--debug`)
+ *
+ * Exports:
+ *   - `parseArgs(argv)`, `runCommand(client, args)`, `writeOutput(result, args)`
+ *
+ * Notes:
+ *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
+ */
+
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';

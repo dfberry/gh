@@ -1,3 +1,21 @@
+/**
+ * Command: describe-repos
+ *
+ * Purpose:
+ *   Batch-run LLM descriptions for a list of repositories and optionally apply them.
+ *
+ * Flags:
+ *   - `--input=FILE` or `--repos=...`, `--out=`, `--apply`, prompt/LLM flags
+ *   - common base flags via `parseBaseFlags()` (e.g. `--debug`, `--debug-dir`)
+ *
+ * Exports:
+ *   - `parseArgs(argv)`, `runCommand(client, args)`, `writeOutput(result, args)`
+ *   - `describeReposCommand(argv)` — thin CLI wrapper used by the bin
+ *
+ * Notes:
+ *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
+ */
+
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as readline from 'readline';

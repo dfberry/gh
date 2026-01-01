@@ -4,7 +4,22 @@ import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 
 export type Args = BaseFlags;
-
+/**
+ * Command: remove-forks
+ *
+ * Purpose:
+ *   Remove forked repositories where the authenticated user has no open PRs
+ *   in the parent repository. Skips deletion when active PRs authored by the
+ *   user exist in the parent to avoid breaking in-flight contributions.
+ *
+ * Flags:
+ *   - common base flags via `parseBaseFlags()` (e.g. `--debug`, `--debug-dir`)
+ *   - `--yes` to actually apply deletions (otherwise a dry-run)
+ *
+ * Exports:
+ *   - `parseArgs(argv)`, `runCommand(client,args)`, `writeOutput(result,args)`
+ *   - `removeForksCommand(argv)` — thin CLI wrapper used by the bin
+ */
 export function parseArgs(argv: string[]): Args {
   return parseBaseFlags(argv) as Args;
 }

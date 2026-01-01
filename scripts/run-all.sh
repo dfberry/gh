@@ -1,5 +1,27 @@
 #!/usr/bin/env bash
 
+# run-all.sh — repository-cleanup pipeline runner
+#
+# Purpose:
+#   Orchestrates the gh-cleanup CLI commands to produce repository reports
+#   and (optionally) perform destructive actions (delete/archive/patch).
+#
+# Key behaviors:
+#   - Builds workspace packages, runs summary/categorize/delete-empty/remove-forks/
+#     archive-stale/describe-repos commands in sequence and writes outputs to
+#     `generated/` by default.
+#   - Default mode is safe/dry-run; pass `--apply` to forward destructive flags
+#     (e.g., `--yes`) to commands to actually perform deletions/archives/patches.
+#   - Supports debug capture for LLM-driven steps via `--debug` and `--debug-dir`.
+#
+# Usage:
+#   ./scripts/run-all.sh [--apply]
+#   npm run run-all:apply  # wrapper creates ./generated and captures logs
+#
+# Safety:
+#   - This script uses `set -euo pipefail` so failures stop early.
+#   - Ensure `GH_TOKEN` has appropriate scopes before using `--apply`.
+
 # Fail fast: exit on error, treat unset variables as errors, and propagate pipe failures.
 # This makes the script safer in CI and local runs so failures stop the pipeline early.
 set -euo pipefail

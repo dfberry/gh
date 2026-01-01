@@ -88,6 +88,14 @@
     }
   },
   {
+    "repo": "dfberry/dfberry.github.io",
+    "ai": null,
+    "applied": {
+      "description": false,
+      "topics": false
+    }
+  },
+  {
     "repo": "dfberry/do-1",
     "ai": null,
     "applied": {

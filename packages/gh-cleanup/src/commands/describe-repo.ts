@@ -1,3 +1,21 @@
+/**
+ * Command: describe-repo
+ *
+ * Purpose:
+ *   Generate an LLM-based description and topics for a single repository.
+ *
+ * Flags:
+ *   - `--repo=owner/name`, `--apply`, `--out=`, `--prompt=`, OpenAI flags (`--openai-key`, `--openai-model`, etc.)
+ *   - common base flags via `parseBaseFlags()` (e.g. `--debug`, `--debug-dir`)
+ *
+ * Exports:
+ *   - `parseArgs(argv)`, `runCommand(client, args)`, `writeOutput(result, args)`
+ *   - `describeRepoCommand(argv)` — thin CLI wrapper used by the bin
+ *
+ * Notes:
+ *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
+ */
+
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { LLMConfig } from 'llm-completion';

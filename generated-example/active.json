@@ -1,6 +1,6 @@
 {
-  "generated_at": "2025-12-30T21:55:26.896Z",
-  "count": 41,
+  "generated_at": "2026-01-01T16:54:01.100Z",
+  "count": 42,
   "items": [
     {
       "full_name": "dfberry/actions",
@@ -278,6 +278,33 @@
       "visibility": "public"
     },
     {
+      "full_name": "dfberry/dfberry.github.io",
+      "html_url": "https://github.com/dfberry/dfberry.github.io",
+      "description": "A simple Docusaurus-based blog site with local search for learners",
+      "language": "JavaScript",
+      "topics": [
+        "blog",
+        "devto",
+        "documentation",
+        "docusaurus",
+        "javascript",
+        "learner-friendly",
+        "local-search",
+        "markdown",
+        "npm",
+        "static-site"
+      ],
+      "category": "web",
+      "confidence": 0.75,
+      "last_updated": "2026-01-01T14:43:07Z",
+      "stars": 0,
+      "archived": false,
+      "fork": false,
+      "template": false,
+      "private": false,
+      "visibility": "public"
+    },
+    {
       "full_name": "dfberry/do-1",
       "html_url": "https://github.com/dfberry/do-1",
       "description": "A TypeScript project for learners to explore coding concepts",
@@ -344,7 +371,7 @@
       ],
       "category": "cli",
       "confidence": 0.85,
-      "last_updated": "2025-12-30T20:13:19Z",
+      "last_updated": "2025-12-31T16:34:04Z",
       "stars": 0,
       "archived": false,
       "fork": false,
