@@ -10,6 +10,8 @@ function printHelp() {
   console.log('  --force          Skip typed confirmation prompts');
   console.log('  --out=<path>     Write command output to file instead of stdout');
   console.log('  --output=json|md Output format for report commands (json or md)');
+  console.log('  --debug          Enable verbose debug logging for commands');
+  console.log('  --debug-dir=<d>  Directory to write debug logs to');
   console.log('\nExamples:');
   console.log('  gh-cleanup categorize-repos --fetch --output=md --out=generated/catalog.md');
   console.log('  gh-cleanup summary --output=json --out=generated/active.json');

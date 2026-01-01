@@ -4,9 +4,9 @@
     "test": "npm run test --workspaces --if-present",
     "test:dev": "npm run test --workspaces --if-present -- -w",
     "test:ci": "npm run test --workspaces --if-present -- --run",
-    "run-all": "bash ./scripts/run-all.sh",
-    "run-all:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; bash ./scripts/run-all.sh'",
-    "run-all:apply": "bash ./scripts/run-all.sh --apply"
+    "run-all": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-all.sh > ./generated/run-all.log 2>&1'",
+    "run-all:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-all.sh > ./generated/run-all-dev.log 2>&1'",
+    "run-all:apply": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-all.sh --apply > ./generated/run-all-apply.log 2>&1'"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

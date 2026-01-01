@@ -2,11 +2,13 @@ import { GitHubClient, repos, pagination } from 'github-rest';
 import { toMarkdownTable, Categorized, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 
-type Args = { fetch?: boolean; output?: 'json' | 'md'; out?: string; rules?: string };
+type Args = BaseFlags & { fetch?: boolean; output?: 'json' | 'md'; rules?: string };
 
-function parseArgs(argv: string[]): Args {
-  const args: Args = { fetch: argv.includes('--fetch'), output: 'json', out: '' };
+export function parseArgs(argv: string[]): Args {
+  const base = parseBaseFlags(argv);
+  const args: Args = { ...base, fetch: argv.includes('--fetch'), output: 'json' };
   for (const a of argv) {
     if (a.startsWith('--output=')) args.output = a.split('=')[1] as any;
     if (a.startsWith('--out=')) args.out = a.split('=')[1];
@@ -18,10 +20,7 @@ function parseArgs(argv: string[]): Args {
 import { scoreCategory, loadRules, Rule } from '../lib/categorizer.js';
 import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
 
-export async function categorizeReposCommand(argv: string[]) {
-  const args = parseArgs(argv);
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/categorize' });
-
+export async function runCommand(client: GitHubClient, args: Args) {
   const all = await pagination.paginateAll(async (page) => {
     return repos.listAuthenticatedUserRepos(client, page, 100);
   });
@@ -40,7 +39,11 @@ export async function categorizeReposCommand(argv: string[]) {
   // Use shared helper to fetch optional metadata and score repos
   const fetched = await categorizeReposWithMetadata(client, all, { fetch: args.fetch, providedRules });
   results.push(...fetched);
+  return results;
+}
 
+export async function writeOutput(result: any, args: Args) {
+  const results: Categorized[] = result || [];
   if (args.output === 'md') {
     let md = toMarkdownTable(results, { title: 'Repository Catalog', includeFrontmatter: true });
     md = addGeneratedTimestamp(md, 'Repository Catalog');
@@ -48,4 +51,11 @@ export async function categorizeReposCommand(argv: string[]) {
   } else {
     await emitOutput(formatJsonOutput(results), args.out);
   }
+}
+
+export async function categorizeReposCommand(argv: string[]) {
+  const args = parseArgs(argv);
+  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/categorize' });
+  const res = await runCommand(client, args);
+  await writeOutput(res, args);
 }

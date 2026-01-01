@@ -2,51 +2,35 @@ import { GitHubClient, repos, pagination } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { getRepoPermissions, hasAdminPermission } from 'github-rest';
+import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 
-type Args = { yes?: boolean; force?: boolean; excludeForks?: boolean; out?: string; audit?: boolean };
+export type Args = BaseFlags & { excludeForks?: boolean };
 
-function parseArgs(argv: string[]): Args {
-  const args: Args = {
-    yes: argv.includes('--yes'),
-    force: argv.includes('--force'),
-    excludeForks: !argv.includes('--allow-forks'),
-    out: '',
-    audit: true,
-  };
-  for (const a of argv) {
-    if (a.startsWith('--out=')) args.out = a.split('=')[1];
-    if (a === '--no-audit') args.audit = false;
-    if (a === '--audit') args.audit = true;
-  }
+export function parseArgs(argv: string[]): Args {
+  const base = parseBaseFlags(argv);
+  const args: Args = { ...base, excludeForks: !argv.includes('--allow-forks') };
   return args;
 }
 
-export async function deleteEmptyReposCommand(argv: string[]) {
-  const args = parseArgs(argv);
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/delete-empty' });
-
+export async function runCommand(client: GitHubClient, args: Args) {
   // Delegate candidate-finding (and optional verification) to the REST helper.
   const candidates = await repos.findEmptyRepos(client, { excludeForks: args.excludeForks, verify: true });
   console.log(`Found ${candidates.length} candidate empty repo(s) (size === 0 — 0 KB).`);
   if (candidates.length === 0) {
-    // Ensure output file is written even when there are no candidates
-    await emitOutput(formatJsonOutput([]), args.out);
-    return;
+    return { toDelete: [] };
   }
 
   const toDelete = [] as Array<{ full_name: string; owner: string; name: string; permissions?: any }>;
   for (const r of candidates) {
-    // resolve permissions (may be present on the list item or fetched)
     const permissions = await getRepoPermissions(client, r as any);
     toDelete.push({ full_name: r.full_name, owner: r.owner.login, name: r.name, permissions: args.audit ? permissions : undefined });
   }
 
   console.log(`Matched ${toDelete.length} empty repo(s) after metadata checks.`);
-  await emitOutput(formatJsonOutput(toDelete), args.out);
 
   if (!args.yes) {
     console.log('Dry-run mode. Use --yes to perform deletions.');
-    return;
+    return { toDelete };
   }
 
   if (!args.force) {
@@ -54,12 +38,12 @@ export async function deleteEmptyReposCommand(argv: string[]) {
     const ok = await requireTypedConfirmation('Type YES to delete the listed repositories:');
     if (!ok) {
       console.log('Aborted by user.');
-      return;
+      return { toDelete };
     }
   }
 
+  const deleted: string[] = [];
   for (const d of toDelete) {
-    // Always use centralized `hasAdminPermission` for a single-path permission check.
     const ok = await hasAdminPermission(client, d);
     if (!ok) {
       console.warn(`Skipping ${d.full_name}: no admin permission`);
@@ -68,8 +52,22 @@ export async function deleteEmptyReposCommand(argv: string[]) {
     try {
       const did = await repos.deleteRepo(client, d.owner, d.name, { dryRun: false });
       console.log(`Deleted ${d.full_name}: ${did}`);
+      deleted.push(d.full_name);
     } catch (e: any) {
       console.error(`Failed to delete ${d.full_name}:`, e?.message ?? e);
     }
   }
+  return { toDelete, deleted };
+}
+
+export async function writeOutput(result: any, args: Args) {
+  const out = (result && result.toDelete) || [];
+  if (args.out) await emitOutput(formatJsonOutput(out), args.out);
+}
+
+export async function deleteEmptyReposCommand(argv: string[]) {
+  const args = parseArgs(argv);
+  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/delete-empty' });
+  const res = await runCommand(client, args);
+  await writeOutput(res, args);
 }

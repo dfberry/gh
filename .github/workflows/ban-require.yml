@@ -1,0 +1,25 @@
+name: Ban require() in source
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  check-require:
+    name: Check for require() in source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find require() in source files
+        run: |
+          set -euo pipefail
+          echo "Scanning source files for require(...) usage..."
+          matches=$(git grep -n -E "require\\(" -- 'packages/*/src' || true)
+          if [ -n "$matches" ]; then
+            echo "Found require(...) in source files:";
+            echo "$matches";
+            exit 1;
+          fi
+          echo "No require(...) found in source files."

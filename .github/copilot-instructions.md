@@ -23,6 +23,7 @@ Welcome to the project! This file provides guidance for GitHub Copilot and other
 - Keep functions small and focused; prefer composition over inheritance.
 - Centralize error handling in utility functions where possible.
 - Use environment variables for secrets and tokens; never hardcode credentials.
+ - This repository uses ES Modules (ESM) across all packages. Avoid `require()` and CommonJS patterns; use `import`/`export` and ESM-compatible APIs.
 
 ## Testing Conventions
 - Place all test files next to the modules they test, using the `.test.ts` suffix.
@@ -34,6 +35,7 @@ Welcome to the project! This file provides guidance for GitHub Copilot and other
 - Add or update JSDoc comments for all public functions and types.
 - Update the `.github/copilot-instructions.md` file if project conventions change.
 - For user-facing documentation, update `README.md` or `INSTRUCTIONS.md` as appropriate.
+ - When a command's functionality or CLI switches change, update all relevant Markdown documentation files (for example `README.md`, package-level `README.md`, files in `docs/`, and any other `*.md` that reference the command or its flags) to reflect the changes.
 
 ## Extensibility
 - When adding new GitHub API endpoints, create a new module and use the shared request utility.

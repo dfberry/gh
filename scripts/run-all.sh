@@ -74,36 +74,36 @@ fi
 # 1) Initial summary run (produces active list and initial summary)
 #    - Outputs: $OUT_DIR/initial-active.md and $OUT_DIR/initial-summary.md
 #    - Dry-run by default; use --verify for extra checks when needed.
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/initial-active.md\" --summary-out=\"$OUT_DIR/initial-summary.md\""
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/initial-active.md\" --summary-out=\"$OUT_DIR/initial-summary.md\" --debug --debug-dir=\"$OUT_DIR/llm\""
 
 # 2) Categorize repos (fetch languages + README) -> catalog.md
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" categorize-repos --fetch --output=md --out=\"$OUT_DIR/catalog.md\""
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" categorize-repos --fetch --output=md --out=\"$OUT_DIR/catalog.md\" --debug --debug-dir=\"$OUT_DIR/llm\""
 
 # 3) Find empty repos (dry-run to JSON)
 #    - This step is destructive only when top-level --apply is passed (for automation).
 if [ "$APPLY" = true ]; then
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" delete-empty-repos --yes --out=\"$OUT_DIR/delete-empty.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" delete-empty-repos --yes --out=\"$OUT_DIR/delete-empty.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
 else
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" delete-empty-repos --out=\"$OUT_DIR/delete-empty.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" delete-empty-repos --out=\"$OUT_DIR/delete-empty.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
 fi
 
 # 4) Remove forks (dry-run unless --apply)
 #    - Deletes are performed only when --apply is passed to this runner (for safety).
 if [ "$APPLY" = true ]; then
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" remove-forks --yes --out=\"$OUT_DIR/remove-forks.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" remove-forks --yes --out=\"$OUT_DIR/remove-forks.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
 else
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" remove-forks --out=\"$OUT_DIR/remove-forks.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" remove-forks --out=\"$OUT_DIR/remove-forks.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
 fi
 
 # 5) Archive stale repos (dry-run unless --apply)
 #    - Archival PATCHes are performed only when --apply is passed.
 if [ "$APPLY" = true ]; then
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" archive-stale-repos --yes --out=\"$OUT_DIR/stale.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" archive-stale-repos --yes --out=\"$OUT_DIR/stale.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
 else
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" archive-stale-repos --out=\"$OUT_DIR/stale.json\""
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" archive-stale-repos --out=\"$OUT_DIR/stale.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
 fi
 
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=json --out=\"$OUT_DIR/active.json\""
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=json --out=\"$OUT_DIR/active.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
 
 # if the OPENAI_API_KEY is set, run descriptions
 # The describe step is optional and only runs when an OpenAI key is present.
@@ -122,7 +122,7 @@ fi
 
 # 6) Final log of activity
 # 5b) Final summary run after all operations (refresh active list + summary)
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/summary-active.md\" --summary-out=\"$OUT_DIR/summary-report.md\""
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/summary-active.md\" --summary-out=\"$OUT_DIR/summary-report.md\" --debug --debug-dir=\"$OUT_DIR/llm\""
 
 echo "\nPipeline finished at: $(date -u --iso-8601=seconds)" >&2
 echo "Generated outputs:" >&2

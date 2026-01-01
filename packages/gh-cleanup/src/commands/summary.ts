@@ -4,11 +4,13 @@ import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { toMarkdownTable, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
+import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 
-type Args = { olderThanDays?: number; allowForks?: boolean; verify?: boolean; output?: 'json' | 'md'; out?: string; summaryOut?: string };
+export type Args = BaseFlags & { olderThanDays?: number; allowForks?: boolean; verify?: boolean; output?: 'json' | 'md'; summaryOut?: string; out?: string };
 
-export async function summaryCommand(argv: string[]) {
-  const args: Args = { olderThanDays: DEFAULT_STALE_DAYS, allowForks: false, verify: false, output: undefined, out: '' };
+export function parseArgs(argv: string[]): Args {
+  const base = parseBaseFlags(argv);
+  const args: Args = { ...base, olderThanDays: DEFAULT_STALE_DAYS, allowForks: false, verify: false, output: undefined, out: '' };
   for (const a of argv) {
     if (a.startsWith('--older-than-days=')) args.olderThanDays = Number(a.split('=')[1]);
     if (a === '--allow-forks') args.allowForks = true;
@@ -17,24 +19,25 @@ export async function summaryCommand(argv: string[]) {
     if (a.startsWith('--out=')) args.out = a.split('=')[1];
     if (a.startsWith('--summary-out=')) args.summaryOut = a.split('=')[1];
   }
+  return args;
+}
 
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/summary' });
-
+export async function runCommand(client: any, args: Args): Promise<any> {
   let me: string;
   try {
-    const u = await client.getAuthenticatedUser<{ login: string }>();
+    const u = await client.getAuthenticatedUser();
     me = (u as any).login;
   } catch (e: any) {
     console.error('Failed to fetch authenticated user:', e?.message ?? e);
-    return;
+    return null;
   }
 
   const all = await pagination.paginateAll(async (page) => repos.listAuthenticatedUserRepos(client, page, 100));
 
-  const forks = all.filter((r) => r.fork && r.owner?.login === me);
+  const forks = all.filter((r: any) => r.fork && r.owner?.login === me);
 
   const cutoff = new Date(Date.now() - (args.olderThanDays ?? 365) * 24 * 60 * 60 * 1000);
-  const staleCandidates = all.filter((r) => {
+  const staleCandidates = all.filter((r: any) => {
     if (!args.allowForks && r.fork) return false;
     if (r.archived) return false;
     if (!r.pushed_at) return true;
@@ -42,20 +45,18 @@ export async function summaryCommand(argv: string[]) {
     return pushed < cutoff;
   });
 
-  const archivedCandidates = all.filter((r) => {
+  const archivedCandidates = all.filter((r: any) => {
     if (!args.allowForks && r.fork) return false;
     return Boolean(r.archived);
   });
 
-  let emptyCandidates = all.filter((r) => {
+  let emptyCandidates = all.filter((r: any) => {
     if (!args.allowForks && r.fork) return false;
     return r.size === 0;
   });
-  // Determine truly empty repos by delegating to the REST helper which checks
-  // size, commit count, PR count and wiki presence.
   const trulyEmpty = new Set<string>();
   await Promise.all(
-    emptyCandidates.map(async (r) => {
+    emptyCandidates.map(async (r: any) => {
       try {
         const empty = await repos.isRepoEmpty(client, r as any);
         if (empty) trulyEmpty.add(r.full_name);
@@ -64,11 +65,11 @@ export async function summaryCommand(argv: string[]) {
       }
     })
   );
-  // compute stale set (verified or heuristic)
+
   let staleSet = new Set<string>();
   let staleList: any[] = [];
   if (args.verify) {
-    const meta = await repos.enrichReposMetadata(client, staleCandidates);
+    const meta = await repos.enrichReposMetadata(client, staleCandidates as any[]);
     for (const r of staleCandidates) {
       const m = meta[r.full_name];
       let isStale = false;
@@ -87,36 +88,27 @@ export async function summaryCommand(argv: string[]) {
     }
   } else {
     staleList = staleCandidates;
-    staleSet = new Set(staleCandidates.map((r) => r.full_name));
+    staleSet = new Set(staleCandidates.map((r: any) => r.full_name));
   }
 
-  const archivedSet = new Set(archivedCandidates.map((r) => r.full_name));
+  const archivedSet = new Set(archivedCandidates.map((r: any) => r.full_name));
 
-  // determine owned repos (current) and active = owned - (forks, stale, empty)
-  const owned = all.filter((r) => r.owner?.login === me);
-  const forksOwnedSet = new Set(forks.map((r) => r.full_name));
-  const active = owned.filter(
-    (r) => !forksOwnedSet.has(r.full_name) && !staleSet.has(r.full_name) && !trulyEmpty.has(r.full_name) && !archivedSet.has(r.full_name)
-  );
+  const owned = all.filter((r: any) => r.owner?.login === me);
+  const forksOwnedSet = new Set(forks.map((r: any) => r.full_name));
+  const active = owned.filter((r: any) => !forksOwnedSet.has(r.full_name) && !staleSet.has(r.full_name) && !trulyEmpty.has(r.full_name) && !archivedSet.has(r.full_name));
 
-  // Count public vs private among owned repos
-  const privateCount = owned.filter((r) => Boolean(r.private)).length;
+  const privateCount = owned.filter((r: any) => Boolean(r.private)).length;
   const publicCount = owned.length - privateCount;
-  // Count public vs private among active repos
-  const activePrivateCount = active.filter((r) => Boolean(r.private)).length;
+  const activePrivateCount = active.filter((r: any) => Boolean(r.private)).length;
   const activePublicCount = active.length - activePrivateCount;
-  // Count forks public/private
-  const forksPrivateCount = forks.filter((r) => Boolean(r.private)).length;
+  const forksPrivateCount = forks.filter((r: any) => Boolean(r.private)).length;
   const forksPublicCount = forks.length - forksPrivateCount;
-  // Count stale public/private
-  const stalePrivateCount = staleList.filter((r) => Boolean(r.private)).length;
+  const stalePrivateCount = staleList.filter((r: any) => Boolean(r.private)).length;
   const stalePublicCount = staleList.length - stalePrivateCount;
-  // Count archived public/private
-  const archivedPrivateCount = archivedCandidates.filter((r) => Boolean(r.private)).length;
+  const archivedPrivateCount = archivedCandidates.filter((r: any) => Boolean(r.private)).length;
   const archivedPublicCount = archivedCandidates.length - archivedPrivateCount;
-  // Count empty public/private (use trulyEmpty set to filter emptyCandidates)
-  const emptyList = emptyCandidates.filter((r) => trulyEmpty.has(r.full_name));
-  const emptyPrivateCount = emptyList.filter((r) => Boolean(r.private)).length;
+  const emptyList = emptyCandidates.filter((r: any) => trulyEmpty.has(r.full_name));
+  const emptyPrivateCount = emptyList.filter((r: any) => Boolean(r.private)).length;
   const emptyPublicCount = emptyList.length - emptyPrivateCount;
 
   if (args.verify) {
@@ -138,28 +130,61 @@ export async function summaryCommand(argv: string[]) {
   }
   if (!args.verify) console.log('Note: empty repo check fetched commits/PR counts for size===0 repos only. Use --verify to re-check stale repos.');
 
-  // If requested, emit Active/Other as JSON or Markdown table
+  return {
+    all,
+    owned,
+    forks,
+    active,
+    trulyEmpty: Array.from(trulyEmpty),
+    staleList,
+    archivedCandidates,
+    counts: {
+      publicCount,
+      privateCount,
+      forksPublicCount,
+      forksPrivateCount,
+      stalePublicCount,
+      stalePrivateCount,
+      archivedPublicCount,
+      archivedPrivateCount,
+      emptyPublicCount,
+      emptyPrivateCount,
+      activePublicCount,
+      activePrivateCount,
+    },
+  };
+}
+
+export async function writeOutput(result: any, args: Args) {
+  if (!result) return;
+  const { active } = result;
   if (args.output) {
-    const mapped = await categorizeReposWithMetadata(client, active, { fetch: true });
+    const mapped = await categorizeReposWithMetadata(new GitHubClient({ token: process.env.GH_TOKEN }), active, { fetch: true });
     if (args.output === 'md') {
       let md = toMarkdownTable(mapped, { title: 'Active Repositories', includeFrontmatter: false });
       md = addGeneratedTimestamp(md, 'Active Repositories');
-      await emitOutput(md, args.out);
+      await emitOutput(md, args.out || 'summary.md');
     } else if (args.output === 'json') {
-      await emitOutput(formatJsonOutput(mapped), args.out);
+      await emitOutput(formatJsonOutput(mapped), args.out || 'summary.json');
     }
   }
 
-  // If requested, also write a full summary Markdown file (counts + active list)
   if (args.summaryOut) {
     const header = `# Repository Summary\n\n`;
-    const counts = `- Public repos: ${publicCount}\n- Private repos: ${privateCount}\n- Forks owned: ${forks.length} (public: ${forksPublicCount}, private: ${forksPrivateCount})\n- Stale repos (>${args.olderThanDays} days): ${staleSet.size} (public: ${stalePublicCount}, private: ${stalePrivateCount})\n- Archived repos: ${archivedSet.size} (public: ${archivedPublicCount}, private: ${archivedPrivateCount})\n- Empty repos: ${trulyEmpty.size} (public: ${emptyPublicCount}, private: ${emptyPrivateCount})\n- Active/Other repos: ${active.length} (public: ${activePublicCount}, private: ${activePrivateCount})\n\n`;
-    const mapped = await categorizeReposWithMetadata(client, active, { fetch: true });
+    const c = result.counts;
+    const counts = `- Public repos: ${c.publicCount}\n- Private repos: ${c.privateCount}\n- Forks owned: ${result.forks.length} (public: ${c.forksPublicCount}, private: ${c.forksPrivateCount})\n- Stale repos (>${args.olderThanDays} days): ${result.staleList.length} (public: ${c.stalePublicCount}, private: ${c.stalePrivateCount})\n- Archived repos: ${result.archivedCandidates.length} (public: ${c.archivedPublicCount}, private: ${c.archivedPrivateCount})\n- Empty repos: ${result.trulyEmpty.length} (public: ${c.emptyPublicCount}, private: ${c.emptyPrivateCount})\n- Active/Other repos: ${result.active.length} (public: ${c.activePublicCount}, private: ${c.activePrivateCount})\n\n`;
+    const mapped = await categorizeReposWithMetadata(new GitHubClient({ token: process.env.GH_TOKEN }), result.active, { fetch: true });
     let table = toMarkdownTable(mapped, { title: 'Active Repositories', includeFrontmatter: false });
     const md = addGeneratedTimestamp(header + counts + table, 'Repository Summary');
     await emitOutput(md, args.summaryOut);
   }
+}
 
+export async function summaryCommand(argv: string[]) {
+  const args = parseArgs(argv);
+  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/summary' });
+  const res = await runCommand(client, args);
+  await writeOutput(res, args);
 }
 
 export default summaryCommand;

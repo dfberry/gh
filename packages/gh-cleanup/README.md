@@ -18,6 +18,8 @@ Common flags
 - `--output=json|md`: choose output format (where supported).
 - `--yes`: perform destructive operations (still prompts unless `--force`).
 - `--force`: skip typed confirmation prompts — use carefully in automation.
+- `--debug`: enable verbose debug logging for commands (writes extra debug files for LLM calls and other debug output when implemented).
+- `--debug-dir=<path>`: directory to write debug logs (implies `--debug` when used).
 
 Commands
 
@@ -73,6 +75,9 @@ Integration with pipeline
 - `scripts/run-all.sh` orchestrates the end-to-end flow and will conditionally run the
   describe step when `OPENAI_API_KEY` is set. Passing `--apply` to the runner forwards
   `--apply` to `describe-repos` so suggested changes can be applied during automated runs.
+  Note: when invoking the repository pipeline via the project npm scripts (`npm run run-all*`),
+  the wrapper scripts will create a `./generated` directory and capture stdout/stderr into
+  `./generated/run-all*.log` files for easier inspection of pipeline runs.
 
 Prerequisites
 - `GH_TOKEN` in environment (or `.env` file at repo root) for GitHub operations.
