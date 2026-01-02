@@ -5,7 +5,8 @@ Small CLI tooling to audit and clean GitHub repositories using the shared
 actions require explicit confirmation and are gated behind `--yes`/`--force`
 flags and, where applicable, `--apply`.
 
-Quick overview
+## Quick overview
+
 - Purpose: audit, categorize, and (optionally) clean repositories owned by the
   authenticated account.
 - Safe-by-default: all destructive commands are dry-run unless you pass the
@@ -13,93 +14,90 @@ Quick overview
 - Integration: commonly invoked from `scripts/run-all.sh` which orchestrates the
   pipeline across commands (see repository root).
 
-Common flags
+## Common flags
+
 - `--out=<path>`: write JSON or Markdown output to a file.
 - `--output=json|md`: choose output format (where supported).
 - `--yes`: perform destructive operations (still prompts unless `--force`).
 - `--force`: skip typed confirmation prompts — use carefully in automation.
-- `--debug`: enable verbose debug logging for commands (writes extra debug files for LLM calls and other debug output when implemented).
+- `--debug`: enable verbose debug logging for commands.
 - `--debug-dir=<path>`: directory to write debug logs (implies `--debug` when used).
 
-Commands
+## Commands
 
-- `remove-forks`
-  - List (and optionally delete) forked repositories owned by the authenticated user.
-  - Flags: `--yes`, `--force`, `--out=<path>`, `--no-audit` (omit permissions).
+### `remove-forks`
 
-- `archive-stale-repos`
-  - Archive repositories with no activity older than `N` days (default 365).
-  - Flags: `--older-than-days=<n>`, `--yes`, `--force`, `--allow-forks`, `--out=<path>`.
+- List (and optionally delete) forked repositories owned by the authenticated user.
+- Flags: `--yes`, `--force`, `--out=<path>`, `--no-audit` (omit permissions).
 
-- `delete-empty-repos`
-  - Detect repositories with `size === 0` and optionally delete them.
-  - Flags: `--yes`, `--force`, `--allow-forks`, `--out=<path>`, `--no-audit`.
+### `archive-stale-repos`
 
-- `categorize-repos`
-  - Heuristic categorization (library, cli, infra, docs, sample, etc.).
-  - Flags: `--fetch` (languages + README), `--output=json|md`, `--out=<path>`, `--rules=<path>`.
-  - Output: JSON or Markdown catalog; default rules are in `src/config/categorization.rules.ts`.
+- Archive repositories with no activity older than `N` days (default 365).
+- Flags: `--older-than-days=<n>`, `--yes`, `--force`, `--allow-forks`, `--out=<path>`.
 
-- `summary`
-  - Produce counts for forks, stale repos, empty repos, and an active repo table.
-  - Flags: `--older-than-days=<n>`, `--allow-forks`, `--verify` (fetch commits/PRs), `--output=json|md`, `--out=<path>`, `--summary-out=<path>`.
-  - Note: the summary now includes public/private totals and per-category public/private splits.
+### `delete-empty-repos`
 
-- `describe-repo` / `describe-repos`
-  
-- `evaluate-actions`
-  - Inspect GitHub Actions workflows across repositories owned by the authenticated user and produce a per-repo report. For each workflow the output includes: file path (workflow YAML file), workflow `name`, `description` (if present in the workflow file), `created_at`, `last_run`, and `last_successful_run`.
-  - Flags: `--output=json|md`, `--out=<path>` (destination file), common flags from `parseBaseFlags()` (e.g. `--debug`, `--debug-dir`).
-  - Notes: this command queries the Actions workflow list and workflow runs; ensure the `GH_TOKEN` has `repo` or read scopes for private repos.
-  - Generate short/long descriptions, suggested topics, and related links using an LLM.
-  - Use `describe-repo` for a single repo and `describe-repos` for batch JSON inputs.
-  - Flags:
-    - `--openai-key=` or set `OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` in env.
-    - `--openai-model=`, `--openai-temp=`, `--openai-endpoint=` — provider overrides.
-    - `--prompt=/path/to/prompt.md` — override the prompt file. If omitted the CLI searches
-      upward for `.github/LLM_DESCRIBE_REPO_PROMPT.md`.
-    - `--apply` — apply suggested description/topics to repositories (forwarded by `run-all.sh` when invoked with `--apply`).
-    - `--out=<path.json|path.md>` — aggregated output with `ai` and `applied` annotations.
-    - `--debug` — enable debug recording of prompt & response JSON to disk.
-    - `--debug-dir=<path>` — directory to write debug files (implies `--debug`).
+- Detect repositories with `size === 0` and optionally delete them.
+- Flags: `--yes`, `--force`, `--allow-forks`, `--out=<path>`, `--no-audit`.
 
-  - Input JSON shapes (plural): accepts an array of strings or objects, or a top-level object
-    with `items|repos|repositories` fields. Objects may contain `full_name`, or `owner`+`name`.
+### `categorize-repos`
 
-Output annotations
-- The describe step writes structured output where each item includes:
-  - `ai`: the model-generated object (short/long descriptions, topics, links).
-  - `applied`: boolean flags indicating which fields were actually patched on the repo.
+- Heuristic categorization (library, cli, infra, docs, sample, etc.).
+- Flags: `--fetch` (languages + README), `--output=json|md`, `--out=<path>`, `--rules=<path>`.
+- Output: JSON or Markdown catalog; default rules are in `src/config/categorization.rules.ts`.
 
-Prompt & key behavior
-- The CLI prefers `--openai-key` flag, then `OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` env vars.
-- Prompt resolution: if `--prompt` is not provided the CLI searches upward from the
-  current working directory for `.github/LLM_DESCRIBE_REPO_PROMPT.md` and errors if none is found.
+### `summary`
 
-Integration with pipeline
-- `scripts/run-all.sh` orchestrates the end-to-end flow and will conditionally run the
-  describe step when `OPENAI_API_KEY` is set. Passing `--apply` to the runner forwards
-  `--apply` to `describe-repos` so suggested changes can be applied during automated runs.
-  Note: when invoking the repository pipeline via the project npm scripts (`npm run run-all*`),
-  the wrapper scripts will create a `./generated` directory and capture stdout/stderr into
-  `./generated/run-all*.log` files for easier inspection of pipeline runs.
+- Produce counts for forks, stale repos, empty repos, and an active repo table.
+- Flags: `--older-than-days=<n>`, `--allow-forks`, `--verify` (fetch commits/PRs), `--output=json|md`, `--out=<path>`, `--summary-out=<path>`.
 
-Prerequisites
+### `describe-repo` / `describe-repos`
+
+LLM-driven generation of short/long descriptions, suggested topics, and links.
+
+### `evaluate-actions`
+
+- Inspect GitHub Actions workflows across repositories owned by the authenticated user and produce a per-repo report. For each workflow the output includes: file path (workflow YAML file), workflow `name`, `description` (if present), `created_at`, `last_run`, and `last_successful_run`.
+- Flags: `--output=json|md`, `--out=<path>` and other common flags such as `--debug`.
+- Ensure the `GH_TOKEN` has `repo` or read scopes for private repos.
+
+## Output annotations
+
+The describe step writes structured output where each item includes:
+
+- `ai`: the model-generated object (short/long descriptions, topics, links).
+- `applied`: boolean flags indicating which fields were actually patched on the repo.
+
+## Prompt & key behavior
+
+The CLI prefers `--openai-key` flag, then `OPENAI_API_KEY` / `AZURE_OPENAI_API_KEY` env vars.
+
+## Integration with pipeline
+
+`scripts/run-all.sh` orchestrates the end-to-end flow and conditionally runs the
+describe step when `OPENAI_API_KEY` is set. Passing `--apply` to the runner forwards
+`--apply` to `describe-repos` so suggested changes can be applied during automated runs.
+
+## Prerequisites
+
 - `GH_TOKEN` in environment (or `.env` file at repo root) for GitHub operations.
 - Node >= 22.
 
-Important token note
-- For destructive operations (deleting repositories) a token with `delete_repo` or
-  equivalent admin permissions is required. Fine-grained tokens may not allow deletion.
+## Important token note
 
-Developer notes
-- Implementation lives under `packages/gh-cleanup/src`. Shared helpers:
-  - `describe-common.ts` — LLM prompt resolution and sanitization.
-  - `describe-validator.ts` — validates model output shape.
-  - `repo-utils.ts` / `report.ts` — utilities for fetching repo metadata and producing Markdown.
+For destructive operations (deleting repositories) a token with `delete_repo` or
+equivalent admin permissions is required. Fine-grained tokens may not allow deletion.
+
+## Developer notes
+
+Implementation lives under `packages/gh-cleanup/src`. Shared helpers include:
+
+- `describe-common.ts` — LLM prompt resolution and sanitization.
+- `describe-validator.ts` — validates model output shape.
+- `repo-utils.ts` / `report.ts` — utilities for fetching repo metadata and producing Markdown.
 - `github-rest` in `packages/github-rest` is the low-level client used by these commands.
 
-Quick help
+## Quick help
 
 ```bash
 # general CLI help
@@ -112,7 +110,21 @@ npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --ou
 ./scripts/run-all.sh --apply
 ```
 
-Rules file shape (example)
+### Direct CLI examples
+
+```bash
+# Active dry-run (orchestrator)
+gh-cleanup active --input sample-repos.json --out generated/gh-cleanup --out-prefix active-dryrun --dry-run
+
+# Describe repos dry-run
+gh-cleanup describe-repos --repos=generated/active.json --out=generated/descriptions.json --dry-run
+
+# Maintenance dry-run (orchestrator)
+gh-cleanup maintenance --input sample-repos.json --out generated/gh-cleanup --out-prefix maintenance-dryrun --dry-run
+```
+
+## Rules file shape (example)
+
 ```json
 {
   "category": "cli",
@@ -123,10 +135,11 @@ Rules file shape (example)
 }
 ```
 
-Generated Markdown
-- Outputs from `categorize-repos` and `summary` include a `generated_at` ISO timestamp
-  in YAML frontmatter and the `summary` file now includes per-category public/private counts.
+## Generated Markdown
 
-```
+Outputs from `categorize-repos` and `summary` include a `generated_at` ISO timestamp
+in YAML frontmatter and the `summary` file now includes per-category public/private counts.
+
+```bash
 npm run start -w gh-cleanup -- describe-repo --repo=owner/repo
 ```
