@@ -1,8 +1,17 @@
 name: Orchestrator Smoke Tests
 
+# Smoke test workflow (manual run only).
+# Requires secrets to be configured in repository Settings -> Secrets and variables -> Actions:
+# - GH_TOKEN: Personal Access Token with `repo` scope for read-only operations. If you need destructive
+#   operations in CI (not recommended), add `delete_repo` and any other required scopes.
+# - OPENAI_API_KEY: (optional) API key for LLM steps if you want to run descriptions in CI.
+# Notes:
+# - This workflow is intended for manual dry-run smoke tests. Do NOT forward `--yes`/`--force` in PRs.
+# - To run: Actions → Orchestrator Smoke Tests → Run workflow.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
+#  push:
+#  pull_request:
 
 jobs:
   smoke:

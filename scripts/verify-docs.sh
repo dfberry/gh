@@ -5,15 +5,29 @@ set -euo pipefail
 BASE_REF=${BASE_REF:-origin/main}
 HEAD_REF=${HEAD_REF:-HEAD}
 
-# Ensure we have the base ref
+# Ensure we have the base and head refs available locally. Try a few fetch strategies
+# to handle shallow or detached checkouts in CI.
 git fetch --no-tags origin "+refs/heads/*:refs/remotes/origin/*" >/dev/null 2>&1 || true
+git fetch --no-tags origin "${BASE_REF}" >/dev/null 2>&1 || true
+git fetch --no-tags origin "${HEAD_REF}" >/dev/null 2>&1 || true
+
+# If the above didn't populate origin refs, try fetching specific refs into remotes/origin
+git fetch --no-tags origin "refs/heads/${BASE_REF}:refs/remotes/origin/${BASE_REF}" >/dev/null 2>&1 || true
+git fetch --no-tags origin "refs/heads/${HEAD_REF}:refs/remotes/origin/${HEAD_REF}" >/dev/null 2>&1 || true
+
+# Resolve base and head refs to use in diff
+BASE_REF_REF="origin/${BASE_REF}"
+HEAD_REF_REF="origin/${HEAD_REF}"
+if ! git rev-parse --verify --quiet "$BASE_REF_REF" >/dev/null 2>&1; then
+  # fall back to the literal base ref
+  BASE_REF_REF="$BASE_REF"
+fi
+if ! git rev-parse --verify --quiet "$HEAD_REF_REF" >/dev/null 2>&1; then
+  HEAD_REF_REF="$HEAD_REF"
+fi
 
 # Compute changed files between base and head
-if git rev-parse --verify "origin/${BASE_REF}" >/dev/null 2>&1; then
-  CHANGED=$(git diff --name-only "origin/${BASE_REF}...${HEAD_REF}")
-else
-  CHANGED=$(git diff --name-only "${BASE_REF}...${HEAD_REF}" 2>/dev/null || true)
-fi
+CHANGED=$(git diff --name-only "${BASE_REF_REF}...${HEAD_REF_REF}" 2>/dev/null || true)
 
 echo "Changed files:" >&2
 echo "$CHANGED" >&2
