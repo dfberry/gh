@@ -6,7 +6,11 @@
     "test:ci": "npm run test --workspaces --if-present -- --run",
     "run-all": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-all.sh > ./generated/run-all.log 2>&1'",
     "run-all:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-all.sh > ./generated/run-all-dev.log 2>&1'",
-    "run-all:apply": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-all.sh --apply > ./generated/run-all-apply.log 2>&1'"
+    "run-all:apply": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-all.sh --apply > ./generated/run-all-apply.log 2>&1'",
+    "run-active": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-active.sh > ./generated/run-active.log 2>&1'",
+    "run-active:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-active.sh > ./generated/run-active-dev.log 2>&1'",
+    "run-maintenance": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-maintenance.sh > ./generated/run-maintenance.log 2>&1'",
+    "run-maintenance:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-maintenance.sh > ./generated/run-maintenance-dev.log 2>&1'"
   },
   "devDependencies": {
     "typescript": "^5.9.3"

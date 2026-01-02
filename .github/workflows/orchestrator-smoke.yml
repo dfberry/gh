@@ -1,0 +1,53 @@
+name: Orchestrator Smoke Tests
+
+# Smoke test workflow (manual run only).
+# Requires secrets to be configured in repository Settings -> Secrets and variables -> Actions:
+# - GH_TOKEN: Personal Access Token with `repo` scope for read-only operations. If you need destructive
+#   operations in CI (not recommended), add `delete_repo` and any other required scopes.
+# - OPENAI_API_KEY: (optional) API key for LLM steps if you want to run descriptions in CI.
+# Notes:
+# - This workflow is intended for manual dry-run smoke tests. Do NOT forward `--yes`/`--force` in PRs.
+# - To run: Actions → Orchestrator Smoke Tests → Run workflow.
+on:
+  workflow_dispatch:
+#  push:
+#  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Build gh-cleanup
+        run: npm --prefix packages/gh-cleanup run build
+
+      - name: Run active dry-run smoke
+        run: ./scripts/run-active.sh active-sample-repos.json $(pwd)/generated/gh-cleanup-active active-dryrun
+
+      - name: Run maintenance dry-run smoke
+        run: ./scripts/run-maintenance.sh active-sample-repos.json $(pwd)/generated/gh-cleanup-maintenance maintenance-dryrun
+
+      - name: List outputs
+        run: ls -la $(pwd)/generated/gh-cleanup-active || true && ls -la $(pwd)/generated/gh-cleanup-maintenance || true
+
+      - name: Upload active outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: active-outputs
+          path: generated/gh-cleanup-active
+
+      - name: Upload maintenance outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-outputs
+          path: generated/gh-cleanup-maintenance

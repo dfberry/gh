@@ -145,7 +145,7 @@ export async function runCommand(client: any, args: Args): Promise<any> {
     candidates.push({ owner, repo, entry: e });
   }
 
-  const cacheDir = process.env.OPENAI_CACHE_DIR || path.join(process.cwd(), '.cache');
+  const cacheDir = process.env.OPENAI_CACHE_DIR || path.join(process.cwd(), 'generated');
   const cacheFile = path.join(cacheDir, 'llm-cache.json');
   await fs.mkdir(cacheDir, { recursive: true }).catch(() => {});
   let cache: Record<string, any> = {};
