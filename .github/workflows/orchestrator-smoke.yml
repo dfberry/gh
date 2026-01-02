@@ -1,0 +1,44 @@
+name: Orchestrator Smoke Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install root deps
+        run: npm ci
+
+      - name: Build gh-cleanup
+        run: npm --prefix packages/gh-cleanup run build
+
+      - name: Run active dry-run smoke
+        run: ./scripts/run-active.sh active-sample-repos.json $(pwd)/generated/gh-cleanup-active active-dryrun
+
+      - name: Run maintenance dry-run smoke
+        run: ./scripts/run-maintenance.sh active-sample-repos.json $(pwd)/generated/gh-cleanup-maintenance maintenance-dryrun
+
+      - name: List outputs
+        run: ls -la $(pwd)/generated/gh-cleanup-active || true && ls -la $(pwd)/generated/gh-cleanup-maintenance || true
+
+      - name: Upload active outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: active-outputs
+          path: generated/gh-cleanup-active
+
+      - name: Upload maintenance outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: maintenance-outputs
+          path: generated/gh-cleanup-maintenance
