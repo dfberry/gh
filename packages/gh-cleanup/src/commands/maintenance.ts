@@ -16,9 +16,9 @@ export function parseArgs(argv: string[]): MaintenanceArgs {
   const base = parseBaseFlags(argv);
   const args: any = { ...base };
   argv.forEach((a) => {
-    if (a.startsWith('--input=')) args.input = a.split('=')[1];
-    if (a.startsWith('--out=')) args.out = a.split('=')[1];
-    if (a.startsWith('--out-prefix=')) args.outPrefix = a.split('=')[1];
+    if (a.startsWith('--input=')) args.input = a.split('=', 2)[1];
+    if (a.startsWith('--out=')) args.out = a.split('=', 2)[1];
+    if (a.startsWith('--out-prefix=')) args.outPrefix = a.split('=', 2)[1];
     if (a === '--dry-run') args.dryRun = true;
     if (a === '--yes') args.yes = true;
     if (a === '--force') args.force = true;
