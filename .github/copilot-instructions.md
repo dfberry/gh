@@ -115,16 +115,16 @@ Optional CI snippet (example) — add to `.github/workflows/*` to enforce docs p
 name: Verify Docs
 on: [pull_request]
 jobs:
-	verify-docs:
-		runs-on: ubuntu-latest
-		steps:
-			- uses: actions/checkout@v4
-			- run: |
-					set -e
-					if ! grep -R "${{ github.event.pull_request.head.ref }}" README.md packages/**/README.md docs; then
-						echo "Docs check failed"
-						exit 1
-					fi
+  verify-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -e
+          if ! grep -R "${{ github.event.pull_request.head.ref }}" README.md packages/**/README.md docs; then
+            echo "Docs check failed"
+            exit 1
+          fi
 ```
 
 ## Incremental Implementation Guidance
