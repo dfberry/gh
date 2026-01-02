@@ -29,7 +29,10 @@ export function parseRepoInput(inputPath: string): string[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) repos = parsed.map(String).filter(Boolean);
     } catch (e) {
-      // fall through to newline parsing
+      console.warn(
+        'Failed to parse repository input as JSON array; falling back to newline-separated format:',
+        e instanceof Error ? e.message : e
+      );
     }
   }
   
