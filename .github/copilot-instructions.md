@@ -2,7 +2,7 @@
 
 Welcome to the project! This document guides GitHub Copilot, other AI coding assistants, and contributors on conventions, safety checks, and the PR process so generated code and suggestions stay consistent with our project's standards.
 
-How to use this file
+## How to use this file
 - Audience: maintainers, contributors, and AI assistants. Use it to answer "how do I change X" questions quickly.
 - When to update: any time conventions, CI, or code placement rules change. Add a short note in PRs that modified this file.
 - Quick actions: copy the PR checklist block below into your PR description to speed review.
