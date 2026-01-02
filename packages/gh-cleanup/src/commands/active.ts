@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { parseRepoInput } from '../lib/input-parser.js';
 import * as readline from 'readline';
 
 export type ActiveArgs = {
@@ -33,19 +34,7 @@ export async function runCommand(_client: any, args: ActiveArgs): Promise<any> {
 
   // Normalize input into an array of repo full names.
   const inputPath = args.input || 'active-sample-repos.json';
-  let repos: string[] = [];
-  const raw = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf8') : '';
-  if (raw.trim().startsWith('[')) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) repos = parsed.map(String).filter(Boolean);
-    } catch (e) {
-      // fall through to newline parsing
-    }
-  }
-  if (repos.length === 0 && raw.trim().length > 0) {
-    repos = raw.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
-  }
+  const repos = parseRepoInput(inputPath);
 
   const timestamp = new Date().toISOString();
 
