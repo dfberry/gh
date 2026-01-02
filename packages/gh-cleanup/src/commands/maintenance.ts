@@ -50,10 +50,18 @@ export async function runCommand(_client: any, args: MaintenanceArgs): Promise<a
 
   const outDir = args.out || (base && (base as any).out) || `${process.cwd()}/generated`;
   const outPrefix = args.outPrefix || (base && (base as any).outPrefix) || 'maintenance-dryrun';
-  try { fs.mkdirSync(outDir, { recursive: true }); } catch (e) {}
+  try {
+    fs.mkdirSync(outDir, { recursive: true });
+  } catch (e) {
+    console.error(`Failed to create output directory "${outDir}":`, e);
+  }
 
   const normalizedInputPath = `${outDir}/.tmp-maintenance-input.json`;
-  try { fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8'); } catch (e) {}
+  try {
+    fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8');
+  } catch (e) {
+    console.error(`Failed to write normalized input file "${normalizedInputPath}":`, e);
+  }
 
   const steps = [
     { name: 'archive-stale-repos', module: '../commands/archive-stale-repos.js', wrapper: 'archiveStaleReposCommand' },
