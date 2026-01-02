@@ -50,10 +50,14 @@ export async function runCommand(_client: any, args: MaintenanceArgs): Promise<a
 
   const outDir = args.out || (base && (base as any).out) || `${process.cwd()}/generated`;
   const outPrefix = args.outPrefix || (base && (base as any).outPrefix) || 'maintenance-dryrun';
-  try { fs.mkdirSync(outDir, { recursive: true }); } catch (e) {}
+  try { fs.mkdirSync(outDir, { recursive: true }); } catch (e) {
+    console.error(`Warning: Failed to create output directory ${outDir}:`, e);
+  }
 
   const normalizedInputPath = `${outDir}/.tmp-maintenance-input.json`;
-  try { fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8'); } catch (e) {}
+  try { fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8'); } catch (e) {
+    console.error(`Warning: Failed to write normalized input file ${normalizedInputPath}:`, e);
+  }
 
   const steps = [
     { name: 'archive-stale-repos', module: '../commands/archive-stale-repos.js', wrapper: 'archiveStaleReposCommand' },
@@ -117,7 +121,9 @@ export async function runCommand(_client: any, args: MaintenanceArgs): Promise<a
   summary.failedSteps = errorSteps.map((x: any) => x.name);
 
   const summaryFile = `${outDir}/${outPrefix}-summary.json`;
-  try { fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8'); } catch (e) {}
+  try { fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8'); } catch (e) {
+    console.error(`Warning: Failed to write summary file ${summaryFile}:`, e);
+  }
 
   return { step: 'maintenance', repos, timestamp, summary };
 }
@@ -145,7 +151,7 @@ export async function writeOutput(result: any, args: MaintenanceArgs): Promise<v
     };
     fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
   } catch (e) {
-    // ignore write errors for stub
+    console.error(`Warning: Failed to write output files in ${out}:`, e);
   }
 }
 
