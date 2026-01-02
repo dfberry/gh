@@ -163,5 +163,3 @@ Thank you for keeping the project clean and maintainable.
 Contacts / Owners
 - Primary: repo maintainers (ping the team or add a MAINTAINERS file)
 - For Copilot/instructions updates: @repo-maintainer
-
-If you want, I can also add a small `verify-docs` CI job to this repo and a `PR_TEMPLATE.md` file. Mark this todo done when you're ready.
