@@ -36,7 +36,6 @@ echo "$CHANGED" >&2
 CMD_FILES=$(printf '%s\n' "$CHANGED" | grep -E '^packages/gh-cleanup/src/commands/.+\.(ts|js)$' || true)
 if [ -z "$(echo "$CMD_FILES" | tr -d '[:space:]')" ]; then
   echo "No command files changed; skipping docs verification."
-  echo "No command files changed; skipping docs verification."
   exit 0
 fi
 
