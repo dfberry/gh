@@ -20,7 +20,7 @@ set -euo pipefail
 #
 # Defaults:
 #   input-file=active-sample-repos.json
-#   out-dir=/tmp/gh-cleanup-active
+#   out-dir=$(pwd)/generated/gh-cleanup-active
 #   out-prefix=active-dryrun
 
 INPUT_FILE=${1:-active-sample-repos.json}
