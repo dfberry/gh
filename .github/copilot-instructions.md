@@ -101,7 +101,7 @@ Checklist:
 	- `README.md`
 	- any `docs/*.md` or `.github/*` files referencing the command
 
-Verification (copy/paste):
+#### Verification (copy/paste)
 
 ```bash
 # run from repo root - replace <cmd> with the command name
