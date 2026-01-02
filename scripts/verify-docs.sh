@@ -44,7 +44,8 @@ for f in $CMD_FILES; do
   name=$(basename "$f")
   cmd=${name%%.*}
   echo "Verifying docs mention for command: $cmd"
-  if grep -R --line-number --no-messages "$cmd" README.md packages/**/README.md docs; then
+  pattern="gh(-|[[:space:]])cleanup[[:space:]]$cmd"
+  if grep -R --line-number --no-messages -E "$pattern" README.md packages/**/README.md docs; then
     # Command is referenced in the docs; nothing to do.
     :
   else
