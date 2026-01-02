@@ -71,7 +71,6 @@ export async function runCommand(_client: any, args: MaintenanceArgs): Promise<a
       forwardApply = true;
     } else if (process.stdin.isTTY && process.stdout.isTTY) {
       const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      // eslint-disable-next-line no-await-in-loop
       const answer = await new Promise<string>((resolve) => rl.question(
         `This will perform destructive actions for steps: ${destructiveStepNames.join(', ')}\nType YES to confirm and forward --yes to subcommands: `,
         (ans: string) => { rl.close(); resolve(ans); }
