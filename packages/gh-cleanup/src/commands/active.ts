@@ -67,24 +67,36 @@ export async function runCommand(_client: any, args: ActiveArgs): Promise<any> {
 
   const summary: any = { steps: [] };
 
-  // Single staged confirmation for any destructive forwarding.
-  let forwardApply = false;
-  const destructiveStepNames = steps.map((s) => s.name);
-  if (args.yes) {
-    if (args.force) {
-      forwardApply = true;
-    } else if (process.stdin.isTTY && process.stdout.isTTY) {
-      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-      const answer = await new Promise<string>((resolve) => rl.question(
-        `This will forward destructive flags to steps: ${destructiveStepNames.join(', ')}\nType YES to confirm and forward --yes to subcommands: `,
-        (ans: string) => { rl.close(); resolve(ans); }
-      ));
-      if (answer.trim().toLowerCase() === 'yes') forwardApply = true;
-    } else {
-      throw new Error('Non-interactive run: to forward destructive actions provide both --yes and --force');
+  async function confirmDestructiveForwarding(
+    args: ActiveArgs,
+    destructiveStepNames: string[],
+  ): Promise<boolean> {
+    let forwardApply = false;
+    if (args.yes) {
+      if (args.force) {
+        forwardApply = true;
+      } else if (process.stdin.isTTY && process.stdout.isTTY) {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        const answer = await new Promise<string>((resolve) =>
+          rl.question(
+            `This will forward destructive flags to steps: ${destructiveStepNames.join(', ')}\nType YES to confirm and forward --yes to subcommands: `,
+            (ans: string) => {
+              rl.close();
+              resolve(ans);
+            },
+          ),
+        );
+        if (answer.trim().toLowerCase() === 'yes') forwardApply = true;
+      } else {
+        throw new Error('Non-interactive run: to forward destructive actions provide both --yes and --force');
+      }
     }
+    return forwardApply;
   }
 
+  // Single staged confirmation for any destructive forwarding.
+  const destructiveStepNames = steps.map((s) => s.name);
+  const forwardApply = await confirmDestructiveForwarding(args, destructiveStepNames);
   for (const s of steps) {
     const stepOut = `${outDir}/${outPrefix}-${s.name}.json`;
     const childArgv: string[] = [];
