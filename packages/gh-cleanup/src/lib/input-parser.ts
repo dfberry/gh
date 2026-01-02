@@ -9,7 +9,19 @@ import * as fs from 'fs';
  */
 export function parseRepoInput(inputPath: string): string[] {
   let repos: string[] = [];
-  const raw = fs.existsSync(inputPath) ? fs.readFileSync(inputPath, 'utf8') : '';
+  let raw = '';
+
+  if (!fs.existsSync(inputPath)) {
+    console.error(`Input file not found: ${inputPath}`);
+    return repos;
+  }
+
+  try {
+    raw = fs.readFileSync(inputPath, 'utf8');
+  } catch (error) {
+    console.error(`Failed to read input file "${inputPath}":`, error);
+    return repos;
+  }
   
   // Try to parse as JSON array first
   if (raw.trim().startsWith('[')) {
