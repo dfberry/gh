@@ -49,18 +49,12 @@ export async function runCommand(_client: any, args: ActiveArgs): Promise<any> {
 
   const timestamp = new Date().toISOString();
 
-  // Prepare normalized input file path for steps (place inside outDir/generated)
-  try {
-    // normalizedInputPath will be assigned after outDir is determined
-  } catch (e) {
-    // noop
-  }
-
   // Determine out dir and prefix from flags
   const outDir = args.out || (base && (base as any).out) || `${process.cwd()}/generated`;
   const outPrefix = args.outPrefix || (base && (base as any).outPrefix) || 'active-dryrun';
   try { fs.mkdirSync(outDir, { recursive: true }); } catch (e) {}
 
+  // Prepare normalized input file path for downstream steps (placed inside outDir/generated)
   const normalizedInputPath = `${outDir}/.tmp-active-input.json`;
   try { fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8'); } catch (e) {}
 
@@ -97,7 +91,14 @@ export async function runCommand(_client: any, args: ActiveArgs): Promise<any> {
     // pass normalized input and out locations
     childArgv.push(`--input=${normalizedInputPath}`);
     childArgv.push(`--out=${stepOut}`);
-    childArgv.push('--dry-run');
+    if (!forwardApply) {
+      // default to dry-run unless destructive forwarding was explicitly confirmed
+      childArgv.push('--dry-run');
+    } else {
+      // when applying for real, forward confirmation flags to child commands
+      if (args.yes) childArgv.push('--yes');
+      if (args.force) childArgv.push('--force');
+    }
     if (base?.debug) childArgv.push('--debug');
     try {
       const m = await import(s.module);

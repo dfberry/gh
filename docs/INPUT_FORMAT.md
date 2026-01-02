@@ -24,13 +24,12 @@ Behavior
 
 - Orchestrators accept an `--input` path that points to either format above.
 - When a subcommand requires a specific input shape, the orchestrator will normalize the input to a temporary JSON file and pass that path to the subcommand.
-- The sample input file provided at the repository root (`sample-repos.json`) is a valid JSON-array example.
- - The sample input file provided at the repository root (`active-sample-repos.json`) is a valid JSON-array example.
+- The sample input file provided at the repository root (`active-sample-repos.json`) is a valid JSON-array example.
+
 
 Example
 
-- `sample-repos.json` (root):
-
+- `active-sample-repos.json` (root):
   ```json
   [
     "Azure-Samples/azure-sdk-for-js",

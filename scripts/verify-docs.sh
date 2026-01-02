@@ -31,9 +31,20 @@ for f in $CMD_FILES; do
   name=$(basename "$f")
   cmd=${name%%.*}
   echo "Verifying docs mention for command: $cmd"
-  if ! grep -R --line-number --no-messages "$cmd" README.md packages/**/README.md docs || true; then
-    echo "Docs do not reference command '$cmd' in README.md or package READMEs or docs/" >&2
-    MISSING=1
+  if grep -R --line-number --no-messages "$cmd" README.md packages/**/README.md docs; then
+    # Command is referenced in the docs; nothing to do.
+    :
+  else
+    status=$?
+    if [ "$status" -eq 1 ]; then
+      # No matches found: treat as missing documentation.
+      echo "Docs do not reference command '$cmd' in README.md or package READMEs or docs/" >&2
+      MISSING=1
+    else
+      # grep encountered an actual error (e.g., unreadable files, invalid pattern).
+      echo "Error while searching docs for command '$cmd' (grep exit status: $status)" >&2
+      exit "$status"
+    fi
   fi
 done
 
