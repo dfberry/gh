@@ -33,9 +33,9 @@ echo "Changed files:" >&2
 echo "$CHANGED" >&2
 
 # Filter for command files under packages/gh-cleanup/src/commands/
-CMD_FILES=$(printf "%s
-" "$CHANGED" | grep -E '^packages/gh-cleanup/src/commands/.+\.(ts|js)$' || true)
+CMD_FILES=$(printf '%s\n' "$CHANGED" | grep -E '^packages/gh-cleanup/src/commands/.+\.(ts|js)$' || true)
 if [ -z "$(echo "$CMD_FILES" | tr -d '[:space:]')" ]; then
+  echo "No command files changed; skipping docs verification."
   echo "No command files changed; skipping docs verification."
   exit 0
 fi
