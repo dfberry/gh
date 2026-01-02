@@ -33,10 +33,10 @@ mkdir -p "$OUT_DIR"
 # If a root .env exists, load it into the environment (export vars).
 ROOT_DIR=$(cd "$(dirname "$0")/.." && pwd)
 if [ -f "$ROOT_DIR/.env" ]; then
-	set -a
-	# shellcheck disable=SC1090
-	source "$ROOT_DIR/.env"
-	set +a
+  set -a
+  # shellcheck disable=SC1090
+  source "$ROOT_DIR/.env"
+  set +a
 fi
 
 node packages/gh-cleanup/dist/bin/cli.js maintenance --input "$INPUT_FILE" --out "$OUT_DIR" --out-prefix "$OUT_PREFIX" --dry-run
