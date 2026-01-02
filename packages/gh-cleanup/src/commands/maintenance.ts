@@ -125,7 +125,11 @@ export async function runCommand(_client: any, args: MaintenanceArgs): Promise<a
   summary.failedSteps = errorSteps.map((x: any) => x.name);
 
   const summaryFile = `${outDir}/${outPrefix}-summary.json`;
-  try { fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8'); } catch (e) {}
+  try {
+    fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
+  } catch (e) {
+    console.error(`Failed to write summary file "${summaryFile}":`, e);
+  }
 
   return { step: 'maintenance', repos, timestamp, summary };
 }
