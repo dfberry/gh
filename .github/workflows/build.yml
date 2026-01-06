@@ -4,10 +4,10 @@ description: "Builds and tests the GitHub SDK package (`packages/gh`) on pushes 
 on:
   push:
     paths:
-      - 'packages/gh/**'
+      - 'packages/**'
   pull_request:
     paths:
-      - 'packages/gh/**'
+      - 'packages/**'
 
 jobs:
   build-and-test:
