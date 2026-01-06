@@ -13,4 +13,9 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*"]
+  ,
+  "references": [
+    { "path": "../github-rest" },
+    { "path": "../llm-completion" }
+  ]
 }
