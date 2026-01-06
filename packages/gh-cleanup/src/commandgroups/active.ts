@@ -10,7 +10,6 @@ export async function runCommand(_client: any, args: ActiveArgs): Promise<any> {
   const steps = [
     { name: 'categorize-repos', module: '../commands/categorize-repos.js', wrapper: 'categorizeReposCommand' },
     { name: 'describe-repos', module: '../commands/describe-repos.js', wrapper: 'describeReposCommand' },
-    { name: 'evaluate-actions', module: '../commands/evaluate-actions.js', wrapper: 'evaluateActionsCommand' },
     { name: 'summary', module: '../commands/summary.js', wrapper: 'summaryCommand' },
   ];
   return runGroupCommand(args, {
