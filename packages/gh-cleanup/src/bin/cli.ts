@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runCommand, availableCommands } from '../lib/commands.js';
+import { runCommand, availableCommands } from './commands.js';
 
 function printHelp() {
   console.log('gh-cleanup — repository cleanup helpers');
