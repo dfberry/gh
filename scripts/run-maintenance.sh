@@ -39,4 +39,4 @@ if [ -f "$ROOT_DIR/.env" ]; then
   set +a
 fi
 
-node packages/gh-cleanup/dist/bin/cli.js maintenance --input "$INPUT_FILE" --out "$OUT_DIR" --out-prefix "$OUT_PREFIX" --dry-run
+node packages/gh-cleanup/dist/bin/cli.js maintenance --input="$INPUT_FILE" --out="$OUT_DIR" --out-prefix="$OUT_PREFIX" --dry-run

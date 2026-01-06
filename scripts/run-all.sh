@@ -142,13 +142,19 @@ else
   echo "\n==> Skipping repository description step as OPENAI_API_KEY is not set." >&2
 fi
 
-# 5.5) Evaluate GitHub Actions workflows across active repositories
-#      - Produces $OUT_DIR/actions.md containing a Markdown table of per-repo
-#        workflow metadata (use --output=md to request table output)
+# 5.5) Evaluate workflows via the new `evaluate` orchestrator
+#    - Run the `evaluate` commandgroup which runs grouped evaluate steps
+#      (e.g., `evaluate-actions`) and writes its per-step JSON outputs.
+#    - For backward-compatible markdown output, also invoke the single
+#      `evaluate-actions` command to produce `$OUT_DIR/actions.md` when
+#      `GH_TOKEN` is present.
 if [ -z "${GH_TOKEN:-}" ]; then
-  echo "\n==> Skipping evaluate-actions as GH_TOKEN is not set." >&2
+  echo "\n==> Skipping evaluate group as GH_TOKEN is not set." >&2
 else
-  echo "\n==> Evaluating GitHub Actions workflows across repositories..." >&2
+  echo "\n==> Running evaluate orchestrator (grouped evaluate steps)..." >&2
+  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" evaluate --out=\"$OUT_DIR\" --out-prefix=\"evaluate-dryrun\" --debug --debug-dir=\"$OUT_DIR/actions\""
+
+  echo "\n==> Producing human-friendly actions.md via evaluate-actions (optional)..." >&2
   run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" evaluate-actions --output=md --out=\"$OUT_DIR/actions.md\" --debug --debug-dir=\"$OUT_DIR/actions\""
 fi
 

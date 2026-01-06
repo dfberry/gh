@@ -10,7 +10,9 @@
     "run-active": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-active.sh > ./generated/run-active.log 2>&1'",
     "run-active:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-active.sh > ./generated/run-active-dev.log 2>&1'",
     "run-maintenance": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-maintenance.sh > ./generated/run-maintenance.log 2>&1'",
-    "run-maintenance:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-maintenance.sh > ./generated/run-maintenance-dev.log 2>&1'"
+    "run-maintenance:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-maintenance.sh > ./generated/run-maintenance-dev.log 2>&1'",
+    "run-evaluate": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-evaluate.sh > ./generated/run-evaluate.log 2>&1'",
+    "run-evaluate:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-evaluate.sh > ./generated/run-evaluate-dev.log 2>&1'"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
