@@ -10,12 +10,23 @@ export type LLMConfig = {
 };
 
 export async function callOpenAI(prompt: string, cfg?: LLMConfig, opts?: { name?: string }) : Promise<string> {
+  // basic runtime validation
+  if (typeof prompt !== 'string') throw new Error('prompt must be a string');
+
   const apiKey = cfg?.key ?? process.env.OPENAI_API_KEY ?? process.env.AZURE_OPENAI_API_KEY;
   if (!apiKey) throw new Error('OPENAI API key not set (provide via config.key or OPENAI_API_KEY)');
 
   const model = cfg?.model ?? process.env.OPENAI_MODEL ?? process.env.AZURE_OPENAI_MODEL ?? 'gpt-4o-mini';
-  const temperature = cfg?.temperature ?? (process.env.OPENAI_TEMPERATURE ? Number(process.env.OPENAI_TEMPERATURE) : 0.2);
+  if (model != null && typeof model !== 'string') throw new Error('cfg.model must be a string');
+
+  let temperature = cfg?.temperature ?? (process.env.OPENAI_TEMPERATURE ? Number(process.env.OPENAI_TEMPERATURE) : 0.2);
+  temperature = Number(temperature);
+  if (Number.isNaN(temperature)) throw new Error('temperature must be a number');
+  // common valid range for temperature is [0,2]
+  if (temperature < 0 || temperature > 2) throw new Error('temperature must be between 0 and 2');
+
   const endpoint = cfg?.endpoint ?? process.env.OPENAI_ENDPOINT ?? 'https://api.openai.com/v1/chat/completions';
+  try { new URL(endpoint); } catch (e) { throw new Error('endpoint is not a valid URL'); }
 
   const body = {
     model,
@@ -34,11 +45,17 @@ export async function callOpenAI(prompt: string, cfg?: LLMConfig, opts?: { name?
   let json: any = null;
   while (attempt <= maxRetries) {
     try {
+      // use AbortController to avoid hung requests
+      const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
+      const timeoutMs = 30000;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
       const res = await fetchFn(endpoint, {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: controller?.signal
       });
+      if (timeoutId) clearTimeout(timeoutId);
       if (!res.ok) {
         const ra = res.headers.get('retry-after');
         const status = res.status;
@@ -61,7 +78,7 @@ export async function callOpenAI(prompt: string, cfg?: LLMConfig, opts?: { name?
         json = maybeJson;
         break;
       }
-      json = await res.json();
+      json = await res.json().catch(() => null);
       break;
     } catch (e) {
       lastErr = e;
