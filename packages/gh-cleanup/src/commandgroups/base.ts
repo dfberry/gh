@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as readline from 'readline';
+import { startSection, endSection } from '../lib/cli-log.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
 
@@ -69,6 +70,8 @@ export async function runGroupCommand(
 ): Promise<any> {
   const base = (args as any).base as BaseFlags | undefined;
 
+  startSection(`group: ${opts.groupName}`);
+
   const inputPath = args.input || opts.defaultInput;
   const repos = parseRepoInput(inputPath);
 
@@ -96,6 +99,7 @@ export async function runGroupCommand(
   const forwardApply = await confirmDestructiveForwarding(args, destructiveStepNames);
 
   for (const s of steps) {
+    startSection(`step: ${s.name}`);
     const stepOut = `${outDir}/${outPrefix}-${s.name}.json`;
     const childArgv: string[] = [];
     childArgv.push(`--input=${normalizedInputPath}`);
@@ -115,8 +119,10 @@ export async function runGroupCommand(
       } else {
         summary.steps.push({ name: s.name, file: stepOut, status: 'missing' });
       }
+      endSection(`step: ${s.name}`, 'ok');
     } catch (e) {
       summary.steps.push({ name: s.name, file: stepOut, status: 'error', error: String(e) });
+      endSection(`step: ${s.name}`, 'error');
       if (!args.continueOnError) break;
     }
   }
@@ -131,6 +137,9 @@ export async function runGroupCommand(
   } catch (e) {
     console.error(`Failed to write summary file "${summaryFile}":`, e);
   }
+
+  const status = summary.errorCount > 0 ? 'errors' : 'ok';
+  endSection(`group: ${opts.groupName}`, status);
 
   return { step: opts.groupName, repos, timestamp, summary };
 }
