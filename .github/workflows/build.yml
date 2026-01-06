@@ -24,13 +24,13 @@ jobs:
           node-version: '22'
 
       - name: Install 
-        working-directory: packages/gh
+        working-directory: .
         run: npm install
 
       - name: Build
-        working-directory: packages/gh
+        working-directory: .
         run: npm run build
 
       - name: Tests
-        working-directory: packages/gh
+        working-directory: .
         run: npm run test
