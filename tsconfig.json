@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/github-rest" },
+    { "path": "./packages/llm-completion" },
+    { "path": "./packages/gh-cleanup" }
+  ]
+}
