@@ -1,4 +1,13 @@
 {
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "github-rest": ["packages/github-rest/src"],
+      "github-rest/*": ["packages/github-rest/src/*"],
+      "llm-completion": ["packages/llm-completion/src"],
+      "llm-completion/*": ["packages/llm-completion/src/*"]
+    }
+  },
   "files": [],
   "references": [
     { "path": "./packages/github-rest" },

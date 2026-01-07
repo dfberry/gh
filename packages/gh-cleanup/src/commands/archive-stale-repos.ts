@@ -42,16 +42,16 @@ export async function runCommand(client: any, args: Args): Promise<any> {
 
   const cutoff = new Date(Date.now() - (args.olderThanDays ?? 365) * 24 * 60 * 60 * 1000);
 
-  const maybe = all.filter((r) => repos.repoIsEligibleForStale(r as any, { excludeForks: args.excludeForks }));
-  const flags = await Promise.all(maybe.map((r) => repos.isStale(client, r as any, cutoff)));
-  const candidates = maybe.filter((_, i) => flags[i]);
+  const maybe = all.filter((r: any) => repos.repoIsEligibleForStale(r as any, { excludeForks: args.excludeForks }));
+  const flags = await Promise.all(maybe.map((r: any) => repos.isStale(client, r as any, cutoff)));
+  const candidates = maybe.filter((_: any, i: number) => flags[i]);
 
   console.log(`Found ${candidates.length} stale repo(s) older than ${args.olderThanDays} days.`);
   if (candidates.length === 0) {
     return { candidates: [] };
   }
 
-  const details = candidates.map((c) => ({ full_name: c.full_name, html_url: c.html_url, pushed_at: c.pushed_at, size: c.size }));
+  const details = candidates.map((c: any) => ({ full_name: c.full_name, html_url: c.html_url, pushed_at: c.pushed_at, size: c.size }));
 
   if (!args.yes) {
     // report only
