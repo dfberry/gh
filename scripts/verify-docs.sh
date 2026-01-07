@@ -44,21 +44,23 @@ for f in $CMD_FILES; do
   name=$(basename "$f")
   cmd=${name%%.*}
   echo "Verifying docs mention for command: $cmd"
-  pattern="gh(-|[[:space:]])cleanup[[:space:]]$cmd"
-  if grep -R --line-number --no-messages -E "$pattern" README.md packages/**/README.md docs; then
-    # Command is referenced in the docs; nothing to do.
+  # Match either a backticked command name (e.g. `summary`) or the command as a
+  # standalone word. Use POSIX word boundaries ([[:<:]]/[[:>:]]) so we don't
+  # require the docs to include the literal "gh-cleanup <cmd>" phrase.
+  pattern="(\`$cmd\`|[[:<:]]$cmd[[:>:]])"
+  grep -R --line-number --no-messages -E "$pattern" README.md packages/**/README.md docs >/dev/null 2>&1
+  status=$?
+  if [ "$status" -eq 0 ]; then
+    # Found a reference.
     :
+  elif [ "$status" -eq 1 ]; then
+    # No matches found: treat as missing documentation.
+    echo "Docs do not reference command '$cmd' in README.md or package READMEs or docs/" >&2
+    MISSING=1
   else
-    status=$?
-    if [ "$status" -eq 1 ]; then
-      # No matches found: treat as missing documentation.
-      echo "Docs do not reference command '$cmd' in README.md or package READMEs or docs/" >&2
-      MISSING=1
-    else
-      # grep encountered an actual error (e.g., unreadable files, invalid pattern).
-      echo "Error while searching docs for command '$cmd' (grep exit status: $status)" >&2
-      exit "$status"
-    fi
+    # grep encountered an actual error (e.g., unreadable files, invalid pattern).
+    echo "Error while searching docs for command '$cmd' (grep exit status: $status)" >&2
+    exit "$status"
   fi
 done
 
