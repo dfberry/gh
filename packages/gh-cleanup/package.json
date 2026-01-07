@@ -5,6 +5,13 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./package.json": "./package.json"
+  },
   "engines": {
     "node": ">=22"
   },
@@ -12,7 +19,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "npm --prefix ../github-rest run build && npm run build && node --env-file ../../.env ./dist/bin/cli.js",
     "dev": "ts-node --esm ./src/bin/cli.ts",
-    "test": "echo \"No tests\""
+    "test": "echo \"No tests\"",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "github-rest": "file:../github-rest",

@@ -1,26 +1,12 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true,
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "baseUrl": ".",
-    "paths": {
-      "github-rest": ["../github-rest/src"],
-      "github-rest/*": ["../github-rest/src/*"],
-      "llm-completion": ["../llm-completion/src"],
-      "llm-completion/*": ["../llm-completion/src/*"]
-    },
-    "lib": ["ES2022","DOM"],
-    "strict": true,
-    "esModuleInterop": false,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
     "outDir": "dist",
-    "skipLibCheck": true
+    "rootDir": "src",
+    "baseUrl": ".",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "include": ["src/**/*"]
-  ,
+  "include": ["src/**/*"],
   "references": [
     { "path": "../github-rest" },
     { "path": "../llm-completion" }

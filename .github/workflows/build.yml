@@ -39,6 +39,8 @@ jobs:
         working-directory: .
         # Use `npm ci` for clean, repeatable installs in CI and enable caching
         run: |
+          node -v
+          npm -v
           npm ci
 
       - name: Build
