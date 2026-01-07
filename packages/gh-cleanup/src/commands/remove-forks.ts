@@ -46,7 +46,7 @@ export async function runCommand(client: GitHubClient, args: Args) {
     return repos.listAuthenticatedUserRepos(client, page, 100);
   });
 
-  const ownedForks = all.filter((r) => r.fork && r.owner?.login === me);
+  const ownedForks = all.filter((r: any) => r.fork && r.owner?.login === me);
 
   const foundCount = ownedForks.length;
   console.log(`Found ${foundCount} fork(s) owned by ${me}`);

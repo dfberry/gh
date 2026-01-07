@@ -4,6 +4,13 @@
     "target": "ES2022",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "github-rest": ["../github-rest/src"],
+      "github-rest/*": ["../github-rest/src/*"],
+      "llm-completion": ["../llm-completion/src"],
+      "llm-completion/*": ["../llm-completion/src/*"]
+    },
     "lib": ["ES2022","DOM"],
     "strict": true,
     "esModuleInterop": false,
