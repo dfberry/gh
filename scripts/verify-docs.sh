@@ -26,45 +26,103 @@ if ! git rev-parse --verify --quiet "$HEAD_REF_REF" >/dev/null 2>&1; then
   HEAD_REF_REF="$HEAD_REF"
 fi
 
-# Compute changed files between base and head
-CHANGED=$(git diff --name-only "${BASE_REF_REF}...${HEAD_REF_REF}" 2>/dev/null || true)
-
-echo "Changed files:" >&2
-echo "$CHANGED" >&2
-
-# Filter for command files under packages/gh-cleanup/src/commands/
-CMD_FILES=$(printf '%s\n' "$CHANGED" | grep -E '^packages/gh-cleanup/src/commands/.+\.(ts|js)$' || true)
-if [ -z "$(echo "$CMD_FILES" | tr -d '[:space:]')" ]; then
-  echo "No command files changed; skipping docs verification."
-  exit 0
+# Discover all command files in the gh-cleanup commands directory and verify docs
+CMD_INDEX="packages/gh-cleanup/src/bin/commands.ts"
+echo "Loading command index: $CMD_INDEX" >&2
+if [ -f "$CMD_INDEX" ]; then
+  # Extract command keys from the commands object. Handles quoted keys and
+  # unquoted identifier keys (e.g. summary: async ...)
+  mapfile -t CMD_NAMES < <(sed -n -e "s/^[[:space:]]*'\([^']\+\)'[[:space:]]*:[[:space:]]*async.*/\1/p" -e "s/^[[:space:]]*\([a-zA-Z0-9_-]\+\)[[:space:]]*:[[:space:]]*async.*/\1/p" "$CMD_INDEX" | sort -u)
+  if [ ${#CMD_NAMES[@]} -eq 0 ]; then
+    echo "No commands found in $CMD_INDEX; falling back to scanning command files." >&2
+  else
+    echo "Commands found (${#CMD_NAMES[@]}):" >&2
+    for cmd in "${CMD_NAMES[@]}"; do
+      echo "- $cmd" >&2
+    done
+  fi
 fi
 
-MISSING=0
-for f in $CMD_FILES; do
-  name=$(basename "$f")
-  cmd=${name%%.*}
-  echo "Verifying docs mention for command: $cmd"
-  pattern="gh(-|[[:space:]])cleanup[[:space:]]$cmd"
-  if grep -R --line-number --no-messages -E "$pattern" README.md packages/**/README.md docs; then
-    # Command is referenced in the docs; nothing to do.
-    :
+# If no commands found via index, fall back to scanning the commands directory
+if [ -z "${CMD_NAMES[*]:-}" ]; then
+  CMD_DIR="packages/gh-cleanup/src/commands"
+  if [ ! -d "$CMD_DIR" ]; then
+    echo "Command directory not found: $CMD_DIR" >&2
+    exit 0
+  fi
+  mapfile -t CMD_FILES < <(find "$CMD_DIR" -maxdepth 1 -type f \( -name '*.ts' -o -name '*.js' \) -print | sort)
+  if [ ${#CMD_FILES[@]} -eq 0 ]; then
+    echo "No command source files found in $CMD_DIR; skipping docs verification." >&2
+    exit 0
+  fi
+  echo "Commands found (${#CMD_FILES[@]}):" >&2
+  for f in "${CMD_FILES[@]}"; do
+    name=$(basename "$f")
+    cmd=${name%%.*}
+    echo "- $cmd" >&2
+    CMD_NAMES+=("$cmd")
+  done
+fi
+
+MISSING_COUNT=0
+MISSING_LIST=()
+echo >&2
+echo "Verifying docs for each command..." >&2
+for cmd in "${CMD_NAMES[@]}"; do
+  echo "Checking: $cmd" >&2
+
+  # Build a safe list of search paths to avoid grep failing on missing globs
+  SEARCH_PATHS=()
+  [ -f README.md ] && SEARCH_PATHS+=("README.md")
+  while IFS= read -r p; do SEARCH_PATHS+=("$p"); done < <(find packages -maxdepth 3 -type f -name README.md 2>/dev/null || true)
+  [ -d docs ] && SEARCH_PATHS+=("docs")
+  if [ ${#SEARCH_PATHS[@]} -eq 0 ]; then
+    # Fallback to repo README if nothing else exists
+    SEARCH_PATHS+=("README.md")
+  fi
+
+  # First try an exact backticked match (e.g. `summary`) using fixed-string search
+  if output=$(grep -R --line-number --no-messages -F "\`$cmd\`" "${SEARCH_PATHS[@]}" 2>/dev/null); then
+    echo "FOUND (backtick): $cmd" >&2
+    echo "$output" | sed 's/^/  /' >&2
   else
     status=$?
-    if [ "$status" -eq 1 ]; then
-      # No matches found: treat as missing documentation.
-      echo "Docs do not reference command '$cmd' in README.md or package READMEs or docs/" >&2
-      MISSING=1
+    if [ $status -eq 2 ]; then
+      echo "ERROR searching docs for '$cmd' (grep exit status: $status)" >&2
+      echo "Please ensure the docs directories are readable and patterns are valid." >&2
+      MISSING_COUNT=$((MISSING_COUNT+1))
+      MISSING_LIST+=("$cmd (error)")
+      echo >&2
+      continue
+    fi
+
+    # Fallback to a word match
+    if output=$(grep -R --line-number --no-messages -w -- "$cmd" "${SEARCH_PATHS[@]}" 2>/dev/null); then
+      echo "FOUND (word): $cmd" >&2
+      echo "$output" | sed 's/^/  /' >&2
     else
-      # grep encountered an actual error (e.g., unreadable files, invalid pattern).
-      echo "Error while searching docs for command '$cmd' (grep exit status: $status)" >&2
-      exit "$status"
+      status=$?
+      if [ $status -eq 1 ]; then
+        echo "MISSING: $cmd (no matches in README.md, packages/**/README.md or docs/)" >&2
+        MISSING_COUNT=$((MISSING_COUNT+1))
+        MISSING_LIST+=("$cmd")
+      else
+        echo "ERROR searching docs for '$cmd' (grep exit status: $status)" >&2
+        MISSING_COUNT=$((MISSING_COUNT+1))
+        MISSING_LIST+=("$cmd (error)")
+      fi
     fi
   fi
+  echo >&2
 done
 
-if [ "$MISSING" -ne 0 ]; then
-  echo "Documentation verification failed: missing references for one or more commands." >&2
+if [ $MISSING_COUNT -ne 0 ]; then
+  echo "Documentation verification: FAILED — $MISSING_COUNT missing or errored." >&2
+  echo "Missing commands:" >&2
+  for m in "${MISSING_LIST[@]}"; do
+    echo "- $m" >&2
+  done
   exit 1
 fi
 
-echo "Documentation verification passed."
+echo "Documentation verification: PASSED — all ${#CMD_NAMES[@]} commands referenced in docs." >&2

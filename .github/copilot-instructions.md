@@ -163,3 +163,14 @@ Thank you for keeping the project clean and maintainable.
 Contacts / Owners
 - Primary: repo maintainers (ping the team or add a MAINTAINERS file)
 - For Copilot/instructions updates: @repo-maintainer
+
+**Copilot Guidance for This Repo**
+
+- **Purpose:** Guidance for AI assistants and contributors working in this repository.
+- **Centralized GitHub requests:** Keep GitHub REST requests in `packages/github-rest` and use the shared request client instead of calling `fetch` directly from command modules.
+- **TypeScript practice:** Prefer explicit types and `async/await`; extend `tsconfig.base.json` for shared compiler options and keep `composite: true` for packages participating in project-reference builds.
+- **Testing:** Place tests next to modules (`*.test.ts`), use `vitest` and `vi` for mocks, and mock network calls with `globalThis.fetch` in tests.
+- **Command changes:** When editing files under `packages/gh-cleanup/src/commands/`, include the required PR checklist: summary, safety checks, docs/README updates, and tests covering behavior changes.
+- **Build & CI:** After altering `package.json` or build deps, run `npm install` locally and commit the updated `package-lock.json` so CI `npm ci` remains deterministic.
+- **Releases:** For publish automation, ensure `NPM_TOKEN` is set in CI. Consider Changesets for monorepo-aware versioning; if using `semantic-release`, update and commit the lockfile before CI runs.
+- **Related docs:** See [TS Project References](docs/TS_PROJECT_REFERENCES.md) for build and project-reference conventions.

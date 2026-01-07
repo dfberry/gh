@@ -1,15 +1,10 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "lib": ["ES2022","DOM"],
-    "strict": true,
-    "esModuleInterop": false,
-    "forceConsistentCasingInFileNames": true,
-    "declaration": true,
     "outDir": "dist",
-    "skipLibCheck": true
+    "rootDir": "src",
+    "baseUrl": ".",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
   "include": ["src/**/*"]
 }

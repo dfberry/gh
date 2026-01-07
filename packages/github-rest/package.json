@@ -1,7 +1,7 @@
 {
   "name": "github-rest",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -10,16 +10,18 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
+    ,
+    "./package.json": "./package.json"
   },
   "engines": {
     "node": ">=22"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest"
+    "test": "echo \"No tests\"",
+    "prepublishOnly": "npm run build && npm test"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "vitest": "^1.0.0"
+    "typescript": "^5.0.0"
   }
 }

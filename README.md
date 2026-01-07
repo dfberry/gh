@@ -198,6 +198,24 @@ Variable descriptions:
 Debugging LLM calls
 - The describe commands support optional debug flags to record prompts and provider responses for inspection:
 	- `--debug`: enable debug recording.
+
+	## CI / Build recommendations
+
+	This repository uses a TypeScript project-reference build. Recommended workflow:
+
+	- Node: >=22 (CI uses Node 22).
+	- npm: >=7 (recommended for workspace behavior and `npm ci`).
+
+	Local/CI build commands:
+
+	```bash
+	npm ci
+	npm run build
+	```
+
+	`npm run build` executes `tsc -b` from the repository root to perform an incremental project-reference build across packages. Ensure `package-lock.json` is committed and CI runs `npm ci` for deterministic installs.
+
+	If you plan to publish packages, build outputs are emitted to each package's `dist/` directory and packages export their compiled entry points from `dist/`.
 	- `--debug-dir=<path>`: directory to write debug files (input prompt and full response JSON).
 	- These map to the `LLMConfig.debug` settings passed to the LLM client; callers may also enable debugging programmatically.
 
@@ -258,19 +276,3 @@ Example (apply changes and allow the describe step to write updates):
 
 These switches are used across the CLI commands (examples above and `scripts/run-all.sh`):
 
-- `--yes` : perform the destructive action (delete, archive, etc.) instead of a dry-run.
-- `--force` : skip interactive typed confirmation prompts.
-- `--out=<path>` : write command output or plan to a file (JSON or Markdown depending on command/`--output`).
-- `--no-audit` : omit permission/audit details from outputs where supported.
-- `--allow-forks` : include forked repositories in scans and actions.
-- `--older-than-days=<n>` : threshold (days) to consider a repo stale (default 365).
-- `--verify` : perform extra metadata checks (slower) to verify stale/empty status.
-- `--fetch` : fetch extra metadata (languages, README) for improved analysis.
-- `--output=json|md` : choose machine-readable JSON or Markdown output for listing commands.
-- `--summary-out=<path>` : write full summary Markdown (counts + active table).
-- `--repos=<file>` or `--input=<file>` : input JSON file for batch commands (describe-repos), supports arrays or object shapes.
-- `--prompt=<path>` : override the LLM prompt file (otherwise upward-searches for `.github/LLM_DESCRIBE_REPO_PROMPT.md`).
-- `--openai-key=<key>` : supply OpenAI API key for LLM calls (falls back to `OPENAI_API_KEY` env var).
-- `--openai-model=`, `--openai-temp=`, `--openai-endpoint=` : optional OpenAI/LLM tuning flags.
-- `--apply` : apply LLM-generated suggestions to GitHub (PATCH description, update topics) — requires `GH_TOKEN` with appropriate permissions.
-- `--rules=<path>` : custom rules file for `categorize-repos`.

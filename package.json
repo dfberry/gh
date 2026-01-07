@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "tsc -b",
     "test": "npm run test --workspaces --if-present",
     "test:dev": "npm run test --workspaces --if-present -- -w",
     "test:ci": "npm run test --workspaces --if-present -- --run",

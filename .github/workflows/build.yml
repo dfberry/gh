@@ -4,10 +4,10 @@ description: "Builds and tests the GitHub SDK package (`packages/gh`) on pushes 
 on:
   push:
     paths:
-      - 'packages/gh/**'
+      - 'packages/**'
   pull_request:
     paths:
-      - 'packages/gh/**'
+      - 'packages/**'
 
 jobs:
   build-and-test:
@@ -22,15 +22,32 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Cache npm cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ~/.cache
+          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-cache-
 
       - name: Install 
-        working-directory: packages/gh
-        run: npm install
+        working-directory: .
+        # Use `npm ci` for clean, repeatable installs in CI and enable caching
+        run: |
+          node -v
+          npm -v
+          npm ci
 
       - name: Build
-        working-directory: packages/gh
+        working-directory: .
+        # Use the root build which now uses `tsc -b` to build project references
         run: npm run build
 
       - name: Tests
-        working-directory: packages/gh
+        working-directory: .
         run: npm run test
