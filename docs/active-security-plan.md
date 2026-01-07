@@ -46,14 +46,15 @@ Breakdown: implement GA-only helpers and tests in small, verifiable steps.
 
 4. Reuse `GitHubClient` utilities
    - Use `client.rawRequest()`/`client.get()` and the existing header-building behavior.
-   - For 204/404 endpoints, convert status codes to booleans and throw `GitHubError` on unexpected codes.
+   - For 204/404 endpoints, convert status codes to booleans and throw `GitHubError` on unexpected codes. **Completed**
 
 5. Tests (mocked) — **Completed (Stage 1 helpers & aggregator)**
    - `packages/github-rest/src/endpoints/security.test.ts` added covering the Stage 1 probes and `getRepoSecurityConfig` aggregator.
    - Tests mock external dependencies (use `vi` and stub `GitHubClient.rawRequest` / `client.get`) and assert header handling and boolean normalization. `vitest` was added to `packages/github-rest` and the Stage 1 tests pass.
 
 6. Export and integrate
-   - Add `export * as security from './endpoints/security.js'` to `packages/github-rest/src/index.ts`.
+   - **Export (github-rest):** Add `export * as security from './endpoints/security.js'` to `packages/github-rest/src/index.ts` so the helpers are available to callers.
+   - **Integrate (gh-cleanup):** Import and use the `security` helpers from `github-rest` in `packages/gh-cleanup/src/commands/active-security.ts` and the new `packages/gh-cleanup/src/commands/fix/security-toggles.ts` (for example: `import { security } from 'github-rest'`).
    - Keep Stage 1 strictly GA-only (do not merge preview Accept headers unless `options.accept` is explicitly set by the caller).
 
 Stage 1 Implementation (gh-cleanup active group)
@@ -72,7 +73,46 @@ Stage 2 — Previews & Evaluate (What is reporting?)
 
 Goal: Add optional preview usage and alert-listing helpers so `evaluate` commands can surface actionable items for remediation (Dependabot alerts, code-scanning alerts, secret-scanning alerts).
 
-Stage 2 Implementation
+## Fix command group: secure-repo-config
+
+Plan: Add a `fix` command group with a single command `fix security-toggles` to attempt enabling common repository security settings.
+
+- Placement: `packages/gh-cleanup/src/commands/fix/security-toggles.ts` (export via dynamic commands registry).
+- Behavior:
+   - Input: owner/repo list (file or stdin) or use generated/active summaries.
+   - Use centralized `packages/github-rest` client for all GitHub REST calls.
+   - Enable simple toggles via API where supported:
+      - `vulnerability_alerts` (PUT)
+      - `automated_security_fixes` (PUT)
+      - `dependency_graph` (PUT)
+   - For settings requiring repository commits or files:
+      - `dependabot_config_present` — create/commit `.github/dependabot.yml` (requires a template/config from caller).
+      - `security_policy_file` — create/commit `SECURITY.md` (requires policy template).
+   - For settings requiring additional info or org-level privileges:
+      - `code_scanning` — requires adding a CodeQL Actions workflow or SARIF upload; decide on auto-create vs. user-provided workflow.
+      - `secret_scanning` — often org-level or requires GitHub Advanced Security; needs org admin/license confirmation.
+   - Flags:
+      - `--dry-run` (default): show planned changes without mutating.
+      - `--yes` / `--confirm`: apply changes non-interactively.
+      - `--continue-on-error`: proceed when individual repos fail.
+      - `--concurrency`: parallelism control.
+   - Safety:
+      - Require `GITHUB_TOKEN` with repo admin scope (document required scopes).
+      - Log actions, API responses, and failures; produce summary JSON similar to `generated/…` files.
+      - Require explicit `--yes` for any non-idempotent operations.
+
+Tests, Docs & CI:
+- Unit tests next to the module using `vitest`, mocking network via `vi` and `globalThis.fetch`.
+- Update `packages/gh-cleanup/README.md` and repo `README.md` with usage and token scope docs.
+- Add a CI smoke test that runs the command in `--dry-run` against fixtures.
+
+Notes — settings needing more information:
+- `dependabot_config_present`: requires a `dependabot.yml` template; cannot be toggled via API alone.
+- `code_scanning`: requires a workflow or SARIF; decide on workflow template and query set.
+- `secret_scanning`: may require org-level enablement / GitHub Advanced Security — confirm org admin privileges and licensing.
+- `security_policy_file`: needs `SECURITY.md` content/template to commit.
+
+Rollout checklist: implement API toggles, add commit helpers for templates, add flags/safety checks, tests, docs, and CI smoke test.
 
 1. Add `packages/github-rest/src/endpoints/_previews.ts` containing friendly preview token constants (placeholders to be verified against GitHub docs before use).
 

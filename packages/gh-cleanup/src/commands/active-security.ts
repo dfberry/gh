@@ -72,7 +72,7 @@ export async function runCommand(client: any, args: Args) {
 export async function activeSecurityCommand(argv: string[]) {
   const args = parseArgs(argv);
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-  const client = createGitHubClient(token as string | undefined);
+  const client = createGitHubClient({ token: token as string | undefined });
   const res = await runCommand(client as any, args);
   const out = args.out || args.out;
   await emitOutput(formatJsonOutput(res.results), out || undefined);

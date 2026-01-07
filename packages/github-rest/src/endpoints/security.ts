@@ -192,3 +192,86 @@ export async function isCodeScanningEnabled(client: GitHubClient, owner: string,
 }
 
 export default {} as const;
+
+// --- Fix helpers (write/enable actions) ---
+
+/**
+ * Enable vulnerability alerts for a repository.
+ * Returns true when the API indicates success (204).
+ */
+export async function enableVulnerabilityAlerts(client: GitHubClient, owner: string, repo: string, opts?: SecurityCallOptions): Promise<boolean> {
+  const path = `/repos/${owner}/${repo}/vulnerability-alerts`;
+  const requestOpts: any = {};
+  if (opts?.signal) requestOpts.signal = opts.signal;
+  if (opts?.accept) {
+    const acc = Array.isArray(opts.accept) ? opts.accept.join(', ') : opts.accept;
+    requestOpts.headers = { Accept: acc };
+  }
+
+  try {
+    const res = await client.rawRequest<any>('PUT', path, requestOpts);
+    return res.status === 204;
+  } catch (err: any) {
+    throw err instanceof GitHubError ? err : new GitHubError(String(err?.message ?? 'Unknown error'), err?.status ?? 0, err?.headers ?? {}, err?.body ?? undefined);
+  }
+}
+
+/**
+ * Enable automated security fixes for a repository.
+ * Returns true when the API indicates success (204).
+ */
+export async function enableAutomatedSecurityFixes(client: GitHubClient, owner: string, repo: string, opts?: SecurityCallOptions): Promise<boolean> {
+  const path = `/repos/${owner}/${repo}/automated-security-fixes`;
+  const requestOpts: any = {};
+  if (opts?.signal) requestOpts.signal = opts.signal;
+  if (opts?.accept) {
+    const acc = Array.isArray(opts.accept) ? opts.accept.join(', ') : opts.accept;
+    requestOpts.headers = { Accept: acc };
+  }
+
+  try {
+    const res = await client.rawRequest<any>('PUT', path, requestOpts);
+    return res.status === 204;
+  } catch (err: any) {
+    throw err instanceof GitHubError ? err : new GitHubError(String(err?.message ?? 'Unknown error'), err?.status ?? 0, err?.headers ?? {}, err?.body ?? undefined);
+  }
+}
+
+/**
+ * Create or update a file in the repository using the Contents API.
+ * - `path` should be relative inside the repo (e.g. `.github/dependabot.yml`).
+ * - `content` is the UTF-8 plain text to commit.
+ */
+export async function createOrUpdateFile(client: GitHubClient, owner: string, repo: string, path: string, content: string, message: string, opts?: { branch?: string; committer?: { name: string; email: string }; signal?: AbortSignal }): Promise<boolean> {
+  const fullPath = `/repos/${owner}/${repo}/contents/${path}`;
+  const requestOptsAny: any = {};
+  if (opts?.signal) requestOptsAny.signal = opts.signal;
+
+  // Determine existing file SHA (if present)
+  let sha: string | undefined = undefined;
+  try {
+    const existing = await client.rawRequest<any>('GET', fullPath, requestOptsAny);
+    if (existing && existing.body && existing.body.sha) sha = existing.body.sha;
+  } catch (e: any) {
+    if (!(e?.status === 404)) {
+      // real error
+      throw e instanceof GitHubError ? e : new GitHubError(String(e?.message ?? 'Unknown error'), e?.status ?? 0, e?.headers ?? {}, e?.body ?? undefined);
+    }
+  }
+
+  const payload: any = {
+    message,
+    content: Buffer.from(content, 'utf8').toString('base64'),
+  };
+  if (sha) payload.sha = sha;
+  if (opts?.branch) payload.branch = opts.branch;
+  if (opts?.committer) payload.committer = opts.committer;
+
+  try {
+    const res = await client.rawRequest<any>('PUT', fullPath, { body: payload, signal: opts?.signal });
+    // success codes: 201 (created) or 200 (updated)
+    return res.status === 201 || res.status === 200;
+  } catch (e: any) {
+    throw e instanceof GitHubError ? e : new GitHubError(String(e?.message ?? 'Unknown error'), e?.status ?? 0, e?.headers ?? {}, e?.body ?? undefined);
+  }
+}

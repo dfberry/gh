@@ -251,3 +251,76 @@ describe('security.isDependencyGraphEnabled', () => {
     await expect((await import('./security.js')).isDependencyGraphEnabled(client, 'o', 'r')).rejects.toThrow(/server/);
   });
 });
+
+describe('security.enableVulnerabilityAlerts', () => {
+  let client: GitHubClient;
+  beforeEach(() => { client = new GitHubClient({ token: 'x' }); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('returns true when PUT responds 204', async () => {
+    const raw = vi.fn().mockResolvedValue({ status: 204, headers: {}, body: undefined });
+    (client as any).rawRequest = raw;
+    const fn = (await import('./security.js')).enableVulnerabilityAlerts;
+    const out = await fn(client, 'o', 'r');
+    expect(out).toBe(true);
+    expect(raw).toHaveBeenCalledWith('PUT', '/repos/o/r/vulnerability-alerts', expect.any(Object));
+  });
+
+  it('rethrows errors as GitHubError wrapper', async () => {
+    const err: any = new Error('server'); err.status = 500;
+    const raw = vi.fn().mockRejectedValue(err);
+    (client as any).rawRequest = raw;
+    const fn = (await import('./security.js')).enableVulnerabilityAlerts;
+    await expect(fn(client, 'o', 'r')).rejects.toThrow(/server/);
+  });
+});
+
+describe('security.enableAutomatedSecurityFixes', () => {
+  let client: GitHubClient;
+  beforeEach(() => { client = new GitHubClient({ token: 'x' }); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('returns true when PUT responds 204', async () => {
+    const raw = vi.fn().mockResolvedValue({ status: 204, headers: {}, body: undefined });
+    (client as any).rawRequest = raw;
+    const fn = (await import('./security.js')).enableAutomatedSecurityFixes;
+    const out = await fn(client, 'o', 'r');
+    expect(out).toBe(true);
+    expect(raw).toHaveBeenCalledWith('PUT', '/repos/o/r/automated-security-fixes', expect.any(Object));
+  });
+});
+
+describe('security.createOrUpdateFile', () => {
+  let client: GitHubClient;
+  beforeEach(() => { client = new GitHubClient({ token: 'x' }); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('creates a new file when none exists', async () => {
+    // GET returns 404, PUT returns 201
+    const getErr: any = new Error('not found'); getErr.status = 404;
+    const raw = vi.fn()
+      .mockRejectedValueOnce(getErr) // GET existing
+      .mockResolvedValueOnce({ status: 201, headers: {}, body: {} }); // PUT create
+    (client as any).rawRequest = raw;
+    const fn = (await import('./security.js')).createOrUpdateFile;
+    const out = await fn(client, 'o', 'r', '.github/dependabot.yml', 'content', 'Add dependabot');
+    expect(out).toBe(true);
+    // first call GET, second call PUT
+    expect(raw.mock.calls[0][0]).toBe('GET');
+    expect(raw.mock.calls[1][0]).toBe('PUT');
+  });
+
+  it('updates existing file when sha present', async () => {
+    const existing = { status: 200, headers: {}, body: { sha: 'abcd' } };
+    const putRes = { status: 200, headers: {}, body: {} };
+    const raw = vi.fn()
+      .mockResolvedValueOnce(existing)
+      .mockResolvedValueOnce(putRes);
+    (client as any).rawRequest = raw;
+    const fn = (await import('./security.js')).createOrUpdateFile;
+    const out = await fn(client, 'o', 'r', 'SECURITY.md', 'sec', 'update');
+    expect(out).toBe(true);
+    expect(raw.mock.calls[0][0]).toBe('GET');
+    expect(raw.mock.calls[1][0]).toBe('PUT');
+  });
+});
