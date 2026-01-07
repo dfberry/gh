@@ -18,10 +18,11 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "echo \"No tests\"",
+    "test": "vitest --run",
     "prepublishOnly": "npm run build && npm test"
   },
   "devDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^1.6.1"
   }
 }

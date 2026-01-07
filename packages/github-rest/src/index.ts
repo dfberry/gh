@@ -11,4 +11,5 @@ export { getActorWithScopeCheck } from './core/auth.js';
 export * as describeHelpers from './endpoints/describe-helpers.js';
 export * as actions from './endpoints/actions.js';
 export { createGitHubClient } from './core/factory.js';
+export * as security from './endpoints/security.js';
 
