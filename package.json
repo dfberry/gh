@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "npm --prefix packages/llm-completion run build && npm --prefix packages/github-rest run build && npm --prefix packages/gh-cleanup run build",
+    "build": "tsc -b",
     "test": "npm run test --workspaces --if-present",
     "test:dev": "npm run test --workspaces --if-present -- -w",
     "test:ci": "npm run test --workspaces --if-present -- --run",

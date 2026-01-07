@@ -13,8 +13,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest --run",
-    "postbuild": "npm link"
+    "test": "vitest --run"
   },
   "engines": {
     "node": ">=22"

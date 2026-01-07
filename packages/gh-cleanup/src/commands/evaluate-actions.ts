@@ -47,7 +47,7 @@ function extractDescriptionFromWorkflow(content: string | null): string | null {
 }
 
 export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
-  const allRepos = await pagination.paginateAll(async (page) => {
+  const allRepos = await pagination.paginateAll(async (page: number) => {
     return repos.listAuthenticatedUserRepos(client, page, 100);
   });
 

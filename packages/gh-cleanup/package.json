@@ -12,8 +12,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "npm --prefix ../github-rest run build && npm run build && node --env-file ../../.env ./dist/bin/cli.js",
     "dev": "ts-node --esm ./src/bin/cli.ts",
-    "test": "echo \"No tests\"",
-    "postinstall": "npm link github-rest llm-completion || true"
+    "test": "echo \"No tests\""
   },
   "dependencies": {
     "github-rest": "file:../github-rest",

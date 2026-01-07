@@ -36,7 +36,7 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runCommand(client: any, args: Args): Promise<any> {
-  const all = await pagination.paginateAll(async (page) => {
+  const all = await pagination.paginateAll(async (page: number) => {
     return repos.listAuthenticatedUserRepos(client, page, 100);
   });
 

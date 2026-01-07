@@ -42,7 +42,7 @@ export async function runCommand(client: GitHubClient, args: Args) {
     return { details: [], deleted: 0 };
   }
 
-  const all = await pagination.paginateAll(async (page) => {
+  const all = await pagination.paginateAll(async (page: number) => {
     return repos.listAuthenticatedUserRepos(client, page, 100);
   });
 

@@ -16,8 +16,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "echo \"No tests\"",
-    "postbuild": "npm link"
+    "test": "echo \"No tests\""
   },
   "devDependencies": {
     "typescript": "^5.0.0"

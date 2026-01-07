@@ -38,7 +38,7 @@ import { scoreCategory, loadRules, Rule } from '../lib/categorizer.js';
 import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
 
 export async function runCommand(client: GitHubClient, args: Args) {
-  const all = await pagination.paginateAll(async (page) => {
+  const all = await pagination.paginateAll(async (page: number) => {
     return repos.listAuthenticatedUserRepos(client, page, 100);
   });
 

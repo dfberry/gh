@@ -32,7 +32,7 @@ export async function runCommand(client: any, args: Args): Promise<any> {
     return null;
   }
 
-  const all = await pagination.paginateAll(async (page) => repos.listAuthenticatedUserRepos(client, page, 100));
+  const all = await pagination.paginateAll(async (page: number) => repos.listAuthenticatedUserRepos(client, page, 100));
 
   const forks = all.filter((r: any) => r.fork && r.owner?.login === me);
 
