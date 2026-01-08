@@ -37,6 +37,10 @@ const commands: Record<string, CommandRunner> = {
     const m = await import('../commandgroups/active.js');
     await m.activeCommand(argv);
   },
+  'all': async (argv: string[]) => {
+    const m = await import('../commandgroups/all.js');
+    await m.allCommand(argv);
+  },
   'evaluate': async (argv: string[]) => {
     const m = await import('../commandgroups/evaluate.js');
     await m.evaluateCommand(argv);

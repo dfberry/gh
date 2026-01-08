@@ -54,7 +54,7 @@ Breakdown: implement GA-only helpers and tests in small, verifiable steps.
 
 6. Export and integrate
    - **Export (github-rest):** Add `export * as security from './endpoints/security.js'` to `packages/github-rest/src/index.ts` so the helpers are available to callers.
-   - **Integrate (gh-cleanup):** Import and use the `security` helpers from `github-rest` in `packages/gh-cleanup/src/commands/active-security.ts` and the new `packages/gh-cleanup/src/commands/fix/security-toggles.ts` (for example: `import { security } from 'github-rest'`).
+   - **Integrate (gh-cleanup):** Import and use the `security` helpers from `github-rest` in `packages/gh-cleanup/src/commands/active-security.ts` 
    - Keep Stage 1 strictly GA-only (do not merge preview Accept headers unless `options.accept` is explicitly set by the caller).
 
 Stage 1 Implementation (gh-cleanup active group)

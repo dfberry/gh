@@ -60,6 +60,11 @@ TS=$(date -u +"%Y-%m-%dT%H%M%SZ")
 # Build all workspace packages once to avoid repeated builds per command.
 run_cmd "npm run build"
 
+# Run the `all` commandgroup (maintenance -> active -> evaluate) so grouped
+# active steps such as `active-security` are produced as part of the pipeline.
+# This runs in dry-run mode unless `--apply`/forwarding is enabled later.
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" all --input=active-sample-repos.json --out=\"$OUT_DIR\" --out-prefix=all-dryrun --dry-run --debug --debug-dir=\"$OUT_DIR/llm\""
+
 # Load a root .env file if present (simple KEY=VALUE parser).
 # Supported format:
 # - Lines with KEY=VALUE, optionally quoted with single or double quotes.

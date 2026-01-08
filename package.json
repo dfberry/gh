@@ -1,18 +1,21 @@
 {
   "scripts": {
     "build": "tsc -b",
-    "test": "npm run test --workspaces --if-present",
-    "test:dev": "npm run test --workspaces --if-present -- -w",
-    "test:ci": "npm run test --workspaces --if-present -- --run",
-    "run-all": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-all.sh > ./generated/run-all.log 2>&1'",
-    "run-all:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-all.sh > ./generated/run-all-dev.log 2>&1'",
-    "run-all:apply": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-all.sh --apply > ./generated/run-all-apply.log 2>&1'",
-    "run-active": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-active.sh > ./generated/run-active.log 2>&1'",
-    "run-active:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-active.sh > ./generated/run-active-dev.log 2>&1'",
-    "run-maintenance": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-maintenance.sh > ./generated/run-maintenance.log 2>&1'",
-    "run-maintenance:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-maintenance.sh > ./generated/run-maintenance-dev.log 2>&1'",
-    "run-evaluate": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-evaluate.sh > ./generated/run-evaluate.log 2>&1'",
-    "run-evaluate:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-evaluate.sh > ./generated/run-evaluate-dev.log 2>&1'"
+    "test": "bash -lc './scripts/run-with-env.sh npm run test --workspaces --if-present'",
+    "test:dev": "bash -lc './scripts/run-with-env.sh npm run test --workspaces --if-present -- -w'",
+    "test:ci": "bash -lc './scripts/run-with-env.sh npm run test --workspaces --if-present -- --run'",
+    "run-all": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-all.sh > ./generated/run-all.log 2>&1'",
+    "run-all:dev": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-all.sh > ./generated/run-all-dev.log 2>&1'",
+    "run-all:apply": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-all.sh --apply > ./generated/run-all-apply.log 2>&1'",
+    "run-active": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-active.sh > ./generated/run-active.log 2>&1'",
+    "run-active:dev": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-active.sh > ./generated/run-active-dev.log 2>&1'",
+    "run-maintenance": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-maintenance.sh > ./generated/run-maintenance.log 2>&1'",
+    "run-maintenance:dev": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-maintenance.sh > ./generated/run-maintenance-dev.log 2>&1'",
+    "run-evaluate": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-evaluate.sh > ./generated/run-evaluate.log 2>&1'",
+    "run-evaluate:dev": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/run-evaluate.sh > ./generated/run-evaluate-dev.log 2>&1'",
+    "verify-token": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/verify-token.sh dfberry/gh > ./generated/verify-token.log 2>&1'",
+    "verifyToken": "bash -lc 'mkdir -p ./generated && ./scripts/run-with-env.sh bash ./scripts/verify-token.sh dfberry/gh > ./generated/verify-token.log 2>&1'",
+    "start": "bash -lc 'npm run verify-token && npm run run-all'"
   },
   "devDependencies": {
     "typescript": "^5.9.3"
