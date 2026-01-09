@@ -1,8 +1,10 @@
 import * as fs from 'fs';
+import * as path from 'path';
 import * as readline from 'readline';
 import { startSection, endSection } from '../lib/cli-log.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
+import { getOutputPath, makeConfig, resolveGroupFolder } from '../lib/outputOrganizer.js';
 
 export type GroupArgs = {
   input?: string;
@@ -62,8 +64,7 @@ export async function runGroupCommand(
   args: GroupArgs,
   opts: {
     groupName: string;
-    defaultInput: string;
-    normalizedInputSuffix: string;
+    normalizedInputSuffix?: string;
     defaultOutPrefix: string;
     steps: Step[];
   },
@@ -72,24 +73,36 @@ export async function runGroupCommand(
 
   startSection(`group: ${opts.groupName}`);
 
-  const inputPath = args.input || opts.defaultInput;
-  const repos = parseRepoInput(inputPath);
+  const inputPath = args.input;
+  const usedDefaultInput = false; // no default input files are used anymore
+  if (!inputPath) {
+    console.log('No input file provided to group; steps will operate on authenticated user repos where supported.');
+  }
+  const repos = inputPath ? parseRepoInput(inputPath) : [];
 
   const timestamp = new Date().toISOString();
 
   const outDir = args.out || (base && (base as any).out) || `${process.cwd()}/generated`;
   const outPrefix = args.outPrefix || (base && (base as any).outPrefix) || opts.defaultOutPrefix;
+  const cfg = makeConfig({ rootDir: outDir });
+
+  // ensure group folder exists
+  const groupFolder = resolveGroupFolder(cfg, opts.groupName);
+  const fullGroupPath = path.join(cfg.rootDir, groupFolder);
   try {
-    fs.mkdirSync(outDir, { recursive: true });
+    fs.mkdirSync(fullGroupPath, { recursive: true });
   } catch (e) {
-    console.error(`Failed to create output directory "${outDir}":`, e);
+    console.error(`Failed to create output directory "${fullGroupPath}":`, e);
   }
 
-  const normalizedInputPath = `${outDir}/${opts.normalizedInputSuffix}`;
-  try {
-    fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8');
-  } catch (e) {
-    console.error(`Failed to write normalized input file "${normalizedInputPath}":`, e);
+  let normalizedInputPath: string | undefined = undefined;
+  if (inputPath && opts.normalizedInputSuffix) {
+    normalizedInputPath = getOutputPath({ group: opts.groupName, filename: opts.normalizedInputSuffix, config: { rootDir: outDir } });
+    try {
+      fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8');
+    } catch (e) {
+      console.error(`Failed to write normalized input file "${normalizedInputPath}":`, e);
+    }
   }
 
   const steps = opts.steps;
@@ -100,9 +113,9 @@ export async function runGroupCommand(
 
   for (const s of steps) {
     startSection(`step: ${s.name}`);
-    const stepOut = `${outDir}/${outPrefix}-${s.name}.json`;
+    const stepOut = getOutputPath({ group: opts.groupName, filename: `${outPrefix}-${s.name}.json`, config: { rootDir: outDir } });
     const childArgv: string[] = [];
-    childArgv.push(`--input=${normalizedInputPath}`);
+    if (normalizedInputPath) childArgv.push(`--input=${normalizedInputPath}`);
     childArgv.push(`--out=${stepOut}`);
     if (!forwardApply) {
       childArgv.push('--dry-run');
@@ -131,7 +144,7 @@ export async function runGroupCommand(
   summary.errorCount = errorSteps.length;
   summary.failedSteps = errorSteps.map((x: any) => x.name);
 
-  const summaryFile = `${outDir}/${outPrefix}-summary.json`;
+  const summaryFile = getOutputPath({ group: opts.groupName, filename: `${outPrefix}-summary.json`, config: { rootDir: outDir } });
   try {
     fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
   } catch (e) {
@@ -141,17 +154,18 @@ export async function runGroupCommand(
   const status = summary.errorCount > 0 ? 'errors' : 'ok';
   endSection(`group: ${opts.groupName}`, status);
 
-  return { step: opts.groupName, repos, timestamp, summary };
+  return { step: opts.groupName, repos, timestamp, summary, inputPath, usedDefaultInput };
 }
 
 export async function writeGroupOutput(result: any, args: GroupArgs, groupName: string, defaultPrefix: string): Promise<void> {
   const out = args.out || `${process.cwd()}/generated`;
   const prefix = args.outPrefix || defaultPrefix;
   try {
-    fs.mkdirSync(out, { recursive: true });
-    const stepFile = `${out}/${prefix}-${groupName}.json`;
+    const stepFile = getOutputPath({ group: groupName, filename: `${prefix}-${groupName}.json`, config: { rootDir: out } });
+    const summaryFile = getOutputPath({ group: groupName, filename: `${prefix}-summary.json`, config: { rootDir: out } });
+    // ensure directory exists
+    fs.mkdirSync(path.dirname(stepFile), { recursive: true });
     fs.writeFileSync(stepFile, JSON.stringify(result, null, 2), 'utf8');
-    const summaryFile = `${out}/${prefix}-summary.json`;
     const summary = {
       steps: [
         {
@@ -160,6 +174,8 @@ export async function writeGroupOutput(result: any, args: GroupArgs, groupName: 
           reposCount: Array.isArray(result.repos) ? result.repos.length : 0,
           dryRun: !!result.dryRun,
           timestamp: result.timestamp,
+          inputFile: result?.inputPath || null,
+          defaultInputUsed: !!result?.usedDefaultInput,
         },
       ],
       errorCount: result?.summary?.errorCount || 0,

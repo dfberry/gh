@@ -1,9 +1,12 @@
 import { GitHubClient, repos, pagination, hasAdminPermission } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';
+import { getOutputPath } from '../lib/outputOrganizer.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { parseRepoInput } from '../lib/input-parser.js';
+import { resolveReposFromInput } from '../lib/repo-utils.js';
 
-export type Args = BaseFlags;
+export type Args = BaseFlags & { input?: string };
 /**
  * Command: remove-forks
  *
@@ -21,7 +24,12 @@ export type Args = BaseFlags;
  *   - `removeForksCommand(argv)` — thin CLI wrapper used by the bin
  */
 export function parseArgs(argv: string[]): Args {
-  return parseBaseFlags(argv) as Args;
+  const base = parseBaseFlags(argv);
+  const args = { ...base } as Args;
+  for (const a of argv) {
+    if (a.startsWith('--input=')) (args as any).input = a.split('=', 2)[1];
+  }
+  return args;
 }
 
 export async function runCommand(client: GitHubClient, args: Args) {
@@ -42,11 +50,18 @@ export async function runCommand(client: GitHubClient, args: Args) {
     return { details: [], deleted: 0 };
   }
 
-  const all = await pagination.paginateAll(async (page: number) => {
-    return repos.listAuthenticatedUserRepos(client, page, 100);
-  });
-
-  const ownedForks = all.filter((r: any) => r.fork && r.owner?.login === me);
+  let ownedForks: any[] = [];
+  const fromInput = await resolveReposFromInput(client, args.input);
+  if (Array.isArray(fromInput)) {
+    for (const fullRepo of fromInput) {
+      if (fullRepo.fork && fullRepo.owner?.login === me) ownedForks.push(fullRepo);
+    }
+  } else {
+    const all = await pagination.paginateAll(async (page: number) => {
+      return repos.listAuthenticatedUserRepos(client, page, 100);
+    });
+    ownedForks = all.filter((r: any) => r.fork && r.owner?.login === me);
+  }
 
   const foundCount = ownedForks.length;
   console.log(`Found ${foundCount} fork(s) owned by ${me}`);
@@ -122,7 +137,8 @@ export async function runCommand(client: GitHubClient, args: Args) {
 }
 
 export async function writeOutput(result: any, args: Args) {
-  if (args.out) await emitOutput(formatJsonOutput(result.details ?? []), args.out);
+  const target = args.out || getOutputPath({ group: 'maintenance', filename: 'remove-forks.json' });
+  await emitOutput(formatJsonOutput(result.details ?? []), target);
 }
 
 export async function removeForksCommand(argv: string[]) {

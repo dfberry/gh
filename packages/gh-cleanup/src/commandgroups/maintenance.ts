@@ -14,15 +14,14 @@ export async function runCommand(_client: any, args: MaintenanceArgs): Promise<a
   ];
   return runGroupCommand(args, {
     groupName: 'maintenance',
-    defaultInput: 'active-sample-repos.json',
     normalizedInputSuffix: '.tmp-maintenance-input.json',
-    defaultOutPrefix: 'maintenance-dryrun',
+    defaultOutPrefix: 'maintenance',
     steps,
   });
 }
 
 export async function writeOutput(result: any, args: MaintenanceArgs): Promise<void> {
-  return writeGroupOutput(result, args, 'maintenance', 'maintenance-dryrun');
+  return writeGroupOutput(result, args, 'maintenance', 'maintenance');
 }
 
 export async function maintenanceCommand(argv: string[]): Promise<void> {

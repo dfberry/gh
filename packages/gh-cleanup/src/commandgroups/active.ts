@@ -15,15 +15,14 @@ export async function runCommand(_client: any, args: ActiveArgs): Promise<any> {
   ];
   return runGroupCommand(args, {
     groupName: 'active',
-    defaultInput: 'active-sample-repos.json',
     normalizedInputSuffix: '.tmp-active-input.json',
-    defaultOutPrefix: 'active-dryrun',
+    defaultOutPrefix: 'active',
     steps,
   });
 }
 
 export async function writeOutput(result: any, args: ActiveArgs): Promise<void> {
-  return writeGroupOutput(result, args, 'active', 'active-dryrun');
+  return writeGroupOutput(result, args, 'active', 'active');
 }
 
 export async function activeCommand(argv: string[]): Promise<void> {

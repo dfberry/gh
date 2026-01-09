@@ -21,12 +21,12 @@ set -euo pipefail
 # Defaults:
 #   input-file=active-sample-repos.json
 #   out-dir=$(pwd)/generated/gh-cleanup-active
-#   out-prefix=active-dryrun
+#   out-prefix=active
 
 INPUT_FILE=${1:-active-sample-repos.json}
 # Default outputs to repository generated folder when no OUT_DIR provided
 OUT_DIR=${2:-$(pwd)/generated/gh-cleanup-active}
-OUT_PREFIX=${3:-active-dryrun}
+OUT_PREFIX=${3:-active}
 
 mkdir -p "$OUT_DIR"
 

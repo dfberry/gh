@@ -121,6 +121,9 @@ gh-cleanup describe-repos --repos=generated/active.json --out=generated/descript
 
 # Maintenance dry-run (orchestrator)
 gh-cleanup maintenance --input sample-repos.json --out generated/gh-cleanup --out-prefix maintenance-dryrun --dry-run
+
+Note: output file/folder naming is centralized in `packages/gh-cleanup/src/lib/outputOrganizer.ts`.
+Edit `defaultConfig` there to change `rootDir`, group folder names, or `meta` folder name.
 ```
 
 ## Rules file shape (example)

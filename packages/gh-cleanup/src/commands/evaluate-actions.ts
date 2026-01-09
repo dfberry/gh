@@ -13,6 +13,7 @@
 
 import { GitHubClient, repos, pagination, actions } from 'github-rest';
 import { emitOutput, formatJsonOutput, addGeneratedTimestamp } from '../lib/report.js';
+import { getOutputPath } from '../lib/outputOrganizer.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 
 export type Args = BaseFlags & { output?: 'json' | 'md' };
@@ -152,12 +153,14 @@ export async function writeOutput(result: any, args: Args) {
     }
 
     const md = addGeneratedTimestamp(idxLines.join('\n') + '\n' + sections.join('\n'), 'GitHub Actions Report');
-    await emitOutput(md, args.out || 'actions.md');
+    const outPath = args.out || getOutputPath({ group: 'evaluate', filename: 'actions.md' });
+    await emitOutput(md, outPath);
     return;
   }
 
-  // default: JSON
-  if (args.out) await emitOutput(formatJsonOutput(data), args.out);
+  // default: JSON — write into group folder if no explicit --out
+  const jsonOut = args.out || getOutputPath({ group: 'evaluate', filename: 'actions.json' });
+  await emitOutput(formatJsonOutput(data), jsonOut);
 }
 
 export async function evaluateActionsCommand(argv: string[]) {

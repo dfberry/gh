@@ -17,6 +17,7 @@
  */
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { toMarkdownTable, Categorized, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
+import { getOutputPath } from '../lib/outputOrganizer.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
@@ -64,9 +65,11 @@ export async function writeOutput(result: any, args: Args) {
   if (args.output === 'md') {
     let md = toMarkdownTable(results, { title: 'Repository Catalog', includeFrontmatter: true });
     md = addGeneratedTimestamp(md, 'Repository Catalog');
-    await emitOutput(md, args.out);
+    const mdOut = args.out || getOutputPath({ group: 'active', filename: 'catalog.md' });
+    await emitOutput(md, mdOut);
   } else {
-    await emitOutput(formatJsonOutput(results), args.out);
+    const jsonOut = args.out || getOutputPath({ group: 'active', filename: 'catalog.json' });
+    await emitOutput(formatJsonOutput(results), jsonOut);
   }
 }
 

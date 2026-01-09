@@ -2,6 +2,7 @@ import { GitHubClient, pagination, repos } from 'github-rest';
 import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { toMarkdownTable, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
+import { getOutputPath } from '../lib/outputOrganizer.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
@@ -163,9 +164,11 @@ export async function writeOutput(result: any, args: Args) {
     if (args.output === 'md') {
       let md = toMarkdownTable(mapped, { title: 'Active Repositories', includeFrontmatter: false });
       md = addGeneratedTimestamp(md, 'Active Repositories');
-      await emitOutput(md, args.out || 'summary.md');
+      const mdOut = args.out || getOutputPath({ group: 'gh-cleanup', filename: 'summary.md' });
+      await emitOutput(md, mdOut);
     } else if (args.output === 'json') {
-      await emitOutput(formatJsonOutput(mapped), args.out || 'summary.json');
+      const jsonOut = args.out || getOutputPath({ group: 'gh-cleanup', filename: 'summary.json' });
+      await emitOutput(formatJsonOutput(mapped), jsonOut);
     }
   }
 
@@ -176,7 +179,8 @@ export async function writeOutput(result: any, args: Args) {
     const mapped = await categorizeReposWithMetadata(new GitHubClient({ token: process.env.GH_TOKEN }), result.active, { fetch: true });
     let table = toMarkdownTable(mapped, { title: 'Active Repositories', includeFrontmatter: false });
     const md = addGeneratedTimestamp(header + counts + table, 'Repository Summary');
-    await emitOutput(md, args.summaryOut);
+    const summaryTarget = args.summaryOut || getOutputPath({ group: 'gh-cleanup', filename: 'summary.md' });
+    await emitOutput(md, summaryTarget);
   }
 }
 

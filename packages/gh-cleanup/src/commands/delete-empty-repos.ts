@@ -19,20 +19,37 @@
 import { GitHubClient, repos, pagination } from 'github-rest';
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';
-import { getRepoPermissions, hasAdminPermission } from 'github-rest';
+import { getOutputPath } from '../lib/outputOrganizer.js';
+import { getRepoPermissions, hasAdminPermission } from '../lib/permissions.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { parseRepoInput } from '../lib/input-parser.js';
+import { resolveReposFromInput } from '../lib/repo-utils.js';
 
-export type Args = BaseFlags & { excludeForks?: boolean };
+export type Args = BaseFlags & { excludeForks?: boolean; input?: string };
 
 export function parseArgs(argv: string[]): Args {
   const base = parseBaseFlags(argv);
   const args: Args = { ...base, excludeForks: !argv.includes('--allow-forks') };
+  for (const a of argv) {
+    if (a.startsWith('--input=')) args.input = a.split('=', 2)[1];
+  }
   return args;
 }
 
 export async function runCommand(client: GitHubClient, args: Args) {
-  // Delegate candidate-finding (and optional verification) to the REST helper.
-  const candidates = await repos.findEmptyRepos(client, { excludeForks: args.excludeForks, verify: true });
+  // If an input file is provided, use it as the repo list; otherwise delegate to helper
+  let candidates: any[] = [];
+  const fromInput = await resolveReposFromInput(client, args.input);
+  if (Array.isArray(fromInput)) {
+    for (const r of fromInput) {
+      if (args.excludeForks && (r as any).fork) continue;
+      if ((r as any).size === 0) candidates.push(r);
+    }
+  } else {
+    // Delegate candidate-finding (and optional verification) to the REST helper.
+    candidates = await repos.findEmptyRepos(client, { excludeForks: args.excludeForks, verify: true });
+  }
+
   console.log(`Found ${candidates.length} candidate empty repo(s) (size === 0 — 0 KB).`);
   if (candidates.length === 0) {
     return { toDelete: [] };
@@ -80,7 +97,8 @@ export async function runCommand(client: GitHubClient, args: Args) {
 
 export async function writeOutput(result: any, args: Args) {
   const out = (result && result.toDelete) || [];
-  if (args.out) await emitOutput(formatJsonOutput(out), args.out);
+  const target = args.out || getOutputPath({ group: 'maintenance', filename: 'delete-empty.json' });
+  await emitOutput(formatJsonOutput(out), target);
 }
 
 export async function deleteEmptyReposCommand(argv: string[]) {

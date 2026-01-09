@@ -13,11 +13,11 @@ set -euo pipefail
 # Defaults:
 #   input-file=active-sample-repos.json
 #   out-dir=$(pwd)/generated/gh-cleanup-evaluate
-#   out-prefix=evaluate-dryrun
+#   out-prefix=evaluate
 
 INPUT_FILE=${1:-active-sample-repos.json}
 OUT_DIR=${2:-$(pwd)/generated/gh-cleanup-evaluate}
-OUT_PREFIX=${3:-evaluate-dryrun}
+OUT_PREFIX=${3:-evaluate}
 
 mkdir -p "$OUT_DIR"
 

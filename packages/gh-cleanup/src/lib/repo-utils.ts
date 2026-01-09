@@ -1,3 +1,32 @@
+import { parseRepoInput } from './input-parser.js';
+import { repos } from 'github-rest';
+
+/**
+ * If `inputPath` is provided, fetch repo metadata for each fullname in the
+ * input file (JSON array or newline-separated). Returns `undefined` when no
+ * inputPath was provided so callers can fall back to their default behavior.
+ */
+export async function resolveReposFromInput(client: any, inputPath?: string): Promise<any[] | undefined> {
+  if (!inputPath) return undefined;
+  const names = parseRepoInput(inputPath);
+  const out: any[] = [];
+  for (const full of names) {
+    const [owner, name] = full.split('/');
+    if (!owner || !name) {
+      console.warn(`Skipping invalid repo name from input: ${full}`);
+      continue;
+    }
+    try {
+      const r = await repos.getRepo(client, owner, name);
+      out.push(r);
+    } catch (e: any) {
+      console.warn(`Failed to fetch repo ${full}:`, e?.message ?? e);
+    }
+  }
+  return out;
+}
+
+// exported helpers: `resolveReposFromInput` and `categorizeReposWithMetadata`
 import { GitHubClient } from 'github-rest';
 import { Categorized } from './report.js';
 import { scoreCategory } from './categorizer.js';
@@ -52,4 +81,4 @@ export async function categorizeReposWithMetadata(client: GitHubClient, repos: R
   return results;
 }
 
-export default { categorizeReposWithMetadata };
+// no default export — use named exports

@@ -60,11 +60,6 @@ TS=$(date -u +"%Y-%m-%dT%H%M%SZ")
 # Build all workspace packages once to avoid repeated builds per command.
 run_cmd "npm run build"
 
-# Run the `all` commandgroup (maintenance -> active -> evaluate) so grouped
-# active steps such as `active-security` are produced as part of the pipeline.
-# This runs in dry-run mode unless `--apply`/forwarding is enabled later.
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" all --input=active-sample-repos.json --out=\"$OUT_DIR\" --out-prefix=all-dryrun --dry-run --debug --debug-dir=\"$OUT_DIR/llm\""
-
 # Load a root .env file if present (simple KEY=VALUE parser).
 # Supported format:
 # - Lines with KEY=VALUE, optionally quoted with single or double quotes.
@@ -97,75 +92,11 @@ if [ -z "${GH_USER:-}" ]; then
   echo "Warning: GH_USER is not set. Some outputs may lack actor context." >&2
 fi
 
-
-# 1) Initial summary run (produces active list and initial summary)
-#    - Outputs: $OUT_DIR/initial-active.md and $OUT_DIR/initial-summary.md
-#    - Dry-run by default; use --verify for extra checks when needed.
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/initial-active.md\" --summary-out=\"$OUT_DIR/initial-summary.md\" --debug --debug-dir=\"$OUT_DIR/llm\""
-
-# 2) Categorize repos (fetch languages + README) -> catalog.md
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" categorize-repos --fetch --output=md --out=\"$OUT_DIR/catalog.md\" --debug --debug-dir=\"$OUT_DIR/llm\""
-
-# 3) Find empty repos (dry-run to JSON)
-#    - This step is destructive only when top-level --apply is passed (for automation).
-if [ "$APPLY" = true ]; then
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" delete-empty-repos --yes --out=\"$OUT_DIR/delete-empty.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
-else
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" delete-empty-repos --out=\"$OUT_DIR/delete-empty.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
-fi
-
-# 4) Remove forks (dry-run unless --apply)
-#    - Deletes are performed only when --apply is passed to this runner (for safety).
-if [ "$APPLY" = true ]; then
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" remove-forks --yes --out=\"$OUT_DIR/remove-forks.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
-else
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" remove-forks --out=\"$OUT_DIR/remove-forks.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
-fi
-
-# 5) Archive stale repos (dry-run unless --apply)
-#    - Archival PATCHes are performed only when --apply is passed.
-if [ "$APPLY" = true ]; then
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" archive-stale-repos --yes --out=\"$OUT_DIR/stale.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
-else
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" archive-stale-repos --out=\"$OUT_DIR/stale.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
-fi
-
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=json --out=\"$OUT_DIR/active.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
-
-# if the OPENAI_API_KEY is set, run descriptions
-# The describe step is optional and only runs when an OpenAI key is present.
-# When this runner was invoked with --apply we forward --apply to `describe-repos` so
-# the LLM suggestions may be applied to repositories (PATCHing description/topics).
-if [ -n "${OPENAI_API_KEY:-}" ]; then
-  echo "\n==> Describing active repositories using LLM..." >&2
-  if [ "$APPLY" = true ]; then
-    run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\" --apply --debug --debug-dir=\"$OUT_DIR/llm\""
-  else
-    run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" describe-repos --repos=\"$OUT_DIR/active.json\" --out=\"$OUT_DIR/descriptions.json\" --debug --debug-dir=\"$OUT_DIR/llm\""
-  fi
-else
-  echo "\n==> Skipping repository description step as OPENAI_API_KEY is not set." >&2
-fi
-
-# 5.5) Evaluate workflows via the new `evaluate` orchestrator
-#    - Run the `evaluate` commandgroup which runs grouped evaluate steps
-#      (e.g., `evaluate-actions`) and writes its per-step JSON outputs.
-#    - For backward-compatible markdown output, also invoke the single
-#      `evaluate-actions` command to produce `$OUT_DIR/actions.md` when
-#      `GH_TOKEN` is present.
-if [ -z "${GH_TOKEN:-}" ]; then
-  echo "\n==> Skipping evaluate group as GH_TOKEN is not set." >&2
-else
-  echo "\n==> Running evaluate orchestrator (grouped evaluate steps)..." >&2
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" evaluate --out=\"$OUT_DIR\" --out-prefix=\"evaluate-dryrun\" --debug --debug-dir=\"$OUT_DIR/actions\""
-
-  echo "\n==> Producing human-friendly actions.md via evaluate-actions (optional)..." >&2
-  run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" evaluate-actions --output=md --out=\"$OUT_DIR/actions.md\" --debug --debug-dir=\"$OUT_DIR/actions\""
-fi
-
-# 6a) Final log of activity
-# 6b) Final summary run after all operations (refresh active list + summary)
-run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" summary --output=md --out=\"$OUT_DIR/summary-active.md\" --summary-out=\"$OUT_DIR/summary-report.md\" --debug --debug-dir=\"$OUT_DIR/llm\""
+# Run the `all` commandgroup (maintenance -> active -> evaluate) so grouped
+# steps are produced as part of the pipeline. The `all` commandgroup will
+# invoke the individual commands internally; the script no longer runs them
+# separately.
+run_cmd "node \"$ROOT_DIR/packages/gh-cleanup/dist/bin/cli.js\" all --out=\"$OUT_DIR\" --debug --debug-dir=\"$OUT_DIR/debug\""
 
 echo "\nPipeline finished at: $(date -u --iso-8601=seconds)" >&2
 echo "Generated outputs:" >&2

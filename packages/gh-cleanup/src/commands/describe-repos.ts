@@ -23,6 +23,7 @@ import { LLMConfig } from 'llm-completion';
 import { describeHelpers } from 'github-rest';
 import { describeRepoWithLLM, createClient, buildPromptString } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { getOutputPath } from '../lib/outputOrganizer.js';
 
 export type Args = BaseFlags & {
   outPath?: string;
@@ -243,12 +244,13 @@ export async function runCommand(client: any, args: Args): Promise<any> {
 export async function writeOutput(resultObj: any, args: Args) {
   const results = resultObj?.results || [];
   const outPath = args.outPath;
-  if (outPath) {
-    if (outPath.endsWith('.json')) {
+  const target = outPath || getOutputPath({ group: 'active', filename: 'descriptions.json' });
+  if (target) {
+    if (target.endsWith('.json')) {
       const out = results.map((r: any) => ({ repo: `${r.owner}/${r.repo}`, ai: r.result, applied: r.applied }));
-      await fs.writeFile(outPath, JSON.stringify(out, null, 2), 'utf8');
-      console.log('Wrote', outPath);
-    } else if (outPath.endsWith('.md') || outPath.endsWith('.markdown')) {
+      await fs.writeFile(target, JSON.stringify(out, null, 2), 'utf8');
+      console.log('Wrote', target);
+    } else if (target.endsWith('.md') || target.endsWith('.markdown')) {
       const parts: string[] = [];
       for (const r of results) {
         parts.push(`## ${r.owner}/${r.repo}\n`);
@@ -257,12 +259,12 @@ export async function writeOutput(resultObj: any, args: Args) {
         parts.push(JSON.stringify(r.result, null, 2));
         parts.push('```\n');
       }
-      await fs.writeFile(outPath, parts.join('\n'), 'utf8');
-      console.log('Wrote', outPath);
+      await fs.writeFile(target, parts.join('\n'), 'utf8');
+      console.log('Wrote', target);
     } else {
       const out = results.map((r: any) => ({ repo: `${r.owner}/${r.repo}`, ai: r.result, applied: r.applied }));
-      await fs.writeFile(outPath, JSON.stringify(out, null, 2), 'utf8');
-      console.log('Wrote', outPath);
+      await fs.writeFile(target, JSON.stringify(out, null, 2), 'utf8');
+      console.log('Wrote', target);
     }
   }
 }

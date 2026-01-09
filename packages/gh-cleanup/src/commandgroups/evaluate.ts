@@ -13,15 +13,14 @@ export async function runCommand(_client: any, args: EvaluateArgs): Promise<any>
 
   return runGroupCommand(args, {
     groupName: 'evaluate',
-    defaultInput: 'active-sample-repos.json',
     normalizedInputSuffix: '.tmp-evaluate-input.json',
-    defaultOutPrefix: 'evaluate-dryrun',
+    defaultOutPrefix: 'evaluate',
     steps,
   });
 }
 
 export async function writeOutput(result: any, args: EvaluateArgs): Promise<void> {
-  return writeGroupOutput(result, args, 'evaluate', 'evaluate-dryrun');
+  return writeGroupOutput(result, args, 'evaluate', 'evaluate');
 }
 
 export async function evaluateCommand(argv: string[]): Promise<void> {
