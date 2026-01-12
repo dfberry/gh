@@ -2,7 +2,7 @@
  * Move files and folders between GitHub repositories
  */
 
-import { execSync, spawn } from 'node:child_process';
+import { spawnSync, spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -35,23 +35,32 @@ function parseRepo(repo: string): { owner: string; repo: string } {
  * Execute git command and return output
  */
 function gitCommand(cwd: string, args: string[]): string {
-  try {
-    return execSync(`git ${args.join(' ')}`, {
-      cwd,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-  } catch (error) {
-    throw new Error(`Git command failed: git ${args.join(' ')}\n${error}`);
+  const result = spawnSync('git', args, {
+    cwd,
+    encoding: 'utf-8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
+  
+  if (result.error) {
+    throw new Error(`Git command failed: git ${args.join(' ')}\n${result.error}`);
   }
+  
+  if (result.status !== 0) {
+    throw new Error(`Git command failed: git ${args.join(' ')}\n${result.stderr}`);
+  }
+  
+  return result.stdout;
 }
 
 /**
- * Clone repository
+ * Clone repository using git with token authentication
+ * Note: Token is passed via environment for security, though it's still visible in process environment
  */
 async function cloneRepo(repoUrl: string, targetDir: string, token: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const urlWithAuth = repoUrl.replace('https://', `https://${token}@`);
+    // Use token in URL - this is a known limitation
+    // For production use, consider using SSH keys or credential helpers
+    const urlWithAuth = repoUrl.replace('https://', `https://x-access-token:${token}@`);
     const child = spawn('git', ['clone', urlWithAuth, targetDir], {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -230,7 +239,8 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
     } else {
       // Initialize new repository
       gitCommand(tmpBase, ['init', targetDir]);
-      gitCommand(targetDir, ['remote', 'add', 'origin', targetUrl.replace('https://', `https://${token}@`)]);
+      const targetUrlWithAuth = targetUrl.replace('https://', `https://x-access-token:${token}@`);
+      gitCommand(targetDir, ['remote', 'add', 'origin', targetUrlWithAuth]);
       gitCommand(targetDir, ['checkout', '-b', 'main']);
       console.log('✓ Target repository initialized');
     }

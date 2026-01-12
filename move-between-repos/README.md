@@ -263,6 +263,25 @@ Your GitHub token must have:
 - `public_repo` scope for public repositories
 - Create repository permissions if target doesn't exist
 
+### Security Considerations
+
+**Token Handling:**
+- Tokens are passed to git commands in URLs for authentication
+- This is visible in process lists and git configuration during execution
+- Tokens are cleared when temporary directories are removed
+- For enhanced security in production environments, consider:
+  - Using SSH keys instead of HTTPS with tokens
+  - Implementing Git credential helpers
+  - Using temporary/scoped tokens with minimal permissions
+  - Running in isolated/secure environments
+
+**Best Practices:**
+- Use tokens with minimum required scopes
+- Rotate tokens after migrations
+- Consider using `--dry-run` first to validate
+- Review the files list before executing
+- Ensure source and target repositories are correct
+
 ## Troubleshooting
 
 **Error: "GitHub token is required"**
