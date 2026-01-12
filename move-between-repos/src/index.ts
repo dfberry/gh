@@ -288,7 +288,7 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
     console.log('\nCopying files to target repository...');
     for (const mapping of fileMappings) {
       const sourcePath = join(sourceDir, mapping.from);
-      const targetPath = join(targetDir, mapping.to || mapping.from);
+      const targetPath = join(targetDir, mapping.to!);
       
       // Create parent directories if needed
       const targetParent = dirname(targetPath);
