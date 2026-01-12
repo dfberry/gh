@@ -16,8 +16,13 @@ export interface MoveOptions {
   dryRun?: boolean;
 }
 
+export interface FileMapping {
+  from: string;
+  to?: string;
+}
+
 interface FileList {
-  files: string[];
+  files: (string | FileMapping)[];
 }
 
 /**
@@ -143,8 +148,9 @@ async function createRepo(owner: string, repo: string, token: string): Promise<v
 
 /**
  * Load files list from JSON file
+ * Supports: ["file.txt"], [{"from": "file.txt", "to": "newfile.txt"}], or {"files": [...]}
  */
-function loadFilesList(filesPath: string): string[] {
+function loadFilesList(filesPath: string): FileMapping[] {
   if (!existsSync(filesPath)) {
     throw new Error(`Files list not found: ${filesPath}`);
   }
@@ -153,16 +159,32 @@ function loadFilesList(filesPath: string): string[] {
   try {
     const parsed = JSON.parse(content);
     
+    let items: (string | FileMapping)[];
+    
     // Support both array format and object with "files" property
     if (Array.isArray(parsed)) {
-      return parsed;
+      items = parsed;
     } else if (parsed.files && Array.isArray(parsed.files)) {
-      return parsed.files;
+      items = parsed.files;
     } else {
       throw new Error('Invalid format');
     }
-  } catch {
-    throw new Error(`Invalid JSON in files list: ${filesPath}. Expected array of strings or {files: string[]}`);
+    
+    // Normalize to FileMapping objects
+    return items.map(item => {
+      if (typeof item === 'string') {
+        return { from: item, to: item };
+      } else if (typeof item === 'object' && item.from) {
+        return { from: item.from, to: item.to || item.from };
+      } else {
+        throw new Error(`Invalid file entry: ${JSON.stringify(item)}`);
+      }
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('Invalid file entry')) {
+      throw error;
+    }
+    throw new Error(`Invalid JSON in files list: ${filesPath}. Expected array of strings or objects with "from" property`);
   }
 }
 
@@ -185,9 +207,15 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
   const targetRepo = parseRepo(target);
 
   // Load files list
-  const files = loadFilesList(filesPath);
-  console.log(`Files to move (${files.length}):`);
-  files.forEach((file) => console.log(`  - ${file}`));
+  const fileMappings = loadFilesList(filesPath);
+  console.log(`Files to move (${fileMappings.length}):`);
+  fileMappings.forEach((mapping) => {
+    if (mapping.from === mapping.to) {
+      console.log(`  - ${mapping.from}`);
+    } else {
+      console.log(`  - ${mapping.from} → ${mapping.to}`);
+    }
+  });
   console.log();
 
   if (dryRun) {
@@ -209,12 +237,12 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
 
     // Verify files exist in source
     console.log('\nVerifying files exist in source repository...');
-    for (const file of files) {
-      const filePath = join(sourceDir, file);
+    for (const mapping of fileMappings) {
+      const filePath = join(sourceDir, mapping.from);
       if (!existsSync(filePath)) {
-        throw new Error(`File or folder not found in source: ${file}`);
+        throw new Error(`File or folder not found in source: ${mapping.from}`);
       }
-      console.log(`  ✓ ${file}`);
+      console.log(`  ✓ ${mapping.from}`);
     }
 
     // Check if target repository exists
@@ -258,9 +286,9 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
 
     // Copy files to target repository
     console.log('\nCopying files to target repository...');
-    for (const file of files) {
-      const sourcePath = join(sourceDir, file);
-      const targetPath = join(targetDir, file);
+    for (const mapping of fileMappings) {
+      const sourcePath = join(sourceDir, mapping.from);
+      const targetPath = join(targetDir, mapping.to || mapping.from);
       
       // Create parent directories if needed
       const targetParent = dirname(targetPath);
@@ -269,7 +297,11 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
       // Copy file or directory
       if (existsSync(sourcePath)) {
         cpSync(sourcePath, targetPath, { recursive: true });
-        console.log(`  ✓ Copied: ${file}`);
+        if (mapping.from === mapping.to) {
+          console.log(`  ✓ Copied: ${mapping.from}`);
+        } else {
+          console.log(`  ✓ Copied: ${mapping.from} → ${mapping.to}`);
+        }
       }
     }
 

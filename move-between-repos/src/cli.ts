@@ -19,8 +19,9 @@ Options:
   --dry-run             Show what would be done without making changes
   --help                Show this help message
 
-Example files JSON format:
-  ["path/to/file.txt", "path/to/folder/", "another/file.md"]
+Files JSON format examples:
+  ["file.txt", "folder/"]
+  [{"from": "src/", "to": "lib/"}, "README.md"]
 
 Environment variables:
   GH_TOKEN or GITHUB_TOKEN - GitHub personal access token

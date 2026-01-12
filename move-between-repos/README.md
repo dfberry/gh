@@ -1,32 +1,24 @@
 # Move Files Between Repositories
 
-A standalone tool for moving files and folders from one GitHub repository to another. This tool supports both TypeScript/Node.js and BASH implementations.
+A standalone TypeScript tool for moving files and folders from one GitHub repository to another with support for custom destination paths.
 
 ## Features
 
 - Move individual files or entire folders between repositories
+- Specify custom destination paths for each file/folder
 - Automatically create target repository if it doesn't exist
 - Support for both public and private repositories
 - Dry-run mode to preview changes before execution
 - Option to preserve git history (experimental)
-- Simple JSON configuration for file lists
+- Simple JSON configuration for file mappings
 
 ## Prerequisites
 
-### For TypeScript version:
-- Node.js >= 22
-- GitHub personal access token with repo permissions
-
-### For BASH version:
-- Bash shell
-- Git CLI
-- jq (for JSON parsing)
-- curl
-- GitHub personal access token with repo permissions
+- Node.js >= 20
+- Git CLI installed
+- GitHub personal access token with appropriate permissions (see below)
 
 ## Installation
-
-### TypeScript Version
 
 ```bash
 cd move-between-repos
@@ -34,13 +26,9 @@ npm install
 npm run build
 ```
 
-### BASH Version
+## GitHub Token Configuration
 
-No installation needed. The script is ready to use directly.
-
-## Configuration
-
-### GitHub Token
+### Setting the Token
 
 Set your GitHub token as an environment variable:
 
@@ -52,11 +40,25 @@ export GITHUB_TOKEN="your_github_token_here"
 
 Alternatively, pass it directly using the `--token` flag.
 
+### Required Permissions
+
+**For Classic Personal Access Tokens:**
+- `repo` - Full control of private repositories (includes read/write access)
+- `public_repo` - Access to public repositories (if working with public repos only)
+- `delete_repo` - Only if you plan to delete repositories (not required for moving files)
+
+**For Fine-grained Personal Access Tokens:**
+- **Repository access**: Select the repositories you want to work with
+- **Repository permissions**:
+  - Contents: Read and write
+  - Metadata: Read-only
+  - Administration: Read and write (only if creating new repositories)
+
 ### Files List Format
 
-Create a JSON file listing the files and folders to move:
+The JSON file supports multiple formats for specifying files to move:
 
-**Simple array format:**
+**Simple array (files keep same path):**
 ```json
 [
   "README.md",
@@ -66,21 +68,37 @@ Create a JSON file listing the files and folders to move:
 ]
 ```
 
-**Object format:**
+**With custom destination paths:**
+```json
+[
+  "README.md",
+  { "from": "src/utils/", "to": "lib/utilities/" },
+  { "from": "docs/old-guide.md", "to": "documentation/guide.md" },
+  "LICENSE"
+]
+```
+
+**Object wrapper format:**
 ```json
 {
   "files": [
     "README.md",
-    "src/utils/helper.ts",
-    "docs/",
-    "config/settings.json"
+    { "from": "src/", "to": "lib/" }
   ]
 }
 ```
 
+**Key points:**
+- String entries use the same path in source and target
+- Object entries with `from` and `to` allow custom destination paths
+- Omitting `to` defaults to the same path as `from`
+- Paths are relative to repository root
+- Use forward slashes `/` for paths
+- Folders can include or omit trailing slash
+
 ## Usage
 
-### TypeScript/Node.js Version
+### Basic Usage
 
 **Dry run (preview changes):**
 ```bash
@@ -99,6 +117,15 @@ npm start -- \
   --files files-list.json
 ```
 
+**With explicit token:**
+```bash
+npm start -- \
+  --source owner/source-repo \
+  --target owner/target-repo \
+  --files files-list.json \
+  --token ghp_your_token_here
+```
+
 **With history preservation (experimental):**
 ```bash
 npm start -- \
@@ -108,40 +135,12 @@ npm start -- \
   --preserve-history
 ```
 
-**Using built CLI:**
+**Using built CLI directly:**
 ```bash
 node dist/cli.js \
   --source dfberry/old-repo \
   --target dfberry/new-repo \
   --files migrations/files.json
-```
-
-### BASH Version
-
-**Dry run:**
-```bash
-./move-files.sh \
-  --source owner/source-repo \
-  --target owner/target-repo \
-  --files files-list.json \
-  --dry-run
-```
-
-**Execute migration:**
-```bash
-./move-files.sh \
-  --source owner/source-repo \
-  --target owner/target-repo \
-  --files files-list.json
-```
-
-**With explicit token:**
-```bash
-./move-files.sh \
-  --source owner/source-repo \
-  --target owner/target-repo \
-  --files files-list.json \
-  --token ghp_your_token_here
 ```
 
 ## CLI Options
@@ -151,7 +150,7 @@ node dist/cli.js \
 | `--source <repo>` | Source repository (format: `owner/repo`) | Yes |
 | `--target <repo>` | Target repository (format: `owner/repo`) | Yes |
 | `--files <path>` | Path to JSON file with list of files/folders | Yes |
-| `--input <path>` | Alias for `--files` (TypeScript only) | No |
+| `--input <path>` | Alias for `--files` | No |
 | `--token <token>` | GitHub personal access token | No* |
 | `--preserve-history` | Preserve git history (experimental) | No |
 | `--dry-run` | Preview changes without executing | No |
@@ -190,42 +189,46 @@ npm start -- \
   --files files.json
 ```
 
-### Example 2: Move source code modules
+### Example 2: Move and reorganize source code
 
 **modules.json:**
 ```json
 {
   "files": [
-    "src/auth/",
-    "src/utils/logger.ts",
-    "tests/auth.test.ts"
+    { "from": "src/auth/", "to": "lib/authentication/" },
+    { "from": "src/utils/logger.ts", "to": "lib/logging/logger.ts" },
+    { "from": "tests/auth.test.ts", "to": "test/authentication.test.ts" }
   ]
 }
 ```
 
 **Command:**
 ```bash
-./move-files.sh \
+npm start -- \
   --source myorg/monorepo \
   --target myorg/auth-service \
   --files modules.json
 ```
 
-### Example 3: Dry run before migration
+### Example 3: Mix of same-path and custom-path moves
 
+**migration.json:**
+```json
+[
+  "LICENSE",
+  "README.md",
+  { "from": "old-docs/", "to": "documentation/" },
+  { "from": "src/legacy/", "to": "lib/" }
+]
+```
+
+**Command:**
 ```bash
-# Preview what will be moved
 npm start -- \
-  --source dfberry/source \
-  --target dfberry/target \
-  --files migration-plan.json \
+  --source dfberry/old-project \
+  --target dfberry/new-project \
+  --files migration.json \
   --dry-run
-
-# If preview looks good, execute
-npm start -- \
-  --source dfberry/source \
-  --target dfberry/target \
-  --files migration-plan.json
 ```
 
 ## Notes and Limitations
@@ -255,13 +258,6 @@ When the target repository doesn't exist:
 - A new private repository is created
 - Repository is initialized with the migrated files
 - Main branch is used by default
-
-### Permissions Required
-
-Your GitHub token must have:
-- `repo` scope for private repositories
-- `public_repo` scope for public repositories
-- Create repository permissions if target doesn't exist
 
 ### Security Considerations
 
@@ -298,13 +294,14 @@ Your GitHub token must have:
 - Check that token has correct permissions
 - Ensure repository name format is `owner/repo`
 
-**Error: "jq: command not found" (BASH version)**
-- Install jq: `sudo apt-get install jq` (Ubuntu/Debian)
-- Or use TypeScript version which doesn't require jq
+**Error: Invalid file entry**
+- Check JSON syntax in your files list
+- Ensure objects have a `from` property
+- Use proper JSON format with quotes around strings
 
 ## Development
 
-### Build TypeScript Version
+### Build
 
 ```bash
 npm run build
@@ -321,9 +318,9 @@ npm test
 ```
 move-between-repos/
 ├── src/
-│   ├── cli.ts          # CLI entry point
+│   ├── cli.ts          # CLI entry point and argument parsing
 │   └── index.ts        # Core migration logic
-├── move-files.sh       # BASH alternative
+├── example-files.json  # Example file mappings
 ├── package.json
 ├── tsconfig.json
 └── README.md
@@ -333,9 +330,9 @@ move-between-repos/
 
 When contributing:
 1. Test with dry-run mode first
-2. Verify both TypeScript and BASH versions work
-3. Update documentation for any changes
-4. Test with various file/folder combinations
+2. Update documentation for any changes
+3. Test with various file/folder combinations and path mappings
+4. Ensure TypeScript builds without errors
 
 ## License
 
