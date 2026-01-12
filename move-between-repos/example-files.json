@@ -1,0 +1,6 @@
+[
+  "README.md",
+  "package.json",
+  { "from": "src/utils/", "to": "lib/utils/" },
+  { "from": "docs/getting-started.md", "to": "documentation/guide.md" }
+]

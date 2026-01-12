@@ -1,0 +1,27 @@
+{
+  "name": "move-between-repos",
+  "version": "1.0.0",
+  "description": "Tool to move files and folders between GitHub repositories",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "move-between-repos": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js"
+  },
+  "keywords": [
+    "github",
+    "git",
+    "repository",
+    "migration"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.5",
+    "typescript": "^5.9.3"
+  }
+}
