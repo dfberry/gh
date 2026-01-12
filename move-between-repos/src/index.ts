@@ -3,9 +3,9 @@
  */
 
 import { execSync, spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 
 export interface MoveOptions {
   source: string;
@@ -92,12 +92,8 @@ async function checkRepoExists(owner: string, repo: string, token: string): Prom
  * Create repository on GitHub
  */
 async function createRepo(owner: string, repo: string, token: string): Promise<void> {
-  const isUser = owner.toLowerCase() === process.env.GH_USER?.toLowerCase();
-  const url = isUser
-    ? 'https://api.github.com/user/repos'
-    : `https://api.github.com/orgs/${owner}/repos`;
-
-  const response = await fetch(url, {
+  // Try creating as user repository first
+  const userResponse = await fetch('https://api.github.com/user/repos', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
@@ -111,8 +107,27 @@ async function createRepo(owner: string, repo: string, token: string): Promise<v
     }),
   });
 
-  if (!response.ok) {
-    const error = await response.text();
+  if (userResponse.ok) {
+    return;
+  }
+
+  // If that fails, try creating as org repository
+  const orgResponse = await fetch(`https://api.github.com/orgs/${owner}/repos`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      name: repo,
+      private: true,
+      auto_init: false,
+    }),
+  });
+
+  if (!orgResponse.ok) {
+    const error = await orgResponse.text();
     throw new Error(`Failed to create repository: ${error}`);
   }
 }
@@ -238,12 +253,12 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
       const targetPath = join(targetDir, file);
       
       // Create parent directories if needed
-      const targetParent = join(targetPath, '..');
-      execSync(`mkdir -p "${targetParent}"`, { encoding: 'utf-8' });
+      const targetParent = dirname(targetPath);
+      mkdirSync(targetParent, { recursive: true });
       
       // Copy file or directory
       if (existsSync(sourcePath)) {
-        execSync(`cp -r "${sourcePath}" "${targetPath}"`, { encoding: 'utf-8' });
+        cpSync(sourcePath, targetPath, { recursive: true });
         console.log(`  ✓ Copied: ${file}`);
       }
     }
