@@ -9,8 +9,7 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
-    ,
+    },
     "./package.json": "./package.json"
   },
   "engines": {
@@ -22,6 +21,7 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "devDependencies": {
+    "@types/node": "^25.0.8",
     "typescript": "^5.0.0"
   }
 }

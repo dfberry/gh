@@ -6,6 +6,7 @@ import { spawnSync, spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
+import { GitHubClient, repos, errors } from 'github-rest';
 
 export interface MoveOptions {
   source: string;
@@ -93,15 +94,10 @@ async function cloneRepo(repoUrl: string, targetDir: string, token: string): Pro
 /**
  * Check if repository exists on GitHub
  */
-async function checkRepoExists(owner: string, repo: string, token: string): Promise<boolean> {
+async function checkRepoExists(client: GitHubClient, owner: string, repo: string): Promise<boolean> {
   try {
-    const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-      headers: {
-        Authorization: `token ${token}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-    });
-    return response.ok;
+    await repos.getRepo(client, owner, repo);
+    return true;
   } catch {
     return false;
   }
@@ -110,44 +106,25 @@ async function checkRepoExists(owner: string, repo: string, token: string): Prom
 /**
  * Create repository on GitHub
  */
-async function createRepo(owner: string, repo: string, token: string): Promise<void> {
+async function createRepo(client: GitHubClient, owner: string, repo: string): Promise<void> {
+  const repoOptions: repos.CreateRepoOptions = {
+    name: repo,
+    private: true,
+    auto_init: false,
+  };
+
   // Try creating as user repository first
-  const userResponse = await fetch('https://api.github.com/user/repos', {
-    method: 'POST',
-    headers: {
-      Authorization: `token ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      name: repo,
-      private: true,
-      auto_init: false,
-    }),
-  });
-
-  if (userResponse.ok) {
+  try {
+    await repos.createUserRepo(client, repoOptions);
     return;
-  }
-
-  // If that fails, try creating as org repository
-  const orgResponse = await fetch(`https://api.github.com/orgs/${owner}/repos`, {
-    method: 'POST',
-    headers: {
-      Authorization: `token ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      name: repo,
-      private: true,
-      auto_init: false,
-    }),
-  });
-
-  if (!orgResponse.ok) {
-    const error = await orgResponse.text();
-    throw new Error(`Failed to create repository: ${error}`);
+  } catch (error) {
+    // If that fails, try creating as org repository
+    // Status 404 means user repos endpoint not accessible, 422 means validation error
+    if (error instanceof errors.GitHubError && (error.status === 404 || error.status === 422)) {
+      await repos.createOrgRepo(client, owner, repoOptions);
+      return;
+    }
+    throw error;
   }
 }
 
@@ -196,83 +173,54 @@ function loadFilesList(filesPath: string): FileMapping[] {
 /**
  * Get the default branch of a repository
  */
-async function getDefaultBranch(owner: string, repo: string, token: string): Promise<string> {
-  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
-    headers: {
-      Authorization: `token ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-    },
-  });
-
-  if (!response.ok) {
+async function getDefaultBranch(client: GitHubClient, owner: string, repo: string): Promise<string> {
+  try {
+    const repository = await repos.getRepo(client, owner, repo);
+    return repository.default_branch || 'main';
+  } catch {
     return 'main'; // fallback
   }
-
-  const data = await response.json();
-  return data.default_branch || 'main';
 }
 
 /**
  * Check if a pull request already exists for the branch
  */
 async function findExistingPR(
+  client: GitHubClient,
   owner: string,
   repo: string,
-  head: string,
-  token: string
+  head: string
 ): Promise<number | null> {
-  const response = await fetch(
-    `https://api.github.com/repos/${owner}/${repo}/pulls?state=open&head=${owner}:${head}`,
-    {
-      headers: {
-        Authorization: `token ${token}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-    }
-  );
-
-  if (!response.ok) {
+  try {
+    const prs = await repos.listPullRequests(client, owner, repo, {
+      state: 'open',
+      head: `${owner}:${head}`,
+    });
+    return prs.length > 0 ? prs[0].number : null;
+  } catch {
     return null;
   }
-
-  const prs = await response.json();
-  return prs.length > 0 ? prs[0].number : null;
 }
 
 /**
  * Create a pull request
  */
 async function createPullRequest(
+  client: GitHubClient,
   owner: string,
   repo: string,
   head: string,
   base: string,
   title: string,
-  body: string,
-  token: string
+  body: string
 ): Promise<number> {
-  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls`, {
-    method: 'POST',
-    headers: {
-      Authorization: `token ${token}`,
-      Accept: 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      title,
-      body,
-      head,
-      base,
-    }),
+  const pr = await repos.createPullRequest(client, owner, repo, {
+    title,
+    body,
+    head,
+    base,
   });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to create pull request: ${error}`);
-  }
-
-  const data = await response.json();
-  return data.number;
+  return pr.number;
 }
 
 /**
@@ -307,6 +255,9 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
     }
   }
   console.log();
+
+  // Create GitHub client
+  const client = new GitHubClient({ token });
 
   // Parse repositories
   const sourceRepo = parseRepo(source);
@@ -353,11 +304,11 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
 
     // Check if target repository exists
     console.log(`\nChecking if target repository exists: ${target}...`);
-    const targetExists = await checkRepoExists(targetRepo.owner, targetRepo.repo, token);
+    const targetExists = await checkRepoExists(client, targetRepo.owner, targetRepo.repo);
 
     if (!targetExists) {
       console.log('Target repository does not exist. Creating...');
-      await createRepo(targetRepo.owner, targetRepo.repo, token);
+      await createRepo(client, targetRepo.owner, targetRepo.repo);
       console.log('✓ Target repository created');
     } else {
       console.log('✓ Target repository exists');
@@ -465,15 +416,15 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
         }
 
         // Get the default branch for the PR base repo
-        const defaultBranch = await getDefaultBranch(prOwner, prRepoName, token);
+        const defaultBranch = await getDefaultBranch(client, prOwner, prRepoName);
         console.log(`Base repository default branch: ${defaultBranch}`);
 
         console.log('Checking for existing pull request...');
         const existingPR = await findExistingPR(
+          client,
           prOwner,
           prRepoName,
-          prHead,
-          token
+          prHead
         );
 
         if (existingPR) {
@@ -483,13 +434,13 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
         } else {
           console.log('Creating new pull request...');
           const prNumber = await createPullRequest(
+            client,
             prOwner,
             prRepoName,
             prHead,
             defaultBranch,
             prTitle,
-            prBody,
-            token
+            prBody
           );
           console.log(`✓ Pull request created: #${prNumber}`);
           console.log(`  View at: https://github.com/${prOwner}/${prRepoName}/pull/${prNumber}`);
