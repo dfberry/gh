@@ -273,3 +273,91 @@ export async function isRepoEmpty(client: GitHubClient, repo: Repository): Promi
 
   return true;
 }
+
+export interface CreateRepoOptions {
+  name: string;
+  description?: string;
+  private?: boolean;
+  auto_init?: boolean;
+}
+
+/**
+ * Create a repository for the authenticated user.
+ */
+export async function createUserRepo(client: GitHubClient, options: CreateRepoOptions): Promise<Repository> {
+  return client.post<Repository>('/user/repos', options);
+}
+
+/**
+ * Create a repository in an organization.
+ */
+export async function createOrgRepo(client: GitHubClient, org: string, options: CreateRepoOptions): Promise<Repository> {
+  return client.post<Repository>(`/orgs/${org}/repos`, options);
+}
+
+export interface PullRequest {
+  number: number;
+  state: string;
+  title: string;
+  body?: string;
+  head: {
+    ref: string;
+    sha: string;
+  };
+  base: {
+    ref: string;
+    sha: string;
+  };
+  html_url: string;
+  [key: string]: any;
+}
+
+export interface ListPullRequestsOptions {
+  state?: 'open' | 'closed' | 'all';
+  head?: string;
+  base?: string;
+  sort?: 'created' | 'updated' | 'popularity' | 'long-running';
+  direction?: 'asc' | 'desc';
+}
+
+/**
+ * List pull requests for a repository.
+ */
+export async function listPullRequests(
+  client: GitHubClient,
+  owner: string,
+  repo: string,
+  options?: ListPullRequestsOptions
+): Promise<PullRequest[]> {
+  const params: Record<string, string> = {};
+  if (options?.state) params.state = options.state;
+  if (options?.head) params.head = options.head;
+  if (options?.base) params.base = options.base;
+  if (options?.sort) params.sort = options.sort;
+  if (options?.direction) params.direction = options.direction;
+
+  const query = Object.keys(params).length > 0 
+    ? '?' + new URLSearchParams(params).toString()
+    : '';
+  
+  return client.get<PullRequest[]>(`/repos/${owner}/${repo}/pulls${query}`);
+}
+
+export interface CreatePullRequestOptions {
+  title: string;
+  body?: string;
+  head: string;
+  base: string;
+}
+
+/**
+ * Create a pull request.
+ */
+export async function createPullRequest(
+  client: GitHubClient,
+  owner: string,
+  repo: string,
+  options: CreatePullRequestOptions
+): Promise<PullRequest> {
+  return client.post<PullRequest>(`/repos/${owner}/${repo}/pulls`, options);
+}
