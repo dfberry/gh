@@ -6,7 +6,7 @@ import { spawnSync, spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { GitHubClient, repos } from 'github-rest';
+import { GitHubClient, repos, errors } from 'github-rest';
 
 export interface MoveOptions {
   source: string;
@@ -120,8 +120,7 @@ async function createRepo(client: GitHubClient, owner: string, repo: string): Pr
   } catch (error) {
     // If that fails, try creating as org repository
     // Status 404 means user repos endpoint not accessible, 422 means validation error
-    const isGitHubError = error && typeof error === 'object' && 'status' in error;
-    if (isGitHubError && (error.status === 404 || error.status === 422)) {
+    if (error instanceof errors.GitHubError && (error.status === 404 || error.status === 422)) {
       await repos.createOrgRepo(client, owner, repoOptions);
       return;
     }
