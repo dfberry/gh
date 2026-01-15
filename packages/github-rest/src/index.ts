@@ -5,7 +5,7 @@ export * as repos from './endpoints/repos.js';
 export * as pagination from './pagination/index.js';
 export * as permissions from './endpoints/permissions.js';
 export { getRepoPermissions, hasAdminPermission } from './endpoints/permissions.js';
-export { findEmptyRepos } from './endpoints/repos.js';
+export { findEmptyRepos, createUserRepo, createOrgRepo, listPullRequests, createPullRequest } from './endpoints/repos.js';
 export * as auth from './core/auth.js';
 export { getActorWithScopeCheck } from './core/auth.js';
 export * as describeHelpers from './endpoints/describe-helpers.js';

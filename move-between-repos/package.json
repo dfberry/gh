@@ -24,5 +24,8 @@
   "devDependencies": {
     "@types/node": "^22.19.6",
     "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "github-rest": "file:../packages/github-rest"
   }
 }

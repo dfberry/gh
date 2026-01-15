@@ -23,6 +23,7 @@ export interface Repository {
   language?: string | null;
   topics?: string[];
   permissions?: Permissions;
+  default_branch?: string;
 }
 
 export interface PaginatedResult<T> {
