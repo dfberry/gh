@@ -309,7 +309,6 @@ export interface PullRequest {
     sha: string;
   };
   html_url: string;
-  [key: string]: any;
 }
 
 export interface ListPullRequestsOptions {

@@ -78,7 +78,18 @@ export class GitHubClient {
   }
 
   async rawRequest<T = unknown>(method: string, pathOrUrl: string, opts: { params?: Record<string, string | number>; body?: unknown; headers?: Record<string, string>; signal?: AbortSignal } = {}): Promise<{ body: T; headers: Record<string, string>; status: number }> {
-    const url = pathOrUrl.startsWith('http') ? pathOrUrl : `${this.baseUrl}${pathOrUrl}`;
+    let url = pathOrUrl.startsWith('http') ? pathOrUrl : `${this.baseUrl}${pathOrUrl}`;
+    
+    // Add query parameters if provided
+    if (opts.params && Object.keys(opts.params).length > 0) {
+      const searchParams = new URLSearchParams();
+      for (const [key, value] of Object.entries(opts.params)) {
+        searchParams.append(key, String(value));
+      }
+      const separator = url.includes('?') ? '&' : '?';
+      url = `${url}${separator}${searchParams.toString()}`;
+    }
+    
     const headers = this.buildHeaders(opts.headers);
     const init: RequestInit = {
       method,
