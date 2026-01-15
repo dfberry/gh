@@ -336,11 +336,7 @@ export async function listPullRequests(
   if (options?.sort) params.sort = options.sort;
   if (options?.direction) params.direction = options.direction;
 
-  const query = Object.keys(params).length > 0 
-    ? '?' + new URLSearchParams(params).toString()
-    : '';
-  
-  return client.get<PullRequest[]>(`/repos/${owner}/${repo}/pulls${query}`);
+  return client.get<PullRequest[]>(`/repos/${owner}/${repo}/pulls`, { params });
 }
 
 export interface CreatePullRequestOptions {
