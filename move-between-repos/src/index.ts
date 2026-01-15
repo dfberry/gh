@@ -14,6 +14,11 @@ export interface MoveOptions {
   token: string;
   preserveHistory?: boolean;
   dryRun?: boolean;
+  createPR?: boolean;
+  prBranch?: string;
+  prTitle?: string;
+  prBody?: string;
+  upstream?: string;
 }
 
 export interface FileMapping {
@@ -92,7 +97,7 @@ async function checkRepoExists(owner: string, repo: string, token: string): Prom
   try {
     const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `token ${token}`,
         Accept: 'application/vnd.github.v3+json',
       },
     });
@@ -110,7 +115,7 @@ async function createRepo(owner: string, repo: string, token: string): Promise<v
   const userResponse = await fetch('https://api.github.com/user/repos', {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `token ${token}`,
       Accept: 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
     },
@@ -129,7 +134,7 @@ async function createRepo(owner: string, repo: string, token: string): Promise<v
   const orgResponse = await fetch(`https://api.github.com/orgs/${owner}/repos`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `token ${token}`,
       Accept: 'application/vnd.github.v3+json',
       'Content-Type': 'application/json',
     },
@@ -189,10 +194,104 @@ function loadFilesList(filesPath: string): FileMapping[] {
 }
 
 /**
+ * Get the default branch of a repository
+ */
+async function getDefaultBranch(owner: string, repo: string, token: string): Promise<string> {
+  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+    headers: {
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+  });
+
+  if (!response.ok) {
+    return 'main'; // fallback
+  }
+
+  const data = await response.json();
+  return data.default_branch || 'main';
+}
+
+/**
+ * Check if a pull request already exists for the branch
+ */
+async function findExistingPR(
+  owner: string,
+  repo: string,
+  head: string,
+  token: string
+): Promise<number | null> {
+  const response = await fetch(
+    `https://api.github.com/repos/${owner}/${repo}/pulls?state=open&head=${owner}:${head}`,
+    {
+      headers: {
+        Authorization: `token ${token}`,
+        Accept: 'application/vnd.github.v3+json',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const prs = await response.json();
+  return prs.length > 0 ? prs[0].number : null;
+}
+
+/**
+ * Create a pull request
+ */
+async function createPullRequest(
+  owner: string,
+  repo: string,
+  head: string,
+  base: string,
+  title: string,
+  body: string,
+  token: string
+): Promise<number> {
+  const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls`, {
+    method: 'POST',
+    headers: {
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      title,
+      body,
+      head,
+      base,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Failed to create pull request: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.number;
+}
+
+/**
  * Main function to move files between repositories
  */
 export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void> {
-  const { source, target, filesPath, token, preserveHistory = false, dryRun = false } = options;
+  const { 
+    source, 
+    target, 
+    filesPath, 
+    token, 
+    preserveHistory = false, 
+    dryRun = false,
+    createPR = false,
+    prBranch = 'migrate-files',
+    prTitle = `Migrate files from ${options.source}`,
+    prBody = 'Automated file migration',
+    upstream
+  } = options;
 
   console.log('=== Move Files Between Repositories ===');
   console.log(`Source: ${source}`);
@@ -200,6 +299,13 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
   console.log(`Files list: ${filesPath}`);
   console.log(`Preserve history: ${preserveHistory}`);
   console.log(`Dry run: ${dryRun}`);
+  console.log(`Create PR: ${createPR}`);
+  if (createPR) {
+    console.log(`PR branch: ${prBranch}`);
+    if (upstream) {
+      console.log(`PR upstream: ${upstream}`);
+    }
+  }
   console.log();
 
   // Parse repositories
@@ -269,8 +375,21 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
       gitCommand(tmpBase, ['init', targetDir]);
       const targetUrlWithAuth = targetUrl.replace('https://', `https://x-access-token:${token}@`);
       gitCommand(targetDir, ['remote', 'add', 'origin', targetUrlWithAuth]);
-      gitCommand(targetDir, ['checkout', '-b', 'main']);
+      gitCommand(targetDir, ['checkout', '-b', createPR ? prBranch : 'main']);
       console.log('✓ Target repository initialized');
+    }
+
+    // Create branch for PR if requested
+    if (createPR && targetExists) {
+      console.log(`\nCreating branch: ${prBranch}...`);
+      try {
+        gitCommand(targetDir, ['checkout', '-b', prBranch]);
+        console.log(`✓ Branch created: ${prBranch}`);
+      } catch (error) {
+        // Branch might already exist, try to check it out
+        gitCommand(targetDir, ['checkout', prBranch]);
+        console.log(`✓ Switched to existing branch: ${prBranch}`);
+      }
     }
 
     if (preserveHistory) {
@@ -318,9 +437,64 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
       console.log('✓ Changes committed');
 
       // Push to target repository
-      console.log('\nPushing to target repository...');
-      gitCommand(targetDir, ['push', '-u', 'origin', 'main']);
+      const branchToPush = createPR ? prBranch : 'main';
+      console.log(`\nPushing to target repository (branch: ${branchToPush})...`);
+      gitCommand(targetDir, ['push', '-u', 'origin', branchToPush]);
       console.log('✓ Changes pushed');
+
+      // Create or update pull request if requested
+      if (createPR) {
+        // Determine which repo to create the PR in
+        let prRepo, prOwner, prRepoName, prBaseOwner, prHead;
+        
+        if (upstream) {
+          // Create PR in upstream repo (fork -> upstream workflow)
+          prRepo = parseRepo(upstream);
+          prOwner = prRepo.owner;
+          prRepoName = prRepo.repo;
+          prBaseOwner = prRepo.owner;
+          prHead = `${targetRepo.owner}:${prBranch}`; // fork:branch format
+          console.log(`\nCreating PR from fork (${target}) to upstream (${upstream})`);
+        } else {
+          // Create PR in target repo (standard workflow)
+          prOwner = targetRepo.owner;
+          prRepoName = targetRepo.repo;
+          prBaseOwner = targetRepo.owner;
+          prHead = prBranch;
+          console.log(`\nCreating PR in target repo (${target})`);
+        }
+
+        // Get the default branch for the PR base repo
+        const defaultBranch = await getDefaultBranch(prOwner, prRepoName, token);
+        console.log(`Base repository default branch: ${defaultBranch}`);
+
+        console.log('Checking for existing pull request...');
+        const existingPR = await findExistingPR(
+          prOwner,
+          prRepoName,
+          prHead,
+          token
+        );
+
+        if (existingPR) {
+          console.log(`✓ Pull request already exists: #${existingPR}`);
+          console.log(`  Updated with new changes`);
+          console.log(`  View at: https://github.com/${prOwner}/${prRepoName}/pull/${existingPR}`);
+        } else {
+          console.log('Creating new pull request...');
+          const prNumber = await createPullRequest(
+            prOwner,
+            prRepoName,
+            prHead,
+            defaultBranch,
+            prTitle,
+            prBody,
+            token
+          );
+          console.log(`✓ Pull request created: #${prNumber}`);
+          console.log(`  View at: https://github.com/${prOwner}/${prRepoName}/pull/${prNumber}`);
+        }
+      }
     }
   } finally {
     // Cleanup temporary directories

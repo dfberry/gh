@@ -5,6 +5,15 @@
 
 import { moveFilesBetweenRepos } from './index.js';
 import { parseArgs } from 'node:util';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
+);
+const version = packageJson.version;
 
 const usage = `
 Usage: move-between-repos --source <repo> --target <repo> --files <path> [options]
@@ -17,6 +26,12 @@ Options:
   --token <token>       GitHub token (or use GH_TOKEN env var)
   --preserve-history    Preserve git history (default: false)
   --dry-run             Show what would be done without making changes
+  --create-pr           Create a pull request instead of pushing to main
+  --pr-branch <name>    Branch name for PR (default: migrate-files)
+  --pr-title <title>    PR title (default: auto-generated)
+  --pr-body <body>      PR description (default: "Automated file migration")
+  --upstream <repo>     Create PR to upstream repo (for forks, format: owner/repo)
+  --version             Show version number
   --help                Show this help message
 
 Files JSON format examples:
@@ -35,7 +50,13 @@ interface CliArgs {
   token?: string;
   'preserve-history'?: boolean;
   'dry-run'?: boolean;
+  'create-pr'?: boolean;
+  'pr-branch'?: string;
+  'pr-title'?: string;
+  'pr-body'?: string;
+  upstream?: string;
   help?: boolean;
+  version?: boolean;
 }
 
 async function main() {
@@ -49,10 +70,21 @@ async function main() {
         token: { type: 'string' },
         'preserve-history': { type: 'boolean', default: false },
         'dry-run': { type: 'boolean', default: false },
+        'create-pr': { type: 'boolean', default: false },
+        'pr-branch': { type: 'string' },
+        'pr-title': { type: 'string' },
+        'pr-body': { type: 'string' },
+        upstream: { type: 'string' },
         help: { type: 'boolean', default: false },
+        version: { type: 'boolean', default: false },
       },
       allowPositionals: false,
     }) as { values: CliArgs };
+
+    if (values.version) {
+      console.log(version);
+      process.exit(0);
+    }
 
     if (values.help) {
       console.log(usage);
@@ -65,6 +97,11 @@ async function main() {
     const token = values.token || process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
     const preserveHistory = values['preserve-history'] || false;
     const dryRun = values['dry-run'] || false;
+    const createPR = values['create-pr'] || false;
+    const prBranch = values['pr-branch'];
+    const prTitle = values['pr-title'];
+    const prBody = values['pr-body'];
+    const upstream = values.upstream;
 
     if (!source) {
       console.error('Error: --source is required');
@@ -96,6 +133,11 @@ async function main() {
       token,
       preserveHistory,
       dryRun,
+      createPR,
+      prBranch,
+      prTitle,
+      prBody,
+      upstream,
     });
 
     console.log('\n✓ Migration completed successfully');

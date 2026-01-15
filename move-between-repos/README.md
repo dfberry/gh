@@ -143,6 +143,27 @@ node dist/cli.js \
   --files migrations/files.json
 ```
 
+**Create a pull request instead of direct push:**
+```bash
+npm start -- \
+  --source owner/source-repo \
+  --target owner/target-repo \
+  --files files-list.json \
+  --create-pr
+```
+
+**With custom PR details:**
+```bash
+npm start -- \
+  --source owner/source-repo \
+  --target owner/target-repo \
+  --files files-list.json \
+  --create-pr \
+  --pr-branch feature/migrate-docs \
+  --pr-title "Migrate documentation from old repo" \
+  --pr-body "This PR migrates documentation files from the legacy repository"
+```
+
 ## CLI Options
 
 | Option | Description | Required |
@@ -154,6 +175,11 @@ node dist/cli.js \
 | `--token <token>` | GitHub personal access token | No* |
 | `--preserve-history` | Preserve git history (experimental) | No |
 | `--dry-run` | Preview changes without executing | No |
+| `--create-pr` | Create a pull request instead of pushing to main | No |
+| `--pr-branch <name>` | Branch name for PR (default: `migrate-files`) | No |
+| `--pr-title <title>` | Pull request title (default: auto-generated) | No |
+| `--pr-body <body>` | Pull request description (default: "Automated file migration") | No |
+| `--upstream <repo>` | Create PR to upstream repo (for forks, format: `owner/repo`) | No |
 | `--help` | Show help message | No |
 
 \* Token is required but can be provided via `GH_TOKEN` or `GITHUB_TOKEN` environment variable
@@ -164,9 +190,11 @@ node dist/cli.js \
 2. **Clone Source**: Clones the source repository to a temporary directory
 3. **Verify Files**: Checks that all specified files/folders exist in source
 4. **Prepare Target**: Clones existing target repository or creates new one
-5. **Copy Files**: Copies specified files/folders to target repository
-6. **Commit & Push**: Commits changes and pushes to target repository
-7. **Cleanup**: Removes temporary directories
+5. **Branch Creation** (if `--create-pr`): Creates a new branch for the changes
+6. **Copy Files**: Copies specified files/folders to target repository
+7. **Commit & Push**: Commits changes and pushes to target branch (or main)
+8. **Create PR** (if `--create-pr`): Creates a pull request via GitHub API
+9. **Cleanup**: Removes temporary directories
 
 ## Examples
 
@@ -229,6 +257,114 @@ npm start -- \
   --target dfberry/new-project \
   --files migration.json \
   --dry-run
+```
+
+### Example 4: Create pull request for review
+
+**files.json:**
+```json
+[
+  "README.md",
+  { "from": "src/", "to": "lib/" },
+  "tests/"
+]
+```
+
+**Command:**
+```bash
+npm start -- \
+  --source dfberry/source-repo \
+  --target dfberry/target-repo \
+  --files files.json \
+  --create-pr \
+  --pr-branch migrate-source-files \
+  --pr-title "Migrate source files from legacy repository" \
+  --pr-body "Automated migration of source code and tests. Please review before merging."
+```
+
+**Output includes:**
+```
+✓ Pull request created: #42
+  View at: https://github.com/dfberry/target-repo/pull/42
+```
+
+### Example 5: Incremental changes to same PR
+
+You can push multiple batches of files to the same PR by using the same `--pr-branch` name:
+
+**Batch 1 - Create PR with documentation:**
+```bash
+npm start -- \
+  --source owner/old-repo \
+  --target owner/new-repo \
+  --files docs-batch.json \
+  --create-pr \
+  --pr-branch migrate-all \
+  --pr-title "Migrate files from old-repo"
+```
+
+**Batch 2 - Add more files to same PR:**
+```bash
+npm start -- \
+  --source owner/old-repo \
+  --target owner/new-repo \
+  --files config-batch.json \
+  --create-pr \
+  --pr-branch migrate-all  # same branch name
+```
+
+**Batch 3 - Add tests to same PR:**
+```bash
+npm start -- \
+  --source owner/old-repo \
+  --target owner/new-repo \
+  --files tests-batch.json \
+  --create-pr \
+  --pr-branch migrate-all  # same branch name
+```
+
+**Behavior:**
+- First run creates the PR
+- Subsequent runs detect the existing PR and add new commits to it
+- Output shows: `✓ Pull request already exists: #42` with updated changes
+- All commits appear in the same PR for review
+
+### Example 6: Fork to upstream PR
+
+When working with a fork, create a PR from your fork back to the upstream repository:
+
+**files.json:**
+```json
+[
+  { "from": "src/feature/", "to": "lib/feature/" },
+  "tests/feature.test.ts"
+]
+```
+
+**Command:**
+```bash
+npm start -- \
+  --source upstream/original-repo \
+  --target yourname/forked-repo \
+  --files files.json \
+  --create-pr \
+  --pr-branch add-feature \
+  --pr-title "Add new feature from fork" \
+  --pr-body "This PR adds feature X from my fork" \
+  --upstream upstream/original-repo
+```
+
+**What happens:**
+1. Files are copied from `upstream/original-repo` to your fork `yourname/forked-repo`
+2. Changes are pushed to branch `add-feature` in your fork
+3. PR is created in `upstream/original-repo` (not your fork)
+4. PR appears as `yourname:add-feature` → `upstream:main`
+
+**Output:**
+```
+Creating PR from fork (yourname/forked-repo) to upstream (upstream/original-repo)
+✓ Pull request created: #123
+  View at: https://github.com/upstream/original-repo/pull/123
 ```
 
 ## Notes and Limitations
