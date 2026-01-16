@@ -13,6 +13,13 @@ async function main() {
     process.exit(1);
   }
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+
+  if (!token) {
+    console.error('Warning: No GitHub token provided. You may hit rate limits.');
+  } else {
+    console.log('Using GitHub token from environment variable.');
+  }
+
   try {
     const comments = await fetchPRComments(owner, repo, prNumber, token);
     console.log(JSON.stringify(comments, null, 2));

@@ -12,6 +12,9 @@
   "references": [
     { "path": "./packages/github-rest" },
     { "path": "./packages/llm-completion" },
-    { "path": "./packages/gh-cleanup" }
+    { "path": "./packages/gh-cleanup" },
+    { "path": "./get-pr-comments" },
+    { "path": "./move-between-repos" },
+    { "path": "./get-instruction-from-pr-comments" }
   ]
 }

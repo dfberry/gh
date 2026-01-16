@@ -12,7 +12,7 @@
     "start": "node dist/cli.js"
   },
   "dependencies": {
-    "github-rest": "workspace:*"
+    "github-rest": "file:../packages/github-rest"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
