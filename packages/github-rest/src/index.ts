@@ -1,3 +1,4 @@
+export { getPullRequestComments } from './endpoints/pull-requests.js';
 export { GitHubClient } from './core/client.js';
 export * as errors from './core/errors.js';
 export * as types from './types/index.js';

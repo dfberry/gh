@@ -1,0 +1,21 @@
+{
+  "name": "get-pr-comments",
+  "version": "0.1.0",
+  "description": "CLI and library to fetch all comments for a GitHub pull request using github-rest.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "get-pr-comments": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/cli.js"
+  },
+  "dependencies": {
+    "github-rest": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "type": "module"
+}
