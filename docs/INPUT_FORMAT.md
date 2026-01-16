@@ -1,6 +1,6 @@
 # Orchestrator Input Format
 
-This document describes the accepted input formats for the `active` and `maintenance` orchestrator commands.
+This document describes the accepted input formats for the `gather` and `change` orchestrator commands.
 
 Supported formats
 
@@ -39,8 +39,8 @@ Example
 
 Runner scripts
 
-- `./scripts/run-active.sh` — convenience wrapper that invokes the CLI in dry-run mode using `--input`.
-- `./scripts/run-maintenance.sh` — convenience wrapper for the maintenance orchestrator in dry-run mode.
+- `./scripts/run-gather.sh` — convenience wrapper that invokes the CLI in dry-run mode using `--input`.
+- `./scripts/run-change.sh` — convenience wrapper for the change orchestrator in dry-run mode.
 
 Notes
 
