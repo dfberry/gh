@@ -1,4 +1,5 @@
 import { GitHubClient } from '../core/client.js';
+import { getContents } from './repos.js';
 
 /**
  * List workflows for a repository. Returns the raw API response or `null` on error.
@@ -11,16 +12,6 @@ export async function listRepoWorkflows(client: GitHubClient, owner: string, rep
   }
 }
 
-/**
- * Get a repository content entry by path. Returns the API response or `null` on error.
- */
-export async function getRepoContent(client: GitHubClient, owner: string, repo: string, path: string): Promise<any | null> {
-  try {
-    return await client.get<any>(`/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`);
-  } catch (err) {
-    return null;
-  }
-}
 
 /**
  * List workflow runs for a workflow id. Returns the raw API response or `null` on error.

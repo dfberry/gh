@@ -1,5 +1,10 @@
+// List files and folders in a repo at a given path (default: root)
+import type { GitHubClient } from '../core/client.js';
+export async function getContents(client: GitHubClient, owner: string, repo: string, path: string) {
+  const safePath = encodeURIComponent(path).replace(/%2F/g, '/');
+  return client.get(`/repos/${owner}/${repo}/contents/${safePath}`);
+}
 import type { Repository } from '../types/index.js';
-import { GitHubClient } from '../core/client.js';
 import { getLastPageFromLink } from '../pagination/links.js';
 import { paginateAll } from '../pagination/index.js';
 
