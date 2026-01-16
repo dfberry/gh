@@ -1,3 +1,14 @@
+import { createGitHubClient } from '../core/factory.js';
+
+export async function getDefaultBranch(owner: string, repo: string): Promise<string | undefined> {
+  const client = createGitHubClient();
+  try {
+    const repoData = await client.get(`/repos/${owner}/${repo}`);
+    return (repoData as any).default_branch;
+  } catch (e) {
+    return undefined;
+  }
+}
 import type { GitHubClient } from '../core/client.js';
 
 export async function getRepo(client: GitHubClient, owner: string, repo: string) {

@@ -11,9 +11,9 @@
  *   - `evaluateActionsCommand(argv)` — thin CLI wrapper used by the bin
  */
 
-import { GitHubClient, repos, pagination, actions } from 'github-rest';
 import { emitOutput, formatJsonOutput, addGeneratedTimestamp } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import * as fs from 'fs';
 
 export type Args = BaseFlags & { output?: 'json' | 'md' };
 
@@ -46,76 +46,20 @@ function extractDescriptionFromWorkflow(content: string | null): string | null {
   return (m[1] || m[2] || m[3] || '').trim();
 }
 
-export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
-  const allRepos = await pagination.paginateAll(async (page: number) => {
-    return repos.listAuthenticatedUserRepos(client, page, 100);
-  });
-
-  const out: any[] = [];
-
-  for (const r of allRepos) {
-    const owner = r.owner.login;
-    const name = r.name;
-    try {
-      const wfRes: any = await actions.listRepoWorkflows(client, owner, name);
-      const workflows: any[] = (wfRes && wfRes.workflows) || [];
-      if (!workflows || workflows.length === 0) continue;
-
-      const repoEntry: any = { full_name: r.full_name, html_url: r.html_url, workflows: [] };
-
-      for (const wf of workflows) {
-        const wfEntry: any = {
-          file: wf.path ?? null,
-          name: wf.name ?? null,
-          created_at: wf.created_at ?? null,
-          description: null,
-          last_run: null,
-          last_successful_run: null,
-          html_url: wf.html_url ?? null,
-        };
-
-        // try to get description from workflow file contents
-        try {
-          if (wf.path) {
-            const contents = await actions.getRepoContent(client, owner, name, wf.path);
-            const decoded = decodeContent(contents?.content ?? contents?.raw_content, contents?.encoding);
-            const desc = extractDescriptionFromWorkflow(decoded);
-            if (desc) wfEntry.description = desc;
-          }
-        } catch (e) {
-          // ignore content fetch errors (private files, etc.)
-        }
-
-        // last run
-        try {
-          const runsRes: any = await actions.listWorkflowRuns(client, owner, name, wf.id, 1);
-          const runs = (runsRes && runsRes.workflow_runs) || [];
-          if (runs.length > 0) wfEntry.last_run = runs[0].created_at ?? runs[0].updated_at ?? null;
-        } catch (e) {
-          // ignore
-        }
-
-        // last successful run — search recent runs for a successful conclusion
-        try {
-          const runsRes2: any = await actions.listWorkflowRuns(client, owner, name, wf.id, 50);
-          const runs2 = (runsRes2 && runsRes2.workflow_runs) || [];
-          const success = runs2.find((rr: any) => rr.conclusion === 'success');
-          if (success) wfEntry.last_successful_run = success.created_at ?? success.updated_at ?? null;
-        } catch (e) {
-          // ignore
-        }
-
-        repoEntry.workflows.push(wfEntry);
-      }
-
-      out.push(repoEntry);
-    } catch (err: any) {
-      // skip repos where actions endpoint is not accessible
-      continue;
-    }
+export async function runCommand(args: Args): Promise<any> {
+  // Only work on existing actions data file
+  const { input } = args as any;
+  if (!input) throw new Error('Missing --input (actions data file)');
+  const raw = fs.readFileSync(input, 'utf8');
+  let actionsData: any[] = [];
+  try {
+    actionsData = JSON.parse(raw);
+  } catch {
+    throw new Error('Invalid actions data file');
   }
-
-  return { repos: out };
+  // Here you can process actionsData as needed for evaluation
+  // For now, just return the parsed data
+  return { repos: actionsData };
 }
 
 export async function writeOutput(result: any, args: Args) {
@@ -162,7 +106,6 @@ export async function writeOutput(result: any, args: Args) {
 
 export async function evaluateActionsCommand(argv: string[]) {
   const args = parseArgs(argv);
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/evaluate-actions' });
-  const res = await runCommand(client, args);
+  const res = await runCommand(args);
   await writeOutput(res, args);
 }

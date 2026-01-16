@@ -1,10 +1,28 @@
+// Fetch GitHub Actions metadata for a repo
+import { createGitHubClient } from '../core/factory.js';
+export async function fetchRepoActions(owner: string, repo: string) {
+  const client = createGitHubClient();
+  return client.get(`/repos/${owner}/${repo}/actions/runs`);
+}
 import { GitHubClient } from '../core/client.js';
 import { getRepo } from './repos.js';
+import { getBranchProtection, listCollaborators, listRepoSecrets } from './security.js';
 
 /**
  * Resolve permissions for a repo-like object or by owner/name.
  * Returns `undefined` if permissions cannot be determined.
  */
+export async function fetchBranchProtection(owner: string, repo: string, branch: string) {
+  return getBranchProtection(owner, repo, branch);
+}
+
+export async function fetchCollaborators(owner: string, repo: string) {
+  return listCollaborators(owner, repo);
+}
+
+export async function fetchRepoSecrets(owner: string, repo: string) {
+  return listRepoSecrets(owner, repo);
+}
 export async function getRepoPermissions(client: GitHubClient, repoLikeOrOwner: any, maybeName?: string): Promise<any | undefined> {
   // If called with (client, repoLike)
   if (maybeName === undefined) {
