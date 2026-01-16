@@ -9,7 +9,9 @@ export async function getDefaultBranch(owner: string, repo: string): Promise<str
     return undefined;
   }
 }
+
 import type { GitHubClient } from '../core/client.js';
+import { getContents as getRepoContents } from './repos.js';
 
 export async function getRepo(client: GitHubClient, owner: string, repo: string) {
   return client.get(`/repos/${owner}/${repo}`);
@@ -40,10 +42,7 @@ export async function listReleases(client: GitHubClient, owner: string, repo: st
   return client.get(`/repos/${owner}/${repo}/releases`);
 }
 
-export async function getContents(client: GitHubClient, owner: string, repo: string, path: string) {
-  const safePath = encodeURIComponent(path).replace(/%2F/g, '/');
-  return client.get(`/repos/${owner}/${repo}/contents/${safePath}`);
-}
+
 
 export async function getUserProfile(client: GitHubClient, username: string) {
   return client.get(`/users/${username}`);
