@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# run-active.sh — convenience runner for the `active` orchestrator
+# run-change.sh — convenience runner for the `change` orchestrator
 #
 # Purpose:
-#   Invoke the `gh-cleanup` `active` orchestrator in dry-run mode using a
+#   Invoke the `gh-cleanup` `change` orchestrator in dry-run mode using a
 #   repository input list. This is a lightweight wrapper intended for
 #   local testing and CI smoke runs.
 #
 # Key behaviors:
 #   - Defaults to `--dry-run` so no destructive actions are performed.
 #   - Accepts an `--input` file (JSON array or newline list) and forwards it
-#     to the `active` orchestrator.
+#     to the `change` orchestrator.
 #   - Writes per-step outputs into the provided `--out` directory with the
 #     `--out-prefix` applied.
 #
 # Usage:
-#   ./scripts/run-active.sh [input-file] [out-dir] [out-prefix]
+#   ./scripts/run-change.sh [input-file] [out-dir] [out-prefix]
 #
 # Defaults:
 #   input-file=active-sample-repos.json
-#   out-dir=$(pwd)/generated/gh-cleanup-active
-#   out-prefix=active-dryrun
+#   out-dir=./generated/gh-cleanup-change
+#   out-prefix=change-dryrun
 
 INPUT_FILE=${1:-active-sample-repos.json}
 # Default outputs to repository generated folder when no OUT_DIR provided
-OUT_DIR=${2:-$(pwd)/generated/gh-cleanup-active}
-OUT_PREFIX=${3:-active-dryrun}
+OUT_DIR=${2:-$(pwd)/generated/gh-cleanup-change}
+OUT_PREFIX=${3:-change-dryrun}
 
 mkdir -p "$OUT_DIR"
 
@@ -39,4 +39,4 @@ if [ -f "$ROOT_DIR/.env" ]; then
   set +a
 fi
 
-node packages/gh-cleanup/dist/bin/cli.js active --input="$INPUT_FILE" --out="$OUT_DIR" --out-prefix="$OUT_PREFIX" --dry-run
+node packages/gh-cleanup/dist/bin/cli.js change --input="$INPUT_FILE" --out="$OUT_DIR" --out-prefix="$OUT_PREFIX" --dry-run

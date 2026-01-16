@@ -113,14 +113,14 @@ npm run start -w gh-cleanup -- describe-repos --repos=generated/active.json --ou
 ### Direct CLI examples
 
 ```bash
-# Active dry-run (orchestrator)
-gh-cleanup active --input sample-repos.json --out generated/gh-cleanup --out-prefix active-dryrun --dry-run
+# Gather dry-run (orchestrator)
+gh-cleanup gather --input sample-repos.json --out generated/gh-cleanup --out-prefix gather-dryrun --dry-run
 
 # Describe repos dry-run
 gh-cleanup describe-repos --repos=generated/active.json --out=generated/descriptions.json --dry-run
 
-# Maintenance dry-run (orchestrator)
-gh-cleanup maintenance --input sample-repos.json --out generated/gh-cleanup --out-prefix maintenance-dryrun --dry-run
+# Change dry-run (orchestrator)
+gh-cleanup change --input sample-repos.json --out generated/gh-cleanup --out-prefix change-dryrun --dry-run
 ```
 
 ## Rules file shape (example)

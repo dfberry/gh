@@ -31,23 +31,23 @@ jobs:
       - name: Build gh-cleanup
         run: npm --prefix packages/gh-cleanup run build
 
-      - name: Run active dry-run smoke
-        run: ./scripts/run-active.sh active-sample-repos.json $(pwd)/generated/gh-cleanup-active active-dryrun
+      - name: Run gather dry-run smoke
+        run: ./scripts/run-gather.sh active-sample-repos.json $(pwd)/generated/gh-cleanup-gather gather-dryrun
 
-      - name: Run maintenance dry-run smoke
-        run: ./scripts/run-maintenance.sh active-sample-repos.json $(pwd)/generated/gh-cleanup-maintenance maintenance-dryrun
+      - name: Run change dry-run smoke
+        run: ./scripts/run-change.sh active-sample-repos.json $(pwd)/generated/gh-cleanup-change change-dryrun
 
       - name: List outputs
-        run: ls -la $(pwd)/generated/gh-cleanup-active || true && ls -la $(pwd)/generated/gh-cleanup-maintenance || true
+        run: ls -la $(pwd)/generated/gh-cleanup-gather || true && ls -la $(pwd)/generated/gh-cleanup-change || true
 
-      - name: Upload active outputs
+      - name: Upload gather outputs
         uses: actions/upload-artifact@v4
         with:
-          name: active-outputs
-          path: generated/gh-cleanup-active
+          name: gather-outputs
+          path: generated/gh-cleanup-gather
 
-      - name: Upload maintenance outputs
+      - name: Upload change outputs
         uses: actions/upload-artifact@v4
         with:
-          name: maintenance-outputs
-          path: generated/gh-cleanup-maintenance
+          name: change-outputs
+          path: generated/gh-cleanup-change

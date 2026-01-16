@@ -52,11 +52,11 @@ globalThis.fetch = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
 # Build package
 npm --prefix packages/gh-cleanup run build
 
-# Run active dry-run writing outputs into generated/
-./scripts/run-active.sh active-sample-repos.json generated/gh-cleanup-active active-dryrun
+# Run gather dry-run writing outputs into generated/
+./scripts/run-gather.sh active-sample-repos.json generated/gh-cleanup-gather gather-dryrun
 
 # Check summary with jq
-jq -e '.steps' generated/gh-cleanup-active/active-dryrun-summary.json
+jq -e '.steps' generated/gh-cleanup-gather/gather-dryrun-summary.json
 ```
 
 ## Extensibility
