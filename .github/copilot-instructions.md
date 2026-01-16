@@ -28,6 +28,7 @@ Welcome to the project! This document guides GitHub Copilot, other AI coding ass
 - Centralize error handling in utilities.
 - Use environment variables for secrets and tokens; never hardcode credentials.
 - This repository uses ES Modules (ESM). Use `import`/`export` not `require()`.
+ - Keep functions small and single-purpose: prefer many short, well-named helpers over large multifunction routines. Small functions are easier to test, reason about, and reuse.
 
 ## Testing Conventions
 - Place tests next to modules (`*.test.ts`).

@@ -8,14 +8,13 @@ export function parseArgs(argv: string[]): AllArgs {
 
 export async function runCommand(_client: any, args: AllArgs): Promise<any> {
   const steps: Step[] = [
-    { name: 'maintenance', module: './maintenance.js', wrapper: 'maintenanceCommand' },
-    { name: 'active', module: './active.js', wrapper: 'activeCommand' },
-    { name: 'evaluate', module: './evaluate.js', wrapper: 'evaluateCommand' },
+    { name: 'maintenance', module: './maintenance.js', wrapper: 'maintenanceCommand', destructive: true },
+    { name: 'active', module: './active.js', wrapper: 'activeCommand', destructive: false },
+    { name: 'evaluate', module: './evaluate.js', wrapper: 'evaluateCommand', destructive: false },
   ];
 
   return runGroupCommand(args, {
     groupName: 'all',
-    normalizedInputSuffix: '.tmp-all-input.json',
     defaultOutPrefix: 'all',
     steps,
   });

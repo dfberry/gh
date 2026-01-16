@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { runCommand, availableCommands } from './commands.js';
-import { CommandName } from '../lib/commandNames.js';
+import { StepCommand } from '../lib/commandNames.js';
 
 function printHelp() {
   console.log('gh-cleanup — repository cleanup helpers');
@@ -14,8 +14,8 @@ function printHelp() {
   console.log('  --debug          Enable verbose debug logging for commands');
   console.log('  --debug-dir=<d>  Directory to write debug logs to');
   console.log('\nExamples:');
-  console.log(`  gh-cleanup ${CommandName.CategorizeRepos} --fetch --output=md --out=generated/catalog.md`);
-  console.log(`  gh-cleanup ${CommandName.Summary} --output=json --out=generated/active.json`);
+  console.log(`  gh-cleanup ${StepCommand.CategorizeRepos} --fetch --output=md --out=generated/catalog.md`);
+  console.log(`  gh-cleanup ${StepCommand.Summary} --output=json --out=generated/active.json`);
 }
 
 async function main(argv: string[]) {

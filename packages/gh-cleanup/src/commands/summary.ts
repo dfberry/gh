@@ -1,4 +1,5 @@
 import { GitHubClient, pagination, repos } from 'github-rest';
+import { resolveReposFromInput } from '../lib/repo-utils.js';
 import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { toMarkdownTable, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
@@ -33,7 +34,8 @@ export async function runCommand(client: any, args: Args): Promise<any> {
     return null;
   }
 
-  const all = await pagination.paginateAll(async (page: number) => repos.listAuthenticatedUserRepos(client, page, 100));
+  const fromInput = await resolveReposFromInput(client, (args as any).input);
+  const all = Array.isArray(fromInput) ? fromInput : await pagination.paginateAll(async (page: number) => repos.listAuthenticatedUserRepos(client, page, 100));
 
   const forks = all.filter((r: any) => r.fork && r.owner?.login === me);
 

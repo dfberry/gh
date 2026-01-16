@@ -26,6 +26,62 @@ export async function resolveReposFromInput(client: any, inputPath?: string): Pr
   return out;
 }
 
+/**
+ * Policy describing whether callers allow falling back to listing the
+ * authenticated user's repos when no explicit input file is provided.
+ */
+export type RepoInputPolicy = {
+  allowUserFallback: boolean; // when false, caller requires an explicit input file
+};
+
+/**
+ * Resolve repos according to the provided policy. Returns an array of
+ * repo objects when resolved, or `undefined` when the policy forbids
+ * fallback and no `inputPath` was provided (caller should treat as error).
+ */
+export async function resolveReposWithPolicy(client: any, inputPath?: string, policy: RepoInputPolicy = { allowUserFallback: true }): Promise<any[] | undefined> {
+  if (inputPath) {
+    const resolved = await resolveReposFromInput(client, inputPath);
+    return resolved ?? [];
+  }
+
+  if (!policy.allowUserFallback) {
+    // Caller explicitly disallows falling back to listing user repos.
+    return undefined;
+  }
+
+  return await fetchActiveRepos(client, undefined);
+}
+
+export async function fetchActiveRepos(client: any, inputPath?: string): Promise<any[]> {
+  // If inputPath provided, resolve repos from that file
+  if (inputPath) {
+    const resolved = await resolveReposFromInput(client, inputPath);
+    return resolved ?? [];
+  }
+
+  // otherwise list authenticated user's repos and filter active (not archived, not fork)
+  let me: string | undefined;
+  try {
+    const u = await client.getAuthenticatedUser();
+    me = (u as any).login;
+  } catch (e) {
+    me = undefined;
+  }
+  const { pagination } = await import('github-rest');
+  const all = await pagination.paginateAll(async (page: number) => {
+    return repos.listAuthenticatedUserRepos(client, page, 100);
+  });
+  const active = all.filter((r: any) => {
+    if (r.archived) return false;
+    if (r.fork) return false;
+    // if we can, prefer repos owned by the authenticated user
+    if (me && r.owner?.login !== me) return false;
+    return true;
+  });
+  return active;
+}
+
 // exported helpers: `resolveReposFromInput` and `categorizeReposWithMetadata`
 import { GitHubClient } from 'github-rest';
 import { Categorized } from './report.js';

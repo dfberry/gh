@@ -1,70 +1,70 @@
 export type CommandRunner = (argv: string[]) => Promise<void>;
 
 import { startSection, endSection } from './cli-log.js';
-import { CommandName } from './commandNames.js';
+import { StepCommand, GroupCommand } from './commandNames.js';
 
 const commands: Record<string, CommandRunner> = {
-  [CommandName.RemoveForks]: async (argv: string[]) => {
+  [StepCommand.RemoveForks]: async (argv: string[]) => {
     startSection('remove-forks');
     const m = await import('../commands/remove-forks.js');
     await m.removeForksCommand(argv);
     endSection('remove-forks');
   },
-  [CommandName.ArchiveStaleRepos]: async (argv: string[]) => {
+  [StepCommand.ArchiveStaleRepos]: async (argv: string[]) => {
     startSection('archive-stale-repos');
     const m = await import('../commands/archive-stale-repos.js');
     await m.archiveStaleReposCommand(argv);
     endSection('archive-stale-repos');
   },
-  [CommandName.Summary]: async (argv: string[]) => {
+  [StepCommand.Summary]: async (argv: string[]) => {
     startSection('summary');
     const m = await import('../commands/summary.js');
     await m.summaryCommand(argv);
     endSection('summary');
   },
-  [CommandName.CategorizeRepos]: async (argv: string[]) => {
+  [StepCommand.CategorizeRepos]: async (argv: string[]) => {
     startSection('categorize-repos');
     const m = await import('../commands/categorize-repos.js');
     await m.categorizeReposCommand(argv);
     endSection('categorize-repos');
   },
-  [CommandName.DescribeRepo]: async (argv: string[]) => {
+  [StepCommand.DescribeRepo]: async (argv: string[]) => {
     startSection('describe-repo');
     const m = await import('../commands/describe-repo.js');
     await m.describeRepoCommand(argv);
     endSection('describe-repo');
   },
-  [CommandName.DescribeRepos]: async (argv: string[]) => {
+  [StepCommand.DescribeRepos]: async (argv: string[]) => {
     startSection('describe-repos');
     const m = await import('../commands/describe-repos.js');
     await m.describeReposCommand(argv);
     endSection('describe-repos');
   },
-  [CommandName.DeleteEmptyRepos]: async (argv: string[]) => {
+  [StepCommand.DeleteEmptyRepos]: async (argv: string[]) => {
     startSection('delete-empty-repos');
     const m = await import('../commands/delete-empty-repos.js');
     await m.deleteEmptyReposCommand(argv);
     endSection('delete-empty-repos');
   },
-  [CommandName.EvaluateActions]: async (argv: string[]) => {
+  [StepCommand.EvaluateActions]: async (argv: string[]) => {
     startSection('evaluate-actions');
     const m = await import('../commands/evaluate-actions.js');
     await m.evaluateActionsCommand(argv);
     endSection('evaluate-actions');
   },
-  [CommandName.Active]: async (argv: string[]) => {
+  [GroupCommand.Active]: async (argv: string[]) => {
     startSection('group: active');
     const m = await import('../commandgroups/active.js');
     await m.activeCommand(argv);
     endSection('group: active');
   },
-  [CommandName.Evaluate]: async (argv: string[]) => {
+  [GroupCommand.Evaluate]: async (argv: string[]) => {
     startSection('group: evaluate');
     const m = await import('../commandgroups/evaluate.js');
     await m.evaluateCommand(argv);
     endSection('group: evaluate');
   },
-  [CommandName.Maintenance]: async (argv: string[]) => {
+  [GroupCommand.Maintenance]: async (argv: string[]) => {
     startSection('group: maintenance');
     const m = await import('../commandgroups/maintenance.js');
     await m.maintenanceCommand(argv);

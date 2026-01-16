@@ -16,6 +16,7 @@
  *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
  */
 import { GitHubClient, repos, pagination } from 'github-rest';
+import { resolveReposFromInput } from '../lib/repo-utils.js';
 import { toMarkdownTable, Categorized, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
 import { getOutputPath } from '../lib/outputOrganizer.js';
 import * as fs from 'node:fs/promises';
@@ -39,7 +40,8 @@ import { scoreCategory, loadRules, Rule } from '../lib/categorizer.js';
 import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
 
 export async function runCommand(client: GitHubClient, args: Args) {
-  const all = await pagination.paginateAll(async (page: number) => {
+  const fromInput = await resolveReposFromInput(client, (args as any).input);
+  const all = Array.isArray(fromInput) ? fromInput : await pagination.paginateAll(async (page: number) => {
     return repos.listAuthenticatedUserRepos(client, page, 100);
   });
 

@@ -20,7 +20,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as readline from 'readline';
 import { LLMConfig } from 'llm-completion';
-import { describeHelpers } from 'github-rest';
+import { describeHelpers, repos, pagination } from 'github-rest';
 import { describeRepoWithLLM, createClient, buildPromptString } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { getOutputPath } from '../lib/outputOrganizer.js';
@@ -67,19 +67,39 @@ export async function runCommand(client: any, args: Args): Promise<any> {
   if (args.openaiEndpoint) cfg.endpoint = args.openaiEndpoint;
   if (args.debug) cfg.debug = { ...(cfg.debug || {}), enabled: true, dir: args.debugDir };
 
-  const inputFlags = args.inputFlags || [];
+  const inputFlags = (args.inputFlags || []).slice(0);
+  // also accept --input= from base flags
+  if ((args as any).input) inputFlags.push((args as any).input);
+  console.log('describe-repos: starting runCommand; inputFlags=', inputFlags);
   const apply = !!args.apply;
-
   if (inputFlags.length === 0) {
-    const safeCfg = Object.assign({}, cfg) as any;
-    if (safeCfg.key) safeCfg.key = '[REDACTED]';
-    throw new Error('Missing required flag --input=path.json or --repos=path1,path2. Usage: gh-cleanup describe-repos --input=path.json [--apply] [--out=path.json|path.md] [--prompt=path]. Parsed params: ' + JSON.stringify({ apply, outPath: args.outPath, promptFlag: args.promptFlag, cfg: safeCfg }));
+    // no input provided — fall back to listing authenticated user's repos
+    console.log('No --input provided; describing authenticated user repositories');
+    const all = await pagination.paginateAll(async (page: number) => {
+      return repos.listAuthenticatedUserRepos(client, page, 100);
+    });
+    for (const r of all) {
+      inputFlags.push(r.full_name);
+    }
   }
 
   type Entry = { repoStr: string; hasDescription?: boolean; hasTopics?: boolean };
   const entries: Entry[] = [];
   for (const inputPath of inputFlags) {
-    const fileContent = await fs.readFile(inputPath, 'utf8');
+    // Try to read inputPath as a file; if it fails treat it as a repo string (owner/name)
+    let fileContent: string | null = null;
+    try {
+      fileContent = await fs.readFile(inputPath, 'utf8');
+    } catch (e) {
+      // treat as single repo string
+      if (typeof inputPath === 'string' && inputPath.includes('/')) {
+        entries.push({ repoStr: inputPath });
+        continue;
+      }
+      console.error('Failed to read input path', inputPath, e);
+      throw e;
+    }
+
     let parsedFile: any;
     try {
       parsedFile = JSON.parse(fileContent);
@@ -145,6 +165,8 @@ export async function runCommand(client: any, args: Args): Promise<any> {
     }
     candidates.push({ owner, repo, entry: e });
   }
+
+  console.log('describe-repos: candidate count=', candidates.length, 'sample=', candidates.slice(0, 10).map((c) => `${c.owner}/${c.repo}`));
 
   const cacheDir = process.env.OPENAI_CACHE_DIR || path.join(process.cwd(), 'generated');
   const cacheFile = path.join(cacheDir, 'llm-cache.json');
@@ -273,8 +295,29 @@ export async function describeReposCommand(argv: string[]) {
   const args = parseArgs(argv);
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
   const client = createClient(token);
-  const res = await runCommand(client as any, args);
-  await writeOutput(res, args);
+  try {
+    const res = await runCommand(client as any, args);
+    await writeOutput(res, args);
+  } catch (err: any) {
+    console.error('describe-repos: run failed:', err?.message ?? err);
+    console.error(err?.stack ?? 'no stack');
+    // attempt to write error details to out file so group summaries include more context
+    const target = args.outPath || getOutputPath({ group: 'active', filename: 'descriptions-error.json' });
+    const dump = {
+      error: String(err?.message ?? err),
+      stack: err?.stack ?? null,
+      args: { inputFlags: args.inputFlags, input: (args as any).input, outPath: args.outPath },
+      ts: new Date().toISOString(),
+    };
+    try {
+      await fs.mkdir(path.dirname(target), { recursive: true }).catch(() => {});
+      await fs.writeFile(target, JSON.stringify(dump, null, 2), 'utf8');
+      console.log('Wrote error dump to', target);
+    } catch (e) {
+      console.error('Failed to write error dump:', e);
+    }
+    throw err;
+  }
 }
 
 export default describeReposCommand;

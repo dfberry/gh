@@ -15,7 +15,7 @@ export interface OutputConfig {
   // Folder name used for metadata / summaries that are not tied to a group
   metaFolderName: string;
   // Mapping of command-group -> subfolder name under rootDir
-  groupFolders: Record<string, string>;
+  groupFolders?: Record<string, string>;
   // Default folder when a group is not found in groupFolders
   defaultGroupFolder: string;
 }
@@ -23,11 +23,7 @@ export interface OutputConfig {
 export const defaultConfig: OutputConfig = {
   rootDir: './generated',
   metaFolderName: '',
-  groupFolders: {
-    'gh-cleanup': 'gh-cleanup',
-    'evaluate': 'evaluate',
-    'maintenance': 'maintenance'
-  },
+  // `groupFolders` mapping removed — folders are now derived from the group name.
   defaultGroupFolder: ''
 };
 
@@ -57,7 +53,16 @@ export function makeConfig(override?: Partial<OutputConfig>): OutputConfig {
 
 export function resolveGroupFolder(cfg: OutputConfig, group?: CommandGroup) {
   if (!group) return cfg.metaFolderName;
-  return cfg.groupFolders[group] ?? cfg.defaultGroupFolder;
+  const s = String(group || '').trim();
+  if (!s) return cfg.defaultGroupFolder;
+  // sanitize group name into a folder-safe, kebab-case string
+  const sanitized = s
+    .replace(/\s+/g, '-')
+    .replace(/[^A-Za-z0-9-_]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/(^-+|-+$)/g, '')
+    .toLowerCase();
+  return sanitized || cfg.defaultGroupFolder;
 }
 
 /**

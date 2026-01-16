@@ -12,6 +12,7 @@
  */
 
 import { GitHubClient, repos, pagination, actions } from 'github-rest';
+import { resolveReposFromInput } from '../lib/repo-utils.js';
 import { emitOutput, formatJsonOutput, addGeneratedTimestamp } from '../lib/report.js';
 import { getOutputPath } from '../lib/outputOrganizer.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
@@ -48,9 +49,12 @@ function extractDescriptionFromWorkflow(content: string | null): string | null {
 }
 
 export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
-  const allRepos = await pagination.paginateAll(async (page: number) => {
-    return repos.listAuthenticatedUserRepos(client, page, 100);
-  });
+  const fromInput = await resolveReposFromInput(client, (args as any).input);
+  const allRepos = Array.isArray(fromInput)
+    ? fromInput
+    : await pagination.paginateAll(async (page: number) => {
+        return repos.listAuthenticatedUserRepos(client, page, 100);
+      });
 
   const out: any[] = [];
 

@@ -10,6 +10,8 @@ export type GroupArgs = {
   input?: string;
   out?: string;
   outPrefix?: string;
+  inputOnly?: boolean;
+  normalizedInput?: string;
   dryRun?: boolean;
   yes?: boolean;
   force?: boolean;
@@ -23,6 +25,8 @@ export function parseArgs(argv: string[]): GroupArgs & BaseFlags {
     if (a.startsWith('--input=')) args.input = a.split('=', 2)[1];
     if (a.startsWith('--out=')) args.out = a.split('=', 2)[1];
     if (a.startsWith('--out-prefix=')) args.outPrefix = a.split('=', 2)[1];
+    if (a === '--input-only') args.inputOnly = true;
+    if (a.startsWith('--normalized-input=')) args.normalizedInput = a.split('=', 2)[1];
     if (a === '--dry-run') args.dryRun = true;
     if (a === '--yes') args.yes = true;
     if (a === '--force') args.force = true;
@@ -58,13 +62,12 @@ export async function confirmDestructiveForwarding(
   return forwardApply;
 }
 
-export type Step = { name: string; module: string; wrapper: string };
+export type Step = { name: string; module: string; wrapper: string; destructive?: boolean };
 
 export async function runGroupCommand(
   args: GroupArgs,
   opts: {
     groupName: string;
-    normalizedInputSuffix?: string;
     defaultOutPrefix: string;
     steps: Step[];
   },
@@ -87,82 +90,151 @@ export async function runGroupCommand(
   const cfg = makeConfig({ rootDir: outDir });
 
   // ensure group folder exists
-  const groupFolder = resolveGroupFolder(cfg, opts.groupName);
+  ensureGroupFolder(cfg, opts.groupName);
+
+  // Determine normalized input (explicit flag or active group's repo file)
+  let normalizedInputPath = determineNormalizedInput(args, outDir);
+
+  // Confirm destructive forwarding only for marked steps
+  const destructiveStepNames = opts.steps.filter((s) => s.destructive).map((s) => s.name);
+  const forwardApply = await confirmDestructiveForwarding(args, destructiveStepNames);
+
+  // Execute the steps
+  const { summary, finalNormalizedInput } = await executeSteps(opts.steps, args, opts, outDir, outPrefix, normalizedInputPath, forwardApply, base);
+  normalizedInputPath = finalNormalizedInput;
+
+  // Write summary or active repo list
+  writeGroupSummary(summary, opts.groupName, outDir, outPrefix, repos, outDir);
+  const status = summary.errorCount > 0 ? 'errors' : 'ok';
+  endSection(`group: ${opts.groupName}`, status);
+
+  return { step: opts.groupName, repos, timestamp, summary, inputPath, usedDefaultInput };
+}
+function ensureGroupFolder(cfg: { rootDir: string }, groupName: string) {
+  const groupFolder = resolveGroupFolder(cfg as any, groupName);
   const fullGroupPath = path.join(cfg.rootDir, groupFolder);
   try {
     fs.mkdirSync(fullGroupPath, { recursive: true });
   } catch (e) {
     console.error(`Failed to create output directory "${fullGroupPath}":`, e);
   }
-
-  let normalizedInputPath: string | undefined = undefined;
-  if (inputPath && opts.normalizedInputSuffix) {
-    normalizedInputPath = getOutputPath({ group: opts.groupName, filename: opts.normalizedInputSuffix, config: { rootDir: outDir } });
-    try {
-      fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8');
-    } catch (e) {
-      console.error(`Failed to write normalized input file "${normalizedInputPath}":`, e);
-    }
+}
+function determineNormalizedInput(args: GroupArgs, outDir: string): string | undefined {
+  const explicitNormalized = (args as any).normalizedInput as string | undefined;
+  if (explicitNormalized) {
+    return explicitNormalized;
   }
+  const defaultActive = getOutputPath({ group: 'active', filename: 'active-repos.json', config: { rootDir: outDir } });
+  try {
+    if (fs.existsSync(defaultActive)) return defaultActive;
+  } catch (e) {
+    // ignore
+  }
+  return undefined;
+}
+async function executeSteps(
+  steps: Step[],
+  args: GroupArgs,
+  opts: { groupName: string; defaultOutPrefix: string; steps: Step[] },
+  outDir: string,
+  outPrefix: string,
+  normalizedInputPath: string | undefined,
+  forwardApply: boolean,
+  base: BaseFlags | undefined,
+): Promise<any> {
 
-  const steps = opts.steps;
   const summary: any = { steps: [] };
-
-  const destructiveStepNames = steps.map((s) => s.name);
-  const forwardApply = await confirmDestructiveForwarding(args, destructiveStepNames);
 
   for (const s of steps) {
     startSection(`step: ${s.name}`);
     const stepOut = getOutputPath({ group: opts.groupName, filename: `${outPrefix}-${s.name}.json`, config: { rootDir: outDir } });
-    const childArgv: string[] = [];
-    if (normalizedInputPath) childArgv.push(`--input=${normalizedInputPath}`);
-    childArgv.push(`--out=${stepOut}`);
-    if (!forwardApply) {
-      childArgv.push('--dry-run');
-    } else {
-      if (args.yes) childArgv.push('--yes');
-      if (args.force) childArgv.push('--force');
-    }
-    if (base?.debug) childArgv.push('--debug');
-    try {
-      const m = await import(s.module);
-      if (typeof m[s.wrapper] === 'function') {
-        await m[s.wrapper](childArgv);
-        summary.steps.push({ name: s.name, file: stepOut, status: 'ok' });
-      } else {
-        summary.steps.push({ name: s.name, file: stepOut, status: 'missing' });
-      }
-      endSection(`step: ${s.name}`, 'ok');
-    } catch (e) {
-      summary.steps.push({ name: s.name, file: stepOut, status: 'error', error: String(e) });
-      endSection(`step: ${s.name}`, 'error');
-      if (!args.continueOnError) break;
-    }
+    const childArgv = buildStepArgv(s, args, stepOut, normalizedInputPath, forwardApply, base);
+    const result = await executeStep(s, childArgv, stepOut);
+    summary.steps.push({ summary: result.summary, step: result.stepResult});
+    endSection(`step: ${s.name}`, result.status);
+    if (result.status === 'error' && !args.continueOnError) break;
   }
 
+  summarizeErrors(summary);
+  return { summary, finalNormalizedInput: normalizedInputPath };
+}
+
+function buildStepArgv(
+  step: Step,
+  args: GroupArgs,
+  stepOut: string,
+  normalizedInputPath: string | undefined,
+  forwardApply: boolean,
+  base: BaseFlags | undefined,
+): string[] {
+  const childArgv: string[] = [];
+  if (normalizedInputPath) childArgv.push(`--input=${normalizedInputPath}`);
+  childArgv.push(`--out=${stepOut}`);
+  if (!forwardApply) {
+    childArgv.push('--dry-run');
+  } else {
+    if (args.yes) childArgv.push('--yes');
+    if (args.force) childArgv.push('--force');
+  }
+  if (base?.debug) childArgv.push('--debug');
+  return childArgv;
+}
+
+async function executeStep(
+  step: Step,
+  childArgv: string[],
+  stepOut: string,
+): Promise<{ summary: any; stepSummary: any, stepResult: any; status: string }> {
+  try {
+    const m = await import(step.module);
+    if (typeof m[step.wrapper] === 'function') {
+      const res = await m[step.wrapper](childArgv);
+      return {
+        summary: { name: step.name, file: stepOut, status: 'ok' },
+        stepResult: res,
+        stepSummary: res?.stepSummary || null,
+        status: 'ok',
+      };
+    } else {
+      return {
+        summary: { name: step.name, file: stepOut, status: 'missing' },
+        stepResult: undefined,
+        stepSummary: null,
+        status: 'ok',
+      };
+    }
+  } catch (e) {
+    return {
+      summary: { name: step.name, file: stepOut, status: 'error', error: String(e) },
+      stepResult: undefined,
+      stepSummary: null,
+      status: 'error',
+    };
+  }
+}
+
+function summarizeErrors(summary: any) {
   const errorSteps = summary.steps.filter((x: any) => x.status === 'error');
   summary.errorCount = errorSteps.length;
   summary.failedSteps = errorSteps.map((x: any) => x.name);
+}
 
-  const summaryFile = getOutputPath({ group: opts.groupName, filename: `${outPrefix}-summary.json`, config: { rootDir: outDir } });
-  try {
-    fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
-  } catch (e) {
-    console.error(`Failed to write summary file "${summaryFile}":`, e);
-  }
-
-  const status = summary.errorCount > 0 ? 'errors' : 'ok';
-  endSection(`group: ${opts.groupName}`, status);
-
-  return { step: opts.groupName, repos, timestamp, summary, inputPath, usedDefaultInput };
+function writeGroupSummary(summary: any, groupName: string, outDir: string, outPrefix: string, repos: any[], _rootOutDir: string) {
+  // Write summary file for groups except `active` (we keep active's full
+  // result file but avoid writing a separate summary file to reduce noise).
+    const summaryFile = getOutputPath({ group: groupName, filename: `${outPrefix}-group-${groupName}-summary.json`, config: { rootDir: outDir } });
+    try {
+      fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
+    } catch (e) {
+      console.error(`Failed to write summary file "${summaryFile}":`, e);
+    }
 }
 
 export async function writeGroupOutput(result: any, args: GroupArgs, groupName: string, defaultPrefix: string): Promise<void> {
   const out = args.out || `${process.cwd()}/generated`;
   const prefix = args.outPrefix || defaultPrefix;
   try {
-    const stepFile = getOutputPath({ group: groupName, filename: `${prefix}-${groupName}.json`, config: { rootDir: out } });
-    const summaryFile = getOutputPath({ group: groupName, filename: `${prefix}-summary.json`, config: { rootDir: out } });
+    const stepFile = getOutputPath({ group: groupName, filename: `${prefix}-group-${groupName}.json`, config: { rootDir: out } });
     // ensure directory exists
     fs.mkdirSync(path.dirname(stepFile), { recursive: true });
     fs.writeFileSync(stepFile, JSON.stringify(result, null, 2), 'utf8');
@@ -171,7 +243,7 @@ export async function writeGroupOutput(result: any, args: GroupArgs, groupName: 
         {
           name: groupName,
           file: stepFile,
-          reposCount: Array.isArray(result.repos) ? result.repos.length : 0,
+          result: result,
           dryRun: !!result.dryRun,
           timestamp: result.timestamp,
           inputFile: result?.inputPath || null,
@@ -181,7 +253,12 @@ export async function writeGroupOutput(result: any, args: GroupArgs, groupName: 
       errorCount: result?.summary?.errorCount || 0,
       failedSteps: result?.summary?.failedSteps || [],
     };
-    fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
+      const summaryFile = getOutputPath({ group: groupName, filename: `${prefix}-group-summary-${groupName}.json`, config: { rootDir: out } });
+      try {
+        fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
+      } catch (e) {
+        // ignore
+      }
   } catch (e) {
     // ignore write errors for stub
   }

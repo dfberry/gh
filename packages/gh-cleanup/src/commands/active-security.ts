@@ -1,58 +1,34 @@
 import * as fs from 'fs/promises';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
-import { createGitHubClient, security } from 'github-rest';
+import { createGitHubClient, security, repos, pagination } from 'github-rest';
 import { formatJsonOutput, emitOutput } from '../lib/report.js';
+import { RepoInputPolicy, resolveReposWithPolicy } from '../lib/repo-utils.js';
 
-export type Args = BaseFlags & { inputFlags: string[] };
+export type Args = BaseFlags & { repos?: string[]; inputOnly?: boolean };
 
 export function parseArgs(argv: string[]): Args {
-  const flags = argv.slice(0);
-  const base = parseBaseFlags(flags);
-  const cfg: Args = { ...base, inputFlags: [] } as any;
-  for (const a of flags) {
-    if (a.startsWith('--input=')) cfg.inputFlags.push(a.split('=')[1]);
-    if (a.startsWith('--repos=')) cfg.inputFlags.push(...a.split('=')[1].split(',').map((s) => s.trim()).filter(Boolean));
+  const base = parseBaseFlags(argv);
+  const cfg: Args = { ...base, repos: [] } as any;
+  for (const a of argv) {
+    if (a.startsWith('--repos=')) cfg.repos = (a.split('=')[1] || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (a === '--input-only') cfg.inputOnly = true;
   }
   return cfg;
 }
 
-async function loadEntries(inputFlags: string[]) {
-  const entries: string[] = [];
-  for (const inputPath of inputFlags) {
-    const fileContent = await fs.readFile(inputPath, 'utf8');
-    let parsed: any;
-    try { parsed = JSON.parse(fileContent); } catch { parsed = fileContent; }
-    if (typeof parsed === 'string') entries.push(parsed);
-    else if (Array.isArray(parsed)) {
-      for (const it of parsed) {
-        if (typeof it === 'string') entries.push(it);
-        else if (it && typeof it === 'object') {
-          if (it.full_name) entries.push(it.full_name);
-          else if (it.owner && it.name) entries.push(`${it.owner}/${it.name}`);
-          else if (it.repo) entries.push(it.repo);
-        }
-      }
-    } else if (parsed && typeof parsed === 'object') {
-      const arr = parsed.repos || parsed.items || parsed.repositories;
-      if (Array.isArray(arr)) {
-        for (const it of arr) {
-          if (typeof it === 'string') entries.push(it);
-          else if (it && typeof it === 'object') {
-            if (it.full_name) entries.push(it.full_name);
-            else if (it.owner && it.name) entries.push(`${it.owner}/${it.name}`);
-            else if (it.repo) entries.push(it.repo);
-          }
-        }
-      }
-    }
-  }
-  return entries.map((s) => s.trim()).filter(Boolean);
-}
-
 export async function runCommand(client: any, args: Args) {
-  const inputFlags = args.inputFlags || [];
-  if (inputFlags.length === 0) throw new Error('Missing required flag --input=path.json or --repos=owner/repo');
-  const entries = await loadEntries(inputFlags);
+  // Resolve repositories according to the caller's policy. When
+  // `inputOnly` is set, we disallow falling back to listing authenticated
+  // user repos and require an explicit `--input=`.
+  const policy: RepoInputPolicy = { allowUserFallback: !args.inputOnly };
+  const resolved = await resolveReposWithPolicy(client, (args as any).input, policy);
+  if (resolved === undefined) {
+    throw new Error('No input provided and policy disallows listing user repos; provide --input=path');
+  }
+  let entries: string[] = [];
+  if (Array.isArray(resolved) && resolved.length > 0) entries = resolved.map((r: any) => (typeof r === 'string' ? r : r.full_name || `${r.owner}/${r.name}`));
+  else if (args.repos && args.repos.length > 0) entries = args.repos;
+
   const results: any[] = [];
   for (const r of entries) {
     const parts = r.split('/');
@@ -74,8 +50,8 @@ export async function activeSecurityCommand(argv: string[]) {
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
   const client = createGitHubClient({ token: token as string | undefined });
   const res = await runCommand(client as any, args);
-  const out = args.out || args.out;
-  await emitOutput(formatJsonOutput(res.results), out || undefined);
+  const out = args.out || undefined;
+  await emitOutput(formatJsonOutput(res.results), out);
 }
 
 export default activeSecurityCommand;
