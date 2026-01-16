@@ -1,32 +1,32 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# run-maintenance.sh — convenience runner for the `maintenance` orchestrator
+# run-gather.sh — convenience runner for the `gather` orchestrator
 #
 # Purpose:
-#   Invoke the `gh-cleanup` `maintenance` orchestrator in dry-run mode using a
+#   Invoke the `gh-cleanup` `gather` orchestrator in dry-run mode using a
 #   repository input list. This is a lightweight wrapper intended for
 #   local testing and CI smoke runs.
 #
 # Key behaviors:
 #   - Defaults to `--dry-run` so no destructive actions are performed.
 #   - Accepts an `--input` file (JSON array or newline list) and forwards it
-#     to the `maintenance` orchestrator.
+#     to the `gather` orchestrator.
 #   - Writes per-step outputs into the provided `--out` directory with the
 #     `--out-prefix` applied.
 #
 # Usage:
-#   ./scripts/run-maintenance.sh [input-file] [out-dir] [out-prefix]
+#   ./scripts/run-gather.sh [input-file] [out-dir] [out-prefix]
 #
 # Defaults:
 #   input-file=active-sample-repos.json
-#   out-dir=./generated/gh-cleanup-maintenance
-#   out-prefix=maintenance-dryrun
+#   out-dir=$(pwd)/generated/gh-cleanup-gather
+#   out-prefix=gather-dryrun
 
 INPUT_FILE=${1:-active-sample-repos.json}
 # Default outputs to repository generated folder when no OUT_DIR provided
-OUT_DIR=${2:-$(pwd)/generated/gh-cleanup-maintenance}
-OUT_PREFIX=${3:-maintenance-dryrun}
+OUT_DIR=${2:-$(pwd)/generated/gh-cleanup-gather}
+OUT_PREFIX=${3:-gather-dryrun}
 
 mkdir -p "$OUT_DIR"
 
@@ -39,4 +39,4 @@ if [ -f "$ROOT_DIR/.env" ]; then
   set +a
 fi
 
-node packages/gh-cleanup/dist/bin/cli.js maintenance --input="$INPUT_FILE" --out="$OUT_DIR" --out-prefix="$OUT_PREFIX" --dry-run
+node packages/gh-cleanup/dist/bin/cli.js gather --input="$INPUT_FILE" --out="$OUT_DIR" --out-prefix="$OUT_PREFIX" --dry-run

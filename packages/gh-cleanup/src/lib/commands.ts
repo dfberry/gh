@@ -51,11 +51,11 @@ const commands: Record<string, CommandRunner> = {
     await m.evaluateActionsCommand(argv);
     endSection('evaluate-actions');
   },
-  'active': async (argv: string[]) => {
-    startSection('group: active');
-    const m = await import('../commandgroups/active.js');
-    await m.activeCommand(argv);
-    endSection('group: active');
+  'gather': async (argv: string[]) => {
+    startSection('group: gather');
+    const m = await import('../commandgroups/gather.js');
+    await m.gatherCommand(argv);
+    endSection('group: gather');
   },
   'evaluate': async (argv: string[]) => {
     startSection('group: evaluate');
@@ -63,11 +63,11 @@ const commands: Record<string, CommandRunner> = {
     await m.evaluateCommand(argv);
     endSection('group: evaluate');
   },
-  'maintenance': async (argv: string[]) => {
-    startSection('group: maintenance');
-    const m = await import('../commandgroups/maintenance.js');
-    await m.maintenanceCommand(argv);
-    endSection('group: maintenance');
+  'change': async (argv: string[]) => {
+    startSection('group: change');
+    const m = await import('../commandgroups/change.js');
+    await m.changeCommand(argv);
+    endSection('group: change');
   },
 };
 
