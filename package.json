@@ -18,6 +18,9 @@
     "typescript": "^5.9.3"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "get-pr-comments",
+    "move-between-repos",
+    "get-instruction-from-pr-comments"
   ]
 }
