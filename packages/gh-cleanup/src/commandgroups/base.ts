@@ -104,6 +104,21 @@ export async function runGroupCommand(
     const childArgv: string[] = [];
     childArgv.push(`--input=${normalizedInputPath}`);
     childArgv.push(`--out=${stepOut}`);
+    if (s.name === 'branch-protection' && Array.isArray(repos) && repos.length > 0) {
+      // Use first repo in list for demonstration; could loop for all
+      const [owner, repo] = repos[0].split('/');
+      let branch = 'main';
+      try {
+        const { getDefaultBranch } = await import('../../../github-rest/dist/endpoints/describe-helpers.js');
+        const detected = await getDefaultBranch(owner, repo);
+        if (detected) branch = detected;
+      } catch (e) {
+        // fallback to main
+      }
+      childArgv.push(`--owner=${owner}`);
+      childArgv.push(`--repo=${repo}`);
+      childArgv.push(`--branch=${branch}`);
+    }
     if (!forwardApply) {
       childArgv.push('--dry-run');
     } else {
