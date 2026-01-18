@@ -45,8 +45,9 @@ jobs:
 
       - name: Verify package-lock.json is up to date
         working-directory: .
+        shell: bash -l {0}
         run: |
-          set -euo pipefail
+          set -eu
           echo "Checking package-lock.json is up to date..."
           npm --version
           # Save committed lockfile

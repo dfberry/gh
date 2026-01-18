@@ -1,3 +1,4 @@
+# SINGLE WORKFLOW - Lockfile PR Reminder
 name: Lockfile PR Reminder
 
 on:
@@ -23,10 +24,10 @@ jobs:
 
       - name: Check if lockfile would change
         id: check
+        shell: bash -l {0}
         run: |
-          set -euo pipefail
+          set -eu
           npm --version
-          # Ensure lockfile generation runs with workspace awareness
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           if git diff --quiet -- package-lock.json; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
@@ -44,21 +45,25 @@ jobs:
             const fs = require('fs');
             const pr = context.payload.pull_request;
             const diff = fs.existsSync('lockfile.diff') ? fs.readFileSync('lockfile.diff', 'utf8') : '';
-            const body = `:warning: The repository lockfile (package-lock.json) is out of sync with changes to package.json.
-
-Please run the following at the repository root and commit the updated lockfile:
-
-```
-npm install
-git add package-lock.json
-git commit -m "Update package-lock.json"
-git push
-```
-
-Lockfile diff:
-\n\n```
-${diff}
-````;
+            const bodyLines = [
+              ':warning: The repository lockfile (package-lock.json) is out of sync with changes to package.json.',
+              '',
+              'Please run the following at the repository root and commit the updated lockfile:',
+              '',
+              '```',
+              'npm install',
+              'git add package-lock.json',
+              'git commit -m "Update package-lock.json"',
+              'git push',
+              '```',
+              '',
+              'Lockfile diff:',
+              '',
+              '```',
+              diff,
+              '```',
+            ];
+            const body = bodyLines.join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,

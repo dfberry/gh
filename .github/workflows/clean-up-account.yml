@@ -38,7 +38,7 @@ jobs:
       - name: Validate target repo owner is a user
         if: env.TARGET_REPO != ''
         run: |
-          set -euo pipefail
+          set -eu
           OWNER="${TARGET_REPO%%/*}"
           if [ -z "${OWNER}" ]; then
             echo "Invalid TARGET_REPO format. Expected 'owner/repo'."; exit 1
