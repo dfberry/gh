@@ -5,9 +5,15 @@ on:
   push:
     paths:
       - 'packages/**'
+      - 'solutions/**'
+      - 'package.json'
+      - 'package-lock.json'
   pull_request:
     paths:
       - 'packages/**'
+      - 'solutions/**'
+      - 'package.json'
+      - 'package-lock.json'
 
 jobs:
   build-and-test:
@@ -35,9 +41,25 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-npm-cache-
 
+      - name: Verify package-lock.json is up to date
+        working-directory: .
+        run: |
+          set -euo pipefail
+          echo "Checking package-lock.json is up to date..."
+          npm --version
+          # Generate the lockfile only and check for any changes. If there are, fail with a clear message.
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if ! git diff --quiet -- package-lock.json; then
+            echo "ERROR: package-lock.json is out of sync with package.json or workspace packages."
+            echo "Run 'npm install' at the repository root and commit the updated package-lock.json."
+            echo "Lockfile diff:"
+            git --no-pager diff -- package-lock.json || true
+            exit 1
+          fi
+
       - name: Install 
         working-directory: .
-        # Use `npm ci` for clean, repeatable installs in CI and enable caching
+        # Use `npm install` for installs to get latest versions of dependencies
         run: |
           node -v
           npm -v

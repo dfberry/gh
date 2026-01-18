@@ -224,6 +224,19 @@ Notes:
 - When running commands that modify repositories (e.g., `--yes`, `--apply`), ensure `GH_TOKEN` has the necessary permissions and consider running a dry-run first.
 - `OPENAI_ENDPOINT` and `OPENAI_MODEL` are primarily for Azure OpenAI customers; the CLI will fall back to the public OpenAI API unless overridden.
 
+## Updating `package-lock.json`
+
+- This repository uses npm workspaces with a single root `package-lock.json` that records all workspace dependencies.
+- When you add, remove, or change dependencies in any workspace `package.json`, update the lockfile at the repository root by running:
+
+```bash
+npm install
+git add package-lock.json
+git commit -m "Update package-lock.json"
+```
+
+- In CI the workflow runs `npm ci` at the repository root. If a PR changes `package.json` without updating `package-lock.json` the build will fail with a clear message. Run `npm install` locally to update the lockfile and push the change to fix the CI failure.
+
 
 Single repo (dry-run):
 

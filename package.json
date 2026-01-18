@@ -19,9 +19,6 @@
   },
   "workspaces": [
     "packages/*",
-    "get-user-comments",
-    "get-pr-comments",
-    "move-between-repos",
-    "get-instruction-from-pr-comments"
+    "solutions/*"
   ]
 }

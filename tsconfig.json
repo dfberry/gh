@@ -13,9 +13,9 @@
     { "path": "./packages/github-rest" },
     { "path": "./packages/llm-completion" },
     { "path": "./packages/gh-cleanup" },
-    { "path": "./get-pr-comments" },
-    { "path": "./get-user-comments" },
-    { "path": "./move-between-repos" },
-    { "path": "./get-instruction-from-pr-comments" }
+    { "path": "./solutions/get-pr-comments" },
+    { "path": "./solutions/get-user-comments" },
+    { "path": "./solutions/move-between-repos" },
+    { "path": "./solutions/get-instruction-from-pr-comments" }
   ]
 }
