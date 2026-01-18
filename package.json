@@ -1,4 +1,6 @@
 {
+  "name": "gh",
+  "version": "1.0.0",
   "scripts": {
     "build": "tsc -b",
     "test": "npm run test --workspaces --if-present",
