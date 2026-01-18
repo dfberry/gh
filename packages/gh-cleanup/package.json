@@ -1,6 +1,6 @@
 {
   "name": "gh-cleanup",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -23,8 +23,8 @@
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
-    "github-rest": "file:../github-rest",
-    "llm-completion": "file:../llm-completion"
+    "github-rest": "workspace:*",
+    "llm-completion": "workspace:*"
   },
   "devDependencies": {
     "ts-node": "^10.0.0",

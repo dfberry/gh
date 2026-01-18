@@ -1,6 +1,6 @@
 {
   "name": "move-between-repos",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Tool to move files and folders between GitHub repositories",
   "type": "module",
   "main": "dist/index.js",
@@ -26,6 +26,6 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
-    "github-rest": "file:../packages/github-rest"
+    "github-rest": "workspace:*"
   }
 }

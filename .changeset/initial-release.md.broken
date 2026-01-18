@@ -1,0 +1,10 @@
+---
+'github-rest': patch
+'llm-completion': patch
+'gh-cleanup': patch
+---
+
+Initial coordinated patch release to register the repository's versioning setup.
+
+This changeset records the initial coordinated release for the linked group of packages (, , ). Running  will update package versions together.
+

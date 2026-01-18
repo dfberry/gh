@@ -1,0 +1,87 @@
+name: Release (Changesets)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    name: Version and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Pin npm to CI version
+        run: |
+          set -eux
+          npm install -g npm@11.6.2
+
+      - name: Install
+        run: npm ci
+
+      - name: Run changeset version
+        id: changeset-version
+        run: |
+          set -eux
+          # Only run if this push was not produced by the actions bot to avoid loops
+          if [ "${{ github.actor }}" = "github-actions[bot]" ]; then
+            echo "Skipping on actions bot commit"
+            exit 0
+          fi
+          npx changeset version
+
+      - name: Commit version changes
+        if: always()
+        run: |
+          set -eux
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore(release): version packages via changesets [skip ci]" || true
+            git push origin HEAD:main
+          else
+            echo "No version changes to commit"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update package-lock.json
+        if: always()
+        run: |
+          set -eux
+          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          if [ -n "$(git status --porcelain)" ]; then
+            git add package-lock.json
+            git commit -m "chore: update package-lock.json after version bump [skip ci]" || true
+            git push origin HEAD:main
+          else
+            echo "No package-lock changes"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create release tag
+        if: always()
+        run: |
+          set -eux
+          # read root version
+          ver=$(node -p "require('./package.json').version")
+          if git rev-parse "v$ver" >/dev/null 2>&1; then
+            echo "Tag v$ver already exists"
+          else
+            git tag "v$ver"
+            git push origin "v$ver"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

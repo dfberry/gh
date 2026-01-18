@@ -14,11 +14,16 @@
     "run-change": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-change.sh > ./generated/run-change.log 2>&1'",
     "run-change:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-change.sh > ./generated/run-change-dev.log 2>&1'",
     "run-evaluate": "bash -lc 'mkdir -p ./generated && bash ./scripts/run-evaluate.sh > ./generated/run-evaluate.log 2>&1'",
-    "run-evaluate:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-evaluate.sh > ./generated/run-evaluate-dev.log 2>&1'"
+    "run-evaluate:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-evaluate.sh > ./generated/run-evaluate-dev.log 2>&1'",
+    "changeset": "changeset",
+    "version:changeset": "changeset version",
+    "publish:changeset": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.29.8",
     "typescript": "^5.9.3"
   },
+  "private": true,
   "workspaces": [
     "packages/*",
     "solutions/*"
