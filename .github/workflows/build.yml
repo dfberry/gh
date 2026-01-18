@@ -31,7 +31,6 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: package-lock.json
 
       - name: Pin npm version to match local
         run: |
@@ -53,8 +52,15 @@ jobs:
           # Save committed lockfile from PR base (if present) or from HEAD
           BASE_SOURCE=""
           if [ -n "$GITHUB_BASE_REF" ]; then
-            echo "Detected PR build; fetching base ref '$GITHUB_BASE_REF'"
+            echo "Detected PR build; preparing to fetch base ref '$GITHUB_BASE_REF'"
+            # CI runners sometimes have different filesystem ownerships; allow git to operate
+            git config --global --add safe.directory "$PWD" || true
             git fetch origin "$GITHUB_BASE_REF" --depth=1 || true
+            # Capture repository listing and git metadata for debugging
+            ls -la > package-lock.ls-root.txt 2>&1 || true
+            ls -la .git > package-lock.ls-git.txt 2>&1 || true
+            git rev-parse --show-toplevel > package-lock.repo-root.txt 2>&1 || true
+            git status --porcelain > package-lock.git-status.txt 2>&1 || true
             if git show "origin/$GITHUB_BASE_REF:package-lock.json" > package-lock.committed.json 2>/dev/null; then
               echo "Saved committed lockfile from origin/$GITHUB_BASE_REF"
               BASE_SOURCE="origin/$GITHUB_BASE_REF"
@@ -103,6 +109,11 @@ jobs:
             package-lock.sanitized.*.json
             ci-install.log
             package-lock.baseline.txt
+            package-lock.ls-root.txt
+            package-lock.ls-git.txt
+            package-lock.repo-root.txt
+            package-lock.git-status.txt
+            package-lock.committed.json
           if-no-files-found: warn
 
       - name: Build
