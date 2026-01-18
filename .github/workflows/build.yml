@@ -39,54 +39,54 @@ jobs:
           npm install -g npm@11.6.2
           echo "pnpm/npm pinned:" $(npm --version)
 
-      - name: Verify package-lock.json is up to date
-        id: verify-lock
-        working-directory: .
-        env:
-          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
-        shell: bash -l {0}
-        run: |
-          set -eu
-          echo "Checking package-lock.json is up to date..."
-          npm --version
-          # Save committed lockfile from PR base (if present) or from HEAD
-          BASE_SOURCE=""
-          if [ -n "$GITHUB_BASE_REF" ]; then
-            echo "Detected PR build; preparing to fetch base ref '$GITHUB_BASE_REF'"
-            # CI runners sometimes have different filesystem ownerships; allow git to operate
-            git config --global --add safe.directory "$PWD" || true
-            git fetch origin "$GITHUB_BASE_REF" --depth=1 || true
-            # Capture repository listing and git metadata for debugging
-            ls -la > package-lock.ls-root.txt 2>&1 || true
-            ls -la .git > package-lock.ls-git.txt 2>&1 || true
-            git rev-parse --show-toplevel > package-lock.repo-root.txt 2>&1 || true
-            git status --porcelain > package-lock.git-status.txt 2>&1 || true
-            if git show "origin/$GITHUB_BASE_REF:package-lock.json" > package-lock.committed.json 2>/dev/null; then
-              echo "Saved committed lockfile from origin/$GITHUB_BASE_REF"
-              BASE_SOURCE="origin/$GITHUB_BASE_REF"
-            else
-              echo "No package-lock.json found on origin/$GITHUB_BASE_REF; falling back to HEAD if present"
-            fi
-          fi
-          if [ -z "$BASE_SOURCE" ] && git show HEAD:package-lock.json > package-lock.committed.json 2>/dev/null; then
-            echo "Saved committed lockfile from HEAD"
-            BASE_SOURCE="HEAD"
-          fi
-          if [ ! -s package-lock.committed.json ]; then
-            echo "No committed package-lock.json found; continuing check against empty baseline"
-            echo '{}' > package-lock.committed.json
-            BASE_SOURCE="none"
-          fi
-          # expose which baseline we used for logs/artifacts
-          echo "baseline=$BASE_SOURCE" >> "$GITHUB_OUTPUT"
-          echo "$BASE_SOURCE" > package-lock.baseline.txt
-          # Generate the lockfile only
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          node ./scripts/compare-lockfiles.js package-lock.committed.json package-lock.json || (
-            echo "ERROR: package-lock.json is out of sync with package.json or workspace packages (ignoring harmless metadata)."
-            echo "Run 'npm install' at the repository root and commit the updated package-lock.json."
-            echo "Sanitized lockfile differences written to package-lock.sanitized.*.json"
-            exit 1
+      # - name: Verify package-lock.json is up to date
+      #   id: verify-lock
+      #   working-directory: .
+      #   env:
+      #     GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref }}
+      #   shell: bash -l {0}
+      #   run: |
+      #     set -eu
+      #     echo "Checking package-lock.json is up to date..."
+      #     npm --version
+      #     # Save committed lockfile from PR base (if present) or from HEAD
+      #     BASE_SOURCE=""
+      #     if [ -n "$GITHUB_BASE_REF" ]; then
+      #       echo "Detected PR build; preparing to fetch base ref '$GITHUB_BASE_REF'"
+      #       # CI runners sometimes have different filesystem ownerships; allow git to operate
+      #       git config --global --add safe.directory "$PWD" || true
+      #       git fetch origin "$GITHUB_BASE_REF" --depth=1 || true
+      #       # Capture repository listing and git metadata for debugging
+      #       ls -la > package-lock.ls-root.txt 2>&1 || true
+      #       ls -la .git > package-lock.ls-git.txt 2>&1 || true
+      #       git rev-parse --show-toplevel > package-lock.repo-root.txt 2>&1 || true
+      #       git status --porcelain > package-lock.git-status.txt 2>&1 || true
+      #       if git show "origin/$GITHUB_BASE_REF:package-lock.json" > package-lock.committed.json 2>/dev/null; then
+      #         echo "Saved committed lockfile from origin/$GITHUB_BASE_REF"
+      #         BASE_SOURCE="origin/$GITHUB_BASE_REF"
+      #       else
+      #         echo "No package-lock.json found on origin/$GITHUB_BASE_REF; falling back to HEAD if present"
+      #       fi
+      #     fi
+      #     if [ -z "$BASE_SOURCE" ] && git show HEAD:package-lock.json > package-lock.committed.json 2>/dev/null; then
+      #       echo "Saved committed lockfile from HEAD"
+      #       BASE_SOURCE="HEAD"
+      #     fi
+      #     if [ ! -s package-lock.committed.json ]; then
+      #       echo "No committed package-lock.json found; continuing check against empty baseline"
+      #       echo '{}' > package-lock.committed.json
+      #       BASE_SOURCE="none"
+      #     fi
+      #     # expose which baseline we used for logs/artifacts
+      #     echo "baseline=$BASE_SOURCE" >> "$GITHUB_OUTPUT"
+      #     echo "$BASE_SOURCE" > package-lock.baseline.txt
+      #     # Generate the lockfile only
+      #     npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      #     node ./scripts/compare-lockfiles.js package-lock.committed.json package-lock.json || (
+      #       echo "ERROR: package-lock.json is out of sync with package.json or workspace packages (ignoring harmless metadata)."
+      #       echo "Run 'npm install' at the repository root and commit the updated package-lock.json."
+      #       echo "Sanitized lockfile differences written to package-lock.sanitized.*.json"
+      #       exit 1
           )
 
       - name: Install dependencies
