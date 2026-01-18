@@ -1,0 +1,19 @@
+{
+  "name": "get-user-comments",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file ../.env ./dist/index.js"
+  },
+  "dependencies": {
+    "github-rest": "file:../packages/github-rest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "bin": {
+    "get-user-comments": "dist/cli.js"
+  }
+}

@@ -1,4 +1,6 @@
 {
+  "name": "gh",
+  "version": "1.0.1",
   "scripts": {
     "build": "tsc -b",
     "test": "npm run test --workspaces --if-present",
@@ -19,8 +21,6 @@
   },
   "workspaces": [
     "packages/*",
-    "get-pr-comments",
-    "move-between-repos",
-    "get-instruction-from-pr-comments"
+    "solutions/*"
   ]
 }
