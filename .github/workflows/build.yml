@@ -87,7 +87,7 @@ jobs:
       #       echo "Run 'npm install' at the repository root and commit the updated package-lock.json."
       #       echo "Sanitized lockfile differences written to package-lock.sanitized.*.json"
       #       exit 1
-          )
+      #    )
 
       - name: Install dependencies
         working-directory: .
