@@ -30,20 +30,9 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: package-lock.json
-
-      - name: Cache npm cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            ~/.cache
-          key: ${{ runner.os }}-npm-cache-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-cache-
 
       - name: Verify package-lock.json is up to date
+        id: verify-lock
         working-directory: .
         shell: bash -l {0}
         run: |
@@ -65,6 +54,14 @@ jobs:
             echo "Sanitized lockfile differences written to package-lock.sanitized.*.json"
             exit 1
           )
+
+      - name: Upload sanitized lockfile diffs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sanitized-lockfile-diffs
+          path: package-lock.sanitized.*.json
+          if-no-files-found: warn
 
       - name: Install 
         working-directory: .
