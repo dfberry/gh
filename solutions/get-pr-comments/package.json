@@ -1,6 +1,6 @@
 {
   "name": "get-pr-comments",
-  "version": "0.1.0",
+  "version": "1.0.2",
   "description": "CLI and library to fetch all comments for a GitHub pull request using github-rest.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

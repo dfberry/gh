@@ -1,6 +1,6 @@
 {
   "name": "get-instruction-from-pr-comments",
-  "version": "0.1.0",
+  "version": "1.0.2",
   "description": "CLI to convert PR comments JSON to instruction files using LLM completion",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

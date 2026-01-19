@@ -1,3 +1,7 @@
+export { getDefaultBranchProtection } from './endpoints/default-branch-protection.js';
+export { getBranchProtection, listCollaborators, listRepoSecrets, getAutomatedSecurityFixes } from './endpoints/security.js';
+export { getVulnerabilityAlerts, listDependabotAlerts, listCodeScanningAlerts, listSecretScanningAlerts, listRepositorySecurityAdvisories } from './endpoints/alerts.js';
+export { fetchRepoActions } from './endpoints/permissions.js';
 export { getPullRequestComments } from './endpoints/pull-requests.js';
 export { GitHubClient } from './core/client.js';
 export * as errors from './core/errors.js';

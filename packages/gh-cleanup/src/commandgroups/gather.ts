@@ -8,12 +8,12 @@ export function parseArgs(argv: string[]): GatherArgs {
 
 export async function runCommand(_client: any, args: GatherArgs): Promise<any> {
   const steps = [
-    { name: 'categorize-repos', module: '../commands/categorize-repos.js', wrapper: 'categorizeReposCommand' },
-    { name: 'describe-repos', module: '../commands/describe-repos.js', wrapper: 'describeReposCommand' },
-    { name: 'branch-protection', module: '../commands/security.js', wrapper: 'branchProtectionCommand' },
-    { name: 'collaborators', module: '../commands/security.js', wrapper: 'collaboratorsCommand' },
-    { name: 'repo-secrets', module: '../commands/security.js', wrapper: 'repoSecretsCommand' },
-    { name: 'actions', module: '../commands/actions.js', wrapper: 'actionsCommand' },
+    { name: 'gather-branch-protection', module: '../commands/security.js', wrapper: 'gatherBranchProtectionCommand' },
+    { name: 'gather-collaborators', module: '../commands/security.js', wrapper: 'gatherCollaboratorsCommand' },
+    { name: 'gather-repo-secrets', module: '../commands/security.js', wrapper: 'gatherRepoSecretsCommand' },
+    { name: 'gather-security', module: '../commands/security.js', wrapper: 'gatherSecurityCommand' },
+    { name: 'gather-alerts', module: '../commands/alerts.js', wrapper: 'gatherAlertsCommand' },
+    { name: 'gather-actions', module: '../commands/actions.js', wrapper: 'gatherActionsCommand' },
     { name: 'gather-root-contents', module: '../commands/gather-root-contents.js', wrapper: 'gatherRootContentsCommand' },
     { name: 'gather-root-readme', module: '../commands/gather-root-readme.js', wrapper: 'gatherRootReadmeCommand' },
     { name: 'summary', module: '../commands/summary.js', wrapper: 'summaryCommand' },

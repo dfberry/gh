@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as readline from 'readline';
 import { startSection, endSection } from '../lib/cli-log.js';
+import { checkAndReportToken } from '../lib/token-check.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
 
@@ -70,6 +71,10 @@ export async function runGroupCommand(
 ): Promise<any> {
   const base = (args as any).base as BaseFlags | undefined;
 
+
+  // Check token status and report before running group
+  const tokenStatus = await checkAndReportToken();
+  // Write token status to its own output file (after outDir and outPrefix are defined)
   startSection(`group: ${opts.groupName}`);
 
   const inputPath = args.input || opts.defaultInput;
@@ -79,6 +84,13 @@ export async function runGroupCommand(
 
   const outDir = args.out || (base && (base as any).out) || `${process.cwd()}/generated`;
   const outPrefix = args.outPrefix || (base && (base as any).outPrefix) || opts.defaultOutPrefix;
+    // Now safe to write token status file
+    const tokenStatusFile = `${outDir}/${outPrefix}-token-status.json`;
+    try {
+      fs.writeFileSync(tokenStatusFile, JSON.stringify(tokenStatus, null, 2), 'utf8');
+    } catch (e) {
+      console.error(`Failed to write token status file "${tokenStatusFile}":`, e);
+    }
   try {
     fs.mkdirSync(outDir, { recursive: true });
   } catch (e) {

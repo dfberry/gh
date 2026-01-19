@@ -6,19 +6,19 @@ const commands: Record<string, CommandRunner> = {
     'branch-protection': async (argv: string[]) => {
       startSection('branch-protection');
       const m = await import('../commands/security.js');
-      await m.branchProtectionCommand(argv);
+      await m.gatherBranchProtectionCommand(argv);
       endSection('branch-protection');
     },
     'collaborators': async (argv: string[]) => {
       startSection('collaborators');
       const m = await import('../commands/security.js');
-      await m.collaboratorsCommand(argv);
+      await m.gatherCollaboratorsCommand(argv);
       endSection('collaborators');
     },
     'repo-secrets': async (argv: string[]) => {
       startSection('repo-secrets');
       const m = await import('../commands/security.js');
-      await m.repoSecretsCommand(argv);
+      await m.gatherRepoSecretsCommand(argv);
       endSection('repo-secrets');
     },
   'remove-forks': async (argv: string[]) => {

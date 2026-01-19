@@ -20,3 +20,9 @@ export async function listRepoSecrets(owner: string, repo: string) {
   const path = `/repos/${owner}/${repo}/actions/secrets`;
   return client.get(path);
 }
+
+export async function getAutomatedSecurityFixes(owner: string, repo: string) {
+  const client = createGitHubClient();
+  const path = `/repos/${owner}/${repo}/automated-security-fixes`;
+  return client.get(path);
+}

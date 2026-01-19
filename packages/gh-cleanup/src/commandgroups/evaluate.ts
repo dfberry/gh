@@ -9,6 +9,9 @@ export function parseArgs(argv: string[]): EvaluateArgs {
 export async function runCommand(_client: any, args: EvaluateArgs): Promise<any> {
   const steps: Step[] = [
     { name: 'evaluate-actions', module: '../commands/evaluate-actions.js', wrapper: 'evaluateActionsCommand' },
+    { name: 'categorize-repos', module: '../commands/categorize-repos.js', wrapper: 'categorizeReposCommand' },
+    { name: 'describe-repos', module: '../commands/describe-repos.js', wrapper: 'describeReposCommand' },
+
   ];
 
   return runGroupCommand(args, {

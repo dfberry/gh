@@ -1,8 +1,8 @@
-import { fetchRepoActions } from '../../../github-rest/dist/endpoints/permissions.js';
+import { fetchRepoActions } from 'github-rest';
 import { parseBaseFlags } from '../lib/flags.js';
 import * as fs from 'fs';
 
-export async function actionsCommand(argv: string[]) {
+export async function gatherActionsCommand(argv: string[]) {
   const args = parseBaseFlags(argv);
   const { input, out } = args;
   if (!input || !out) throw new Error('Missing --input or --out');
