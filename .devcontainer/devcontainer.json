@@ -8,7 +8,7 @@
     "ghcr.io/devcontainers/features/azure-cli:1": {},
     "ghcr.io/azure/azure-dev/azd:0": {}
   },
-  "postCreateCommand": "sudo chown -R vscode:vscode /workspace && chmod +x /workspace/scripts/*",
+  "postCreateCommand": "sudo chown -R vscode:vscode /workspace && chmod +x /workspace/scripts/* && npm install typescript -g && if [ -n \"$GIT_COMMITTER_NAME\" ] && [ -n \"$GIT_COMMITTER_EMAIL\" ]; then git config --global user.name \"$GIT_COMMITTER_NAME\" && git config --global user.email \"$GIT_COMMITTER_EMAIL\"; fi",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -21,5 +21,9 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
   "workspaceFolder": "/workspace",
-  "remoteUser": "root"
+  "remoteUser": "root",
+  "containerEnv": {
+    "GIT_COMMITTER_NAME": "${localEnv:GIT_COMMITTER_NAME}",
+    "GIT_COMMITTER_EMAIL": "${localEnv:GIT_COMMITTER_EMAIL}"
+  },
 }
