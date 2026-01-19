@@ -1,3 +1,5 @@
+export { getRootContents } from './endpoints/root-contents.js';
+export { getUserOrganizations } from './endpoints/orgs.js';
 export { getDefaultBranchProtection } from './endpoints/default-branch-protection.js';
 export { getBranchProtection, listCollaborators, listRepoSecrets, getAutomatedSecurityFixes } from './endpoints/security.js';
 export { getVulnerabilityAlerts, listDependabotAlerts, listCodeScanningAlerts, listSecretScanningAlerts, listRepositorySecurityAdvisories } from './endpoints/alerts.js';
