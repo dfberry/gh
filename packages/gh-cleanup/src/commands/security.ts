@@ -1,12 +1,19 @@
-import { fetchBranchProtection, fetchCollaborators, fetchRepoSecrets } from '../../../github-rest/dist/endpoints/permissions.js';
-import { parseBaseFlags } from '../lib/flags.js';
+
+import { GitHubClient, security } from 'github-rest';
+import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import * as fs from 'fs';
 
-export async function branchProtectionCommand(argv: string[]) {
-  const args = parseBaseFlags(argv);
-  const { input, out, branch } = args;
-  if (!input || !out) throw new Error('Missing --input or --out');
-  const raw = fs.readFileSync(input, 'utf8');
+
+export type Args = BaseFlags & { input: string; out: string; branch?: string };
+
+export function parseArgs(argv: string[]): Args {
+  const base = parseBaseFlags(argv);
+  if (!base.input || !base.out) throw new Error('Missing --input or --out');
+  return base as Args;
+}
+
+export async function runBranchProtection(client: GitHubClient, args: Args) {
+  const raw = fs.readFileSync(args.input, 'utf8');
   let repos: string[] = [];
   try {
     repos = JSON.parse(raw);
@@ -16,14 +23,13 @@ export async function branchProtectionCommand(argv: string[]) {
   const results = [];
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
-    let branchName = branch;
-    // If no branch provided, skip (should not happen with orchestrator logic)
+    let branchName = args.branch;
     if (!branchName) {
       results.push({ owner, repo, branch: null, protection: null, message: 'No branch specified', status: 'skipped' });
       continue;
     }
     try {
-      const result = await fetchBranchProtection(owner, repo, branchName);
+      const result = await security.getBranchProtection(client, owner, repo, branchName);
       results.push({ owner, repo, branch: branchName, protection: result, status: 'ok' });
     } catch (err: any) {
       if (err && (err.status === 404 || err.statusCode === 404)) {
@@ -33,16 +39,11 @@ export async function branchProtectionCommand(argv: string[]) {
       }
     }
   }
-  fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
-  console.log(JSON.stringify(results, null, 2));
   return results;
 }
 
-export async function collaboratorsCommand(argv: string[]) {
-  const args = parseBaseFlags(argv);
-  const { input, out } = args;
-  if (!input || !out) throw new Error('Missing --input or --out');
-  const raw = fs.readFileSync(input, 'utf8');
+export async function runCollaborators(client: GitHubClient, args: Args) {
+  const raw = fs.readFileSync(args.input, 'utf8');
   let repos: string[] = [];
   try {
     repos = JSON.parse(raw);
@@ -53,7 +54,7 @@ export async function collaboratorsCommand(argv: string[]) {
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
     try {
-      const result = await fetchCollaborators(owner, repo);
+      const result = await security.listCollaborators(client, owner, repo);
       results.push({ owner, repo, collaborators: result, status: 'ok' });
     } catch (err: any) {
       let message = err?.message || String(err);
@@ -65,16 +66,11 @@ export async function collaboratorsCommand(argv: string[]) {
       results.push({ owner, repo, collaborators: null, message, status: err?.status || 'error' });
     }
   }
-  fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
-  console.log(JSON.stringify(results, null, 2));
   return results;
 }
 
-export async function repoSecretsCommand(argv: string[]) {
-  const args = parseBaseFlags(argv);
-  const { input, out } = args;
-  if (!input || !out) throw new Error('Missing --input or --out');
-  const raw = fs.readFileSync(input, 'utf8');
+export async function runRepoSecrets(client: GitHubClient, args: Args) {
+  const raw = fs.readFileSync(args.input, 'utf8');
   let repos: string[] = [];
   try {
     repos = JSON.parse(raw);
@@ -85,7 +81,7 @@ export async function repoSecretsCommand(argv: string[]) {
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
     try {
-      const result = await fetchRepoSecrets(owner, repo);
+      const result = await security.listRepoSecrets(client, owner, repo);
       results.push({ owner, repo, secrets: result, status: 'ok' });
     } catch (err: any) {
       let message = err?.message || String(err);
@@ -97,7 +93,35 @@ export async function repoSecretsCommand(argv: string[]) {
       results.push({ owner, repo, secrets: null, message, status: err?.status || 'error' });
     }
   }
-  fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
-  console.log(JSON.stringify(results, null, 2));
   return results;
 }
+
+export async function writeOutput(result: any, args: Args) {
+  if (args.out) fs.writeFileSync(args.out, JSON.stringify(result, null, 2), 'utf8');
+  console.log(JSON.stringify(result, null, 2));
+}
+
+export async function branchProtectionCommand(argv: string[]) {
+  const args = parseArgs(argv);
+  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/security' });
+  const res = await runBranchProtection(client, args);
+  await writeOutput(res, args);
+  return res;
+}
+
+export async function collaboratorsCommand(argv: string[]) {
+  const args = parseArgs(argv);
+  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/security' });
+  const res = await runCollaborators(client, args);
+  await writeOutput(res, args);
+  return res;
+}
+
+export async function repoSecretsCommand(argv: string[]) {
+  const args = parseArgs(argv);
+  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/security' });
+  const res = await runRepoSecrets(client, args);
+  await writeOutput(res, args);
+  return res;
+}
+

@@ -19,7 +19,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { LLMConfig } from 'llm-completion';
-import { describeHelpers } from 'github-rest';
+import { repos } from 'github-rest';
 import { describeRepoWithLLM, createClient } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 
@@ -58,13 +58,13 @@ export async function runCommand(client: ReturnType<typeof createClient>, args: 
 	let appliedTopics = false;
 	if (args.apply) {
 		try {
-			await describeHelpers.updateRepo(client as any, owner, repo, { description: ai.short_description });
+			await repos.updateRepo(client as any, owner, repo, { description: ai.short_description });
 			appliedDescription = true;
 		} catch (err) {
 			console.error('Failed to apply description:', (err as any)?.message || err);
 		}
 		try {
-			await describeHelpers.updateTopics(client as any, owner, repo, (ai.topics || []).slice(0, 20));
+			await repos.updateTopics(client as any, owner, repo, (ai.topics || []).slice(0, 20));
 			appliedTopics = true;
 		} catch (err) {
 			console.error('Failed to apply topics:', (err as any)?.message || err);

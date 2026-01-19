@@ -1,12 +1,42 @@
-// List files and folders in a repo at a given path (default: root)
 import type { GitHubClient } from '../core/client.js';
+import type { Repository } from '../types/index.js';
+import { getLastPageFromLink } from '../pagination/links.js';
+import { paginateAll } from '../pagination/index.js';
+
+export async function getDefaultBranch(client: GitHubClient, owner: string, repo: string): Promise<string | undefined> {
+  const repoData = await client.get(`/repos/${owner}/${repo}`);
+  return (repoData as any).default_branch;
+}
+
+export async function getReadme(client: GitHubClient, owner: string, repo: string) {
+  return client.get(`/repos/${owner}/${repo}/readme`);
+}
+
+export async function getTopics(client: GitHubClient, owner: string, repo: string) {
+  const res = await client.rawRequest('GET', `/repos/${owner}/${repo}/topics`, {});
+  return res.body;
+}
+
+export async function updateTopics(client: GitHubClient, owner: string, repo: string, topics: string[]) {
+  return client.request('PUT', `/repos/${owner}/${repo}/topics`, { body: { names: topics } } as any);
+}
+
+export async function updateRepo(client: GitHubClient, owner: string, repo: string, patch: Record<string, unknown>) {
+  return client.patch(`/repos/${owner}/${repo}`, patch);
+}
+
+export async function listContributors(client: GitHubClient, owner: string, repo: string) {
+  return client.get(`/repos/${owner}/${repo}/contributors`);
+}
+
+export async function listReleases(client: GitHubClient, owner: string, repo: string) {
+  return client.get(`/repos/${owner}/${repo}/releases`);
+}
+
 export async function getContents(client: GitHubClient, owner: string, repo: string, path: string) {
   const safePath = encodeURIComponent(path).replace(/%2F/g, '/');
   return client.get(`/repos/${owner}/${repo}/contents/${safePath}`);
 }
-import type { Repository } from '../types/index.js';
-import { getLastPageFromLink } from '../pagination/links.js';
-import { paginateAll } from '../pagination/index.js';
 
 export async function listAuthenticatedUserRepos(client: GitHubClient, page = 1, per_page = 100): Promise<Repository[]> {
   const q = `?per_page=${per_page}&page=${page}&type=owner`;
@@ -18,9 +48,6 @@ export async function getRepo(client: GitHubClient, owner: string, repo: string)
   return client.get<Repository>(`/repos/${owner}/${repo}`);
 }
 
-/**
- * Fetch languages for a repository. Returns `null` on error.
- */
 export async function getRepoLanguages(client: GitHubClient, owner: string, repo: string): Promise<Record<string, number> | null> {
   try {
     return await client.get<Record<string, number>>(`/repos/${owner}/${repo}/languages`);
@@ -29,9 +56,6 @@ export async function getRepoLanguages(client: GitHubClient, owner: string, repo
   }
 }
 
-/**
- * Fetch and decode the repository README. Returns decoded string or `null` if not available.
- */
 export async function getRepoReadme(client: GitHubClient, owner: string, repo: string): Promise<string | null> {
   try {
     const rd = await client.get<any>(`/repos/${owner}/${repo}/readme`);
@@ -54,13 +78,11 @@ export async function deleteRepo(client: GitHubClient, owner: string, repo: stri
 export async function patchRepo(client: GitHubClient, owner: string, repo: string, body: Partial<Record<string, unknown>>): Promise<any> {
   return client.patch(`/repos/${owner}/${repo}`, body);
 }
-
 export async function archiveRepo(client: GitHubClient, owner: string, repo: string, opts?: { dryRun?: boolean }): Promise<boolean> {
   if (opts?.dryRun ?? true) return false;
   await patchRepo(client, owner, repo, { archived: true });
   return true;
 }
-
 export type RepoMetadata = {
   commits: number;
   pulls: number;
