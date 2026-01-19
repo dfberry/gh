@@ -17,6 +17,7 @@
     "run-evaluate:dev": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-evaluate.sh > ./generated/run-evaluate-dev.log 2>&1'"
   },
   "devDependencies": {
+    "@types/node": "^25.0.9",
     "typescript": "^5.9.3"
   },
   "workspaces": [
