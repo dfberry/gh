@@ -93,7 +93,19 @@ if [ "$violations" -gt 0 ]; then
   exit 1
 fi
 
+
 echo "No violations found."
+
+# Additional github-rest import checks (extensible)
+echo -e "\nRunning github-rest import checks (package import enforcement)..."
+node "$(dirname "$0")/check-github-rest-imports.js"
+RESULT=$?
+if [ $RESULT -ne 0 ]; then
+  echo -e "\nFAIL: github-rest import checks failed."
+  exit $RESULT
+else
+  echo "PASS: All github-rest import checks passed."
+fi
 exit 0
 
 
