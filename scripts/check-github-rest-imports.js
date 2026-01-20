@@ -42,10 +42,8 @@ const rules = [
   // Add more rules here
 ];
 
-// Helper: process a regex pattern, check all rules, and collect errors for a file's content
-function collectImportViolations(content, file, pattern) {
-  // Always create a new RegExp instance to avoid stateful lastIndex issues
-  const regex = new RegExp(pattern, 'g');
+// And update collectImportViolations to accept a RegExp object, not a string.
+function collectImportViolations(content, file, regex) {
   let errors = [];
   let match;
   while ((match = regex.exec(content))) {
@@ -77,9 +75,11 @@ function scanFile(file) {
   ];
 
   let errors = [];
-  for (const pattern of importPatterns) {
-    errors = errors.concat(collectImportViolations(content, file, pattern));
-  }
+for (const pattern of importPatterns) {
+  // Always clone the regex to avoid lastIndex issues
+  const regex = new RegExp(pattern, 'g');
+  errors = errors.concat(collectImportViolations(content, file, regex));
+}
   return errors;
 }
 
