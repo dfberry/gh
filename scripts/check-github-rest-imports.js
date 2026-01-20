@@ -42,42 +42,43 @@ const rules = [
   // Add more rules here
 ];
 
+// Helper: process a regex pattern, check all rules, and collect errors for a file's content
+function collectImportViolations(content, file, pattern) {
+  // Always create a new RegExp instance to avoid stateful lastIndex issues
+  const regex = new RegExp(pattern, 'g');
+  let errors = [];
+  let match;
+  while ((match = regex.exec(content))) {
+    const importPath = match[1];
+    for (const rule of rules) {
+      if (rule.test(importPath)) {
+        errors.push(rule.message(file, importPath));
+      }
+    }
+  }
+  return errors;
+}
+
 // Scan a single file for import violations
 function scanFile(file) {
   const content = fs.readFileSync(file, 'utf8');
-  // Regexes to match various import-like patterns:
+  // Regex patterns to match various import-like statements:
   // - ES module imports:   import ... from '...'
   // - Bare imports:        import '...'
   // - Dynamic imports:     import('...')
   // - CommonJS require:    require('...')
   // - Re-exports:          export ... from '...'
-  const importFromRegex = /import\s+[^'"]*['"]([^'"]+)['"]/g;
-  const bareImportRegex = /import\s*['"]([^'"]+)['"]/g;
-  const dynamicImportRegex = /import\(\s*['"]([^'"]+)['"]\s*\)/g;
-  const requireRegex = /require\(\s*['"]([^'"]+)['"]\s*\)/g;
-  const exportFromRegex = /export\s+[^'"]*from\s*['"]([^'"]+)['"]/g;
-
-  const importRegexes = [
-    importFromRegex,
-    bareImportRegex,
-    dynamicImportRegex,
-    requireRegex,
-    exportFromRegex
+  const importPatterns = [
+    "import\\s+[^'\"]*['\"]([^'\"]+)['\"]", // import ... from '...'
+    "import\\s*['\"]([^'\"]+)['\"]",         // import '...'
+    "import\\(\\s*['\"]([^'\"]+)['\"]\\s*\\)", // import('...')
+    "require\\(\\s*['\"]([^'\"]+)['\"]\\s*\\)", // require('...')
+    "export\\s+[^'\"]*from\\s*['\"]([^'\"]+)['\"]" // export ... from '...'
   ];
 
   let errors = [];
-
-  for (const regex of importRegexes) {
-    if (stat.isDirectory()) {
-    while ((match = regex.exec(content))) {
-      const importPath = match[1];
-      // Check all rules for each import
-      for (const rule of rules) {
-        if (rule.test(importPath)) {
-          errors.push(rule.message(file, importPath));
-        }
-      }
-    }
+  for (const pattern of importPatterns) {
+    errors = errors.concat(collectImportViolations(content, file, pattern));
   }
   return errors;
 }
