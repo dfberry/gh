@@ -3,7 +3,7 @@ import * as readline from 'readline';
 import { startSection, endSection } from '../lib/cli-log.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
-import { GitHubClient, repos as repoEndpoints } from 'github-rest';
+import { GitHubClient, repos as repoEndpoints, user as userEndpoints } from 'github-rest';
 export type GroupArgs = {
   input?: string;
   out?: string;
@@ -70,7 +70,6 @@ export async function runGroupCommand(
 ): Promise<any> {
   const base = (args as any).base as BaseFlags | undefined;
   const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/actions' });
-
   startSection(`group: ${opts.groupName}`);
 
   const inputPath = args.input || opts.defaultInput;
@@ -91,6 +90,20 @@ export async function runGroupCommand(
     fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8');
   } catch (e) {
     console.error(`Failed to write normalized input file "${normalizedInputPath}":`, e);
+  }
+
+  // Fetch token scopes once for the entire gather run and write to output
+  let tokenScopes: string[] = [];
+  try {
+    tokenScopes = await userEndpoints.getUserTokenPermissions(client);
+    const scopesFile = `${outDir}/${outPrefix}-token-scopes.json`;
+    try {
+      fs.writeFileSync(scopesFile, JSON.stringify({ scopes: tokenScopes }, null, 2), 'utf8');
+    } catch (e) {
+      console.error(`Failed to write token scopes file "${scopesFile}":`, e);
+    }
+  } catch (e) {
+    tokenScopes = [];
   }
 
   const steps = opts.steps;
@@ -145,6 +158,7 @@ export async function runGroupCommand(
   const errorSteps = summary.steps.filter((x: any) => x.status === 'error');
   summary.errorCount = errorSteps.length;
   summary.failedSteps = errorSteps.map((x: any) => x.name);
+  summary.tokenScopes = tokenScopes;
 
   const summaryFile = `${outDir}/${outPrefix}-summary.json`;
   try {
