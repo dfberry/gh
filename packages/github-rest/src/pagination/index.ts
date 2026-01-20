@@ -1,5 +1,3 @@
-import { GitHubClient } from '../core/client.js';
-
 export async function paginateAll<T>(fn: (page: number) => Promise<T[]>, opts?: { maxPages?: number }) {
   const out: T[] = [];
   let page = 1;

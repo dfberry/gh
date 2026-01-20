@@ -10,7 +10,7 @@
 import * as fs from 'fs/promises';
 import { createClient } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
-import { describeHelpers } from 'github-rest';
+import { repos } from 'github-rest';
 import { parseRepoInput } from '../lib/input-parser.js';
 
 export type Args = BaseFlags & {
@@ -31,8 +31,8 @@ export async function runCommand(client: any, args: Args) {
   for (const repoFull of repoList) {
     const [owner, repo] = repoFull.split('/');
     try {
-      // Use existing describeHelpers.getReadme which fetches /repos/:owner/:repo/readme
-      const readmeResp = await describeHelpers.getReadme(client, owner, repo);
+      // Use existing repos.getReadme which fetches /repos/:owner/:repo/readme
+      const readmeResp = await repos.getReadme(client, owner, repo);
       let readme = undefined;
       if (readmeResp && typeof readmeResp === 'object' && 'content' in readmeResp) {
         const encoding = (readmeResp as any).encoding || 'base64';

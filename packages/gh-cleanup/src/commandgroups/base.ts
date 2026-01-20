@@ -3,7 +3,7 @@ import * as readline from 'readline';
 import { startSection, endSection } from '../lib/cli-log.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
-
+import { GitHubClient, repos as repoEndpoints } from 'github-rest';
 export type GroupArgs = {
   input?: string;
   out?: string;
@@ -69,6 +69,7 @@ export async function runGroupCommand(
   },
 ): Promise<any> {
   const base = (args as any).base as BaseFlags | undefined;
+  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/actions' });
 
   startSection(`group: ${opts.groupName}`);
 
@@ -109,8 +110,7 @@ export async function runGroupCommand(
       const [owner, repo] = repos[0].split('/');
       let branch = 'main';
       try {
-        const { getDefaultBranch } = await import('../../../github-rest/dist/endpoints/describe-helpers.js');
-        const detected = await getDefaultBranch(owner, repo);
+        const detected = await repoEndpoints.getDefaultBranch(client, owner, repo);
         if (detected) branch = detected;
       } catch (e) {
         // fallback to main

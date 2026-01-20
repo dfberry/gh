@@ -1,22 +1,20 @@
-import { createGitHubClient } from '../core/factory.js';
+import type { GitHubClient } from '../core/client.js';
 
-// Get branch protection for a branch
-export async function getBranchProtection(owner: string, repo: string, branch: string) {
-  const client = createGitHubClient();
+export async function getBranchProtection(client: GitHubClient, owner: string, repo: string, branch: string) {
   const path = `/repos/${owner}/${repo}/branches/${branch}/protection`;
   return client.get(path);
 }
 
-// List collaborators for a repo
-export async function listCollaborators(owner: string, repo: string) {
-  const client = createGitHubClient();
+export async function listCollaborators(client: GitHubClient, owner: string, repo: string) {
   const path = `/repos/${owner}/${repo}/collaborators`;
   return client.get(path);
 }
 
-// List repository actions secrets
-export async function listRepoSecrets(owner: string, repo: string) {
-  const client = createGitHubClient();
+export async function listRepoSecrets(client: GitHubClient, owner: string, repo: string) {
   const path = `/repos/${owner}/${repo}/actions/secrets`;
+  return client.get(path);
+}
+export async function getAutomatedSecurityFixes(client: GitHubClient, owner: string, repo: string) {
+  const path = `/repos/${owner}/${repo}/automated-security-fixes`;
   return client.get(path);
 }

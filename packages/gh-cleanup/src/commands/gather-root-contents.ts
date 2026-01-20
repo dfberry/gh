@@ -16,7 +16,7 @@ export function parseArgs(argv: string[]): Args {
 import * as fs from 'fs/promises';
 import { createClient } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
-import { describeHelpers, repos } from 'github-rest';
+import { repos } from 'github-rest';
 import { parseRepoInput } from '../lib/input-parser.js';
 
 export type Args = BaseFlags & {
@@ -30,7 +30,7 @@ export async function runCommand(client: any, args: Args) {
   for (const repoFull of repoList) {
     const [owner, repo] = repoFull.split('/');
     try {
-      const branch = await describeHelpers.getDefaultBranch(owner, repo) || 'main';
+      const branch = await repos.getDefaultBranch(client, owner, repo) || 'main';
       const contents = await repos.getContents(client, owner, repo, '');
       results.push({ repo: repoFull, branch, contents });
     } catch (err) {

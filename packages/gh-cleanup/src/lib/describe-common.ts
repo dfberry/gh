@@ -1,7 +1,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { callOpenAI, LLMConfig } from 'llm-completion';
-import { describeHelpers, createGitHubClient } from 'github-rest';
+import { repos, createGitHubClient } from 'github-rest';
 import { validateDescribeOutput } from './describe-validator.js';
 
 export function createClient(token?: string) {
@@ -52,14 +52,14 @@ export async function buildPromptString(promptFlag: string | undefined, bundle: 
 }
 
 export async function describeRepoWithLLM(client: any, cfg: LLMConfig, promptFlag: string | undefined, owner: string, repo: string) {
-  const repoMeta: any = await describeHelpers.getRepo(client, owner, repo);
-  const readmeResp: any = await describeHelpers.getReadme(client, owner, repo).catch(()=>null);
+  const repoMeta: any = await repos.getRepo(client, owner, repo);
+  const readmeResp: any = await repos.getReadme(client, owner, repo).catch(()=>null);
   let readme: string | undefined = undefined;
   if (readmeResp?.content) {
     const enc = readmeResp.encoding || 'base64';
     readme = Buffer.from(readmeResp.content, enc as BufferEncoding).toString('utf8');
   }
-  const topicsResp: any = await describeHelpers.getTopics(client, owner, repo).catch(()=>null);
+  const topicsResp: any = await repos.getTopics(client, owner, repo).catch(()=>null);
   const topics: string[] = topicsResp?.names || repoMeta?.topics || [];
 
   const bundle = { repo: repoMeta, readme, topics };

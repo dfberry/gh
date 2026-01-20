@@ -20,7 +20,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as readline from 'readline';
 import { LLMConfig } from 'llm-completion';
-import { describeHelpers } from 'github-rest';
+import { repos } from 'github-rest';
 import { describeRepoWithLLM, createClient, buildPromptString } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 
@@ -166,16 +166,16 @@ export async function runCommand(client: any, args: Args): Promise<any> {
       if (Array.isArray(res.body) && res.body.length > 0) sha = res.body[0]?.sha;
     } catch (_) {
       try {
-        const rm = await describeHelpers.getRepo(client, owner, repo);
+        const rm = await repos.getRepo(client, owner, repo);
         sha = (rm as any)?.pushed_at;
       } catch (_) {
         sha = undefined;
       }
     }
-    const repoMeta = await describeHelpers.getRepo(client, owner, repo).catch(() => null) as any;
-    const readmeResp = await describeHelpers.getReadme(client, owner, repo).catch(() => null) as any;
+    const repoMeta = await repos.getRepo(client, owner, repo).catch(() => null) as any;
+    const readmeResp = await repos.getReadme(client, owner, repo).catch(() => null) as any;
     const readme = readmeResp?.content ? Buffer.from((readmeResp as any).content, (readmeResp as any).encoding || 'base64').toString('utf8') : undefined;
-    const topicsResp = await describeHelpers.getTopics(client, owner, repo).catch(() => null) as any;
+    const topicsResp = await repos.getTopics(client, owner, repo).catch(() => null) as any;
     const topics = (topicsResp && (topicsResp as any).names) || (repoMeta && repoMeta.topics) || [];
     const prompt = await buildPromptString(args.promptFlag, { repo: repoMeta, readme, topics } as any);
     const est = Math.ceil(prompt.length / 4);
@@ -219,12 +219,12 @@ export async function runCommand(client: any, args: Args): Promise<any> {
           if (!overwriteDescription && c.entry.hasDescription) {
             console.log(`Skipping description update for ${owner}/${repo} (input already has description)`);
           } else {
-            try { await describeHelpers.updateRepo(client, owner, repo, { description: valid.short_description }); appliedDescription = true; } catch (err) { console.error(`Failed to apply description for ${owner}/${repo}: ${(err as any)?.message || err}`); }
+            try { await repos.updateRepo(client, owner, repo, { description: valid.short_description }); appliedDescription = true; } catch (err) { console.error(`Failed to apply description for ${owner}/${repo}: ${(err as any)?.message || err}`); }
           }
           if (!overwriteTopics && c.entry.hasTopics) {
             console.log(`Skipping topics update for ${owner}/${repo} (input already has topics)`);
           } else {
-            try { await describeHelpers.updateTopics(client, owner, repo, (valid.topics || []).slice(0,20)); appliedTopics = true; } catch (err) { console.error(`Failed to apply topics for ${owner}/${repo}: ${(err as any)?.message || err}`); }
+            try { await repos.updateTopics(client, owner, repo, (valid.topics || []).slice(0,20)); appliedTopics = true; } catch (err) { console.error(`Failed to apply topics for ${owner}/${repo}: ${(err as any)?.message || err}`); }
           }
           console.log(`Apply results for ${owner}/${repo}: description=${appliedDescription} topics=${appliedTopics}`);
         }

@@ -1,12 +1,17 @@
-import { fetchRepoActions } from '../../../github-rest/dist/endpoints/permissions.js';
-import { parseBaseFlags } from '../lib/flags.js';
+import { GitHubClient, permissions } from 'github-rest';
+import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import * as fs from 'fs';
 
-export async function actionsCommand(argv: string[]) {
-  const args = parseBaseFlags(argv);
-  const { input, out } = args;
-  if (!input || !out) throw new Error('Missing --input or --out');
-  const raw = fs.readFileSync(input, 'utf8');
+export type Args = BaseFlags & { input: string; out: string };
+
+export function parseArgs(argv: string[]): Args {
+  const base = parseBaseFlags(argv);
+  if (!base.input || !base.out) throw new Error('Missing --input or --out');
+  return base as Args;
+}
+
+export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
+  const raw = fs.readFileSync(args.input, 'utf8');
   let repos: string[] = [];
   try {
     repos = JSON.parse(raw);
@@ -17,7 +22,7 @@ export async function actionsCommand(argv: string[]) {
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
     try {
-      const result = await fetchRepoActions(owner, repo);
+      const result = await permissions.getRepoActions(client, owner, repo);
       results.push({ owner, repo, actions: result, status: 'ok' });
     } catch (err: any) {
       let message = err?.message || String(err);
@@ -29,7 +34,18 @@ export async function actionsCommand(argv: string[]) {
       results.push({ owner, repo, actions: null, message, status: err?.status || 'error' });
     }
   }
-  fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
-  console.log(JSON.stringify(results, null, 2));
   return results;
+}
+
+export async function writeOutput(result: any, args: Args) {
+  if (args.out) fs.writeFileSync(args.out, JSON.stringify(result, null, 2), 'utf8');
+  console.log(JSON.stringify(result, null, 2));
+}
+
+export async function actionsCommand(argv: string[]) {
+  const args = parseArgs(argv);
+  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/actions' });
+  const res = await runCommand(client, args);
+  await writeOutput(res, args);
+  return res;
 }
