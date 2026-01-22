@@ -1,6 +1,18 @@
 export type CommandRunner = (argv: string[]) => Promise<void>;
 
 const commands: Record<string, CommandRunner> = {
+  'branch-protection': async (argv: string[]) => {
+    const m = await import('../commands/gather-branch-protection.js');
+    await m.branchProtectionCommand(argv);
+  },
+  'collaborators': async (argv: string[]) => {
+    const m = await import('../commands/gather-collaborators.js');
+    await m.collaboratorsCommand(argv);
+  },
+  'repo-secrets': async (argv: string[]) => {
+    const m = await import('../commands/gather-repo-secrets.js');
+    await m.repoSecretsCommand(argv);
+  },
   'remove-forks': async (argv: string[]) => {
     const m = await import('../commands/remove-forks.js');
     await m.removeForksCommand(argv);

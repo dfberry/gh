@@ -5,19 +5,19 @@ import { startSection, endSection } from './cli-log.js';
 const commands: Record<string, CommandRunner> = {
     'branch-protection': async (argv: string[]) => {
       startSection('branch-protection');
-      const m = await import('../commands/security.js');
+      const m = await import('../commands/gather-branch-protection.js');
       await m.branchProtectionCommand(argv);
       endSection('branch-protection');
     },
     'collaborators': async (argv: string[]) => {
       startSection('collaborators');
-      const m = await import('../commands/security.js');
+      const m = await import('../commands/gather-collaborators.js');
       await m.collaboratorsCommand(argv);
       endSection('collaborators');
     },
     'repo-secrets': async (argv: string[]) => {
       startSection('repo-secrets');
-      const m = await import('../commands/security.js');
+      const m = await import('../commands/gather-repo-secrets.js');
       await m.repoSecretsCommand(argv);
       endSection('repo-secrets');
     },

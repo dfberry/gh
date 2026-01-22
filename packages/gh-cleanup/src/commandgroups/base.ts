@@ -69,6 +69,15 @@ export async function runGroupCommand(
   },
 ): Promise<any> {
   const base = (args as any).base as BaseFlags | undefined;
+
+  const token = process.env.GH_TOKEN || '';
+  if (!token) {
+    console.error('Error: GH_TOKEN environment variable is required for GitHub API access.');
+    throw new Error('GH_TOKEN environment variable is required');
+  } else {
+    console.log('Using GH_TOKEN starting with ', token.slice(0, 10).padEnd(token.length, '*'));
+  }
+
   const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/actions' });
   startSection(`group: ${opts.groupName}`);
 
