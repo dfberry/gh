@@ -42,9 +42,9 @@ export async function writeOutput(result: any, args: Args) {
   console.log(JSON.stringify(result, null, 2));
 }
 
-export async function actionsCommand(argv: string[]) {
+export async function actionsCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/actions' });
+  if (!client) throw new Error('GitHub client is required');
   const res = await runCommand(client, args);
   await writeOutput(res, args);
   return res;

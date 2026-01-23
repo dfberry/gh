@@ -102,11 +102,11 @@ export async function writeOutput(result: any, args: Args) {
 	}
 }
 
-export async function describeRepoCommand(argv: string[]) {
-	const args = parseArgs(argv);
-	const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-	const client = createClient(token);
-	const res = await runCommand(client as any, args);
-	await writeOutput(res, args);
+export async function describeRepoCommand(argv: string[], client?: any) {
+  const args = parseArgs(argv);
+  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
+  const c = client ?? createClient(token);
+  const res = await runCommand(c as any, args);
+  await writeOutput(res, args);
 }
 

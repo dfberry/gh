@@ -3,6 +3,23 @@ import wrapGitHubRest, { GitHubRestResult} from '../lib/github-rest-wrapper.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import * as fs from 'fs';
 
+
+/********************************
+ * 
+ * curl -i -H "Authorization: token $GH_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/OWNER/REPO/branches/BRANCH/protection"
+ * 
+ */
+
+  // curl -i -H "Authorization: token $GH_TOKEN" \
+  // -H "Accept: application/vnd.github+json" \
+  // "https://api.github.com/repos/dfberry/gh/branches/main/protection"
+
+  // curl -i -H "Authorization: token $GH_TOKEN" \
+  // -H "Accept: application/vnd.github+json" \
+  // "https://api.github.com/repos/Azure-Samples/azure-sdk-for-js-docs/branches/main/protection"
+
 export type Args = BaseFlags & { input: string; out: string; branch?: string };
 
 export function parseArgs(argv: string[]): Args {
@@ -28,16 +45,10 @@ export async function runBranchProtection(client: GitHubClient, args: Args) {
       continue;
     }
     const r: GitHubRestResult<Awaited<ReturnType<typeof security.getBranchProtection>>> = await wrapGitHubRest(() => security.getBranchProtection(client, owner, repo, branchName));
-    if (r.ok) {
-      results.push({ owner, repo, branch: branchName, protection: r.data, status: 'ok' });
-    } else {
-      const resp = r.response;
-      if (r.status === 404 || resp?.status === 404) {
-        results.push({ owner, repo, branch: branchName, protection: null, message: 'No branch protection enabled', status: 404 });
-      } else {
-        results.push({ owner, repo, branch: branchName, protection: null, message: resp?.details || String(resp), status: resp?.status || 'error' });
-      }
-    }
+
+    const resp = r.response;
+    results.push({ owner, repo, branch: branchName, protection: r.data || null, message: resp?.details || String(resp) || "no_message_found", status: resp?.status || 'status_not_found' });
+
   }
   return results;
 }
@@ -47,9 +58,9 @@ export async function writeOutput(result: any, args: Args) {
   console.log(JSON.stringify(result, null, 2));
 }
 
-export async function branchProtectionCommand(argv: string[]) {
+export async function branchProtectionCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/security' });
+  if (!client) throw new Error('GitHub client is required');
   const res = await runBranchProtection(client, args);
   await writeOutput(res, args);
   return res;

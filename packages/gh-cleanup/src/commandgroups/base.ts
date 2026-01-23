@@ -151,7 +151,7 @@ export async function runGroupCommand(
     try {
       const m = await import(s.module);
       if (typeof m[s.wrapper] === 'function') {
-        await m[s.wrapper](childArgv);
+        await m[s.wrapper](childArgv, client);
         summary.steps.push({ name: s.name, file: stepOut, status: 'ok' });
       } else {
         summary.steps.push({ name: s.name, file: stepOut, status: 'missing' });
