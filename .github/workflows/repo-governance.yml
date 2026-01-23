@@ -28,5 +28,5 @@ jobs:
 
       - name: Run verify-gh-cleanup check
         run: |
-          chmod +x ./scripts/verify-gh-cleanup-check.sh
-          ./scripts/verify-gh-cleanup-check.sh
+          chmod +x ./scripts/verify-gh-cleanup.sh
+          ./scripts/verify-gh-cleanup.sh
