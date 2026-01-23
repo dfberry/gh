@@ -7,7 +7,7 @@ yarn.lock
 .env
 .env*
 **/.env*
-dist/
+**/dist/
 coverage/
 
 # Python
@@ -53,3 +53,6 @@ generated/
 **/generated/
 **/generated
 **/generated*/
+
+
+**/tsconfig.tsbuildinfo*
