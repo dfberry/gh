@@ -3,7 +3,12 @@ import * as readline from 'readline';
 import { startSection, endSection } from '../lib/cli-log.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
-import { GitHubClient, repos as repoEndpoints, user as userEndpoints } from 'github-rest';
+import { repos as repoEndpoints, user as userEndpoints } from 'github-rest';
+import { getGitHubClient } from '../lib/github-auth.js';
+import { getDefaultOutDir } from '../config/appConfig.js';
+import { ensureDir } from '../lib/files.js';
+import { writeNormalizedInput } from '../lib/output.js';
+import { fetchAndWriteTokenScopes } from '../lib/token-scopes.js';
 export type GroupArgs = {
   input?: string;
   out?: string;
@@ -70,15 +75,7 @@ export async function runGroupCommand(
 ): Promise<any> {
   const base = (args as any).base as BaseFlags | undefined;
 
-  const token = process.env.GH_TOKEN || '';
-  if (!token) {
-    console.error('Error: GH_TOKEN environment variable is required for GitHub API access.');
-    throw new Error('GH_TOKEN environment variable is required');
-  } else {
-    console.log('Using GH_TOKEN starting with ', token.slice(0, 10).padEnd(token.length, '*'));
-  }
-
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/actions' });
+  const client = getGitHubClient();
   startSection(`group: ${opts.groupName}`);
 
   const inputPath = args.input || opts.defaultInput;
@@ -86,34 +83,14 @@ export async function runGroupCommand(
 
   const timestamp = new Date().toISOString();
 
-  const outDir = args.out || (base && (base as any).out) || `${process.cwd()}/generated`;
+  const outDir = args.out || (base && (base as any).out) || getDefaultOutDir();
   const outPrefix = args.outPrefix || (base && (base as any).outPrefix) || opts.defaultOutPrefix;
-  try {
-    fs.mkdirSync(outDir, { recursive: true });
-  } catch (e) {
-    console.error(`Failed to create output directory "${outDir}":`, e);
-  }
+  ensureDir(outDir);
 
-  const normalizedInputPath = `${outDir}/${opts.normalizedInputSuffix}`;
-  try {
-    fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8');
-  } catch (e) {
-    console.error(`Failed to write normalized input file "${normalizedInputPath}":`, e);
-  }
+  const normalizedInputPath = writeNormalizedInput(outDir, opts.normalizedInputSuffix, repos);
 
   // Fetch token scopes once for the entire gather run and write to output
-  let tokenScopes: string[] = [];
-  try {
-    tokenScopes = await userEndpoints.getUserTokenPermissions(client);
-    const scopesFile = `${outDir}/${outPrefix}-token-scopes.json`;
-    try {
-      fs.writeFileSync(scopesFile, JSON.stringify({ scopes: tokenScopes }, null, 2), 'utf8');
-    } catch (e) {
-      console.error(`Failed to write token scopes file "${scopesFile}":`, e);
-    }
-  } catch (e) {
-    tokenScopes = [];
-  }
+  const tokenScopes: string[] = await fetchAndWriteTokenScopes(client, outDir, outPrefix);
 
   const steps = opts.steps;
   const summary: any = { steps: [] };
@@ -186,7 +163,7 @@ export async function writeGroupOutput(result: any, args: GroupArgs, groupName: 
   const out = args.out || `${process.cwd()}/generated`;
   const prefix = args.outPrefix || defaultPrefix;
   try {
-    fs.mkdirSync(out, { recursive: true });
+    ensureDir(out);
     const stepFile = `${out}/${prefix}-${groupName}.json`;
     fs.writeFileSync(stepFile, JSON.stringify(result, null, 2), 'utf8');
     const summaryFile = `${out}/${prefix}-summary.json`;

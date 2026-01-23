@@ -23,13 +23,13 @@ const commands: Record<string, CommandRunner> = {
     },
   'remove-forks': async (argv: string[]) => {
     startSection('remove-forks');
-    const m = await import('../commands/remove-forks.js');
+    const m = await import('../commands/change-remove-remove-forks.js');
     await m.removeForksCommand(argv);
     endSection('remove-forks');
   },
   'archive-stale-repos': async (argv: string[]) => {
     startSection('archive-stale-repos');
-    const m = await import('../commands/archive-stale-repos.js');
+    const m = await import('../commands/change-stale-repos.js');
     await m.archiveStaleReposCommand(argv);
     endSection('archive-stale-repos');
   },
@@ -41,7 +41,7 @@ const commands: Record<string, CommandRunner> = {
   },
   'categorize-repos': async (argv: string[]) => {
     startSection('categorize-repos');
-    const m = await import('../commands/categorize-repos.js');
+    const m = await import('../commands/evaluate-categorize-repos.js');
     await m.categorizeReposCommand(argv);
     endSection('categorize-repos');
   },
@@ -53,13 +53,13 @@ const commands: Record<string, CommandRunner> = {
   },
   'describe-repos': async (argv: string[]) => {
     startSection('describe-repos');
-    const m = await import('../commands/describe-repos.js');
+    const m = await import('../commands/evaluate-describe-repos.js');
     await m.describeReposCommand(argv);
     endSection('describe-repos');
   },
   'delete-empty-repos': async (argv: string[]) => {
     startSection('delete-empty-repos');
-    const m = await import('../commands/delete-empty-repos.js');
+    const m = await import('../commands/change-remove-empty-repos.js');
     await m.deleteEmptyReposCommand(argv);
     endSection('delete-empty-repos');
   },
