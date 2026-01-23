@@ -70,9 +70,9 @@ export async function writeOutput(result: any, args: Args) {
   }
 }
 
-export async function categorizeReposCommand(argv: string[]) {
+export async function categorizeReposCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/categorize' });
+  if (!client) throw new Error('GitHub client is required');
   const res = await runCommand(client, args);
   await writeOutput(res, args);
 }

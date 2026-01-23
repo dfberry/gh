@@ -155,11 +155,12 @@ export async function runCommand(client: any, args: Args): Promise<any> {
   };
 }
 
-export async function writeOutput(result: any, args: Args) {
+export async function writeOutput(result: any, args: Args, client: any) {
   if (!result) return;
   const { active } = result;
+  if (!client) throw new Error('GitHub client is required');
   if (args.output) {
-    const mapped = await categorizeReposWithMetadata(new GitHubClient({ token: process.env.GH_TOKEN }), active, { fetch: true });
+    const mapped = await categorizeReposWithMetadata(client, active, { fetch: true });
     if (args.output === 'md') {
       let md = toMarkdownTable(mapped, { title: 'Active Repositories', includeFrontmatter: false });
       md = addGeneratedTimestamp(md, 'Active Repositories');
@@ -173,18 +174,19 @@ export async function writeOutput(result: any, args: Args) {
     const header = `# Repository Summary\n\n`;
     const c = result.counts;
     const counts = `- Public repos: ${c.publicCount}\n- Private repos: ${c.privateCount}\n- Forks owned: ${result.forks.length} (public: ${c.forksPublicCount}, private: ${c.forksPrivateCount})\n- Stale repos (>${args.olderThanDays} days): ${result.staleList.length} (public: ${c.stalePublicCount}, private: ${c.stalePrivateCount})\n- Archived repos: ${result.archivedCandidates.length} (public: ${c.archivedPublicCount}, private: ${c.archivedPrivateCount})\n- Empty repos: ${result.trulyEmpty.length} (public: ${c.emptyPublicCount}, private: ${c.emptyPrivateCount})\n- Active/Other repos: ${result.active.length} (public: ${c.activePublicCount}, private: ${c.activePrivateCount})\n\n`;
-    const mapped = await categorizeReposWithMetadata(new GitHubClient({ token: process.env.GH_TOKEN }), result.active, { fetch: true });
+    if (!client) throw new Error('GitHub client is required');
+    const mapped = await categorizeReposWithMetadata(client, result.active, { fetch: true });
     let table = toMarkdownTable(mapped, { title: 'Active Repositories', includeFrontmatter: false });
     const md = addGeneratedTimestamp(header + counts + table, 'Repository Summary');
     await emitOutput(md, args.summaryOut);
   }
 }
 
-export async function summaryCommand(argv: string[]) {
+export async function summaryCommand(argv: string[], client?: any) {
   const args = parseArgs(argv);
-  const client = new GitHubClient({ token: process.env.GH_TOKEN, userAgent: 'gh-cleanup/summary' });
+  if (!client) throw new Error('GitHub client is required');
   const res = await runCommand(client, args);
-  await writeOutput(res, args);
+  await writeOutput(res, args, client);
 }
 
 export default summaryCommand;

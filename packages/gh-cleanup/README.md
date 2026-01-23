@@ -40,6 +40,16 @@ flags and, where applicable, `--apply`.
 - Detect repositories with `size === 0` and optionally delete them.
 - Flags: `--yes`, `--force`, `--allow-forks`, `--out=<path>`, `--no-audit`.
 
+### `branch-protection`
+
+- Inspect branch protection settings for repositories and emit a structured report for each branch (rules, required reviewers, status checks, push restrictions).
+- Flags: `--branch=<name>` (limit to a specific branch), `--out=<path>`, `--output=json|md`, `--allow-forks`, `--debug`.
+
+### `repo-secrets`
+
+- List repository-level secrets and reveal metadata such as creation/update timestamps and visibility (selected repositories only; secrets values are not exposed).
+- Flags: `--out=<path>`, `--output=json|md`, `--allow-forks`, `--repos=<path|csv>`.
+
 ### `categorize-repos`
 
 - Heuristic categorization (library, cli, infra, docs, sample, etc.).

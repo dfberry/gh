@@ -1,8 +1,9 @@
-import { GitHubClient, permissions } from 'github-rest';
+import { GitHubClient, security } from 'github-rest';
+import wrapGitHubRest, { GitHubRestResult } from '../lib/github-rest-wrapper.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import * as fs from 'fs';
 
-export type Args = BaseFlags & { input: string; out: string };
+export type Args = BaseFlags & { input: string; out: string; branch?: string };
 
 export function parseArgs(argv: string[]): Args {
   const base = parseBaseFlags(argv);
@@ -10,7 +11,7 @@ export function parseArgs(argv: string[]): Args {
   return base as Args;
 }
 
-export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
+export async function runCollaborators(client: GitHubClient, args: Args) {
   const raw = fs.readFileSync(args.input, 'utf8');
   let repos: string[] = [];
   try {
@@ -21,18 +22,16 @@ export async function runCommand(client: GitHubClient, args: Args): Promise<any>
   const results = [];
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
-    try {
-      const result = await permissions.getRepoActions(client, owner, repo);
-      results.push({ owner, repo, actions: result, status: 'ok' });
-    } catch (err: any) {
-      let message = err?.message || String(err);
-      if (err && (err.status === 403 || err.statusCode === 403)) {
-        let apiMsg = '';
-        if (err.body && err.body.message) apiMsg = err.body.message;
-        message = `Insufficient permissions or access denied. ${apiMsg ? 'GitHub: ' + apiMsg : ''}`;
-      }
-      results.push({ owner, repo, actions: null, message, status: err?.status || 'error' });
-    }
+    const r: GitHubRestResult<Awaited<ReturnType<typeof security.listCollaborators>>> =
+      await wrapGitHubRest(() => security.listCollaborators(client, owner, repo));
+    const resp = r.response;
+    results.push({
+      owner,
+      repo,
+      collaborators: r.data || null,
+      message: resp?.details || String(resp) || 'no_message_found',
+      status: resp?.status || 'status_not_found',
+    });
   }
   return results;
 }
@@ -42,10 +41,10 @@ export async function writeOutput(result: any, args: Args) {
   console.log(JSON.stringify(result, null, 2));
 }
 
-export async function actionsCommand(argv: string[], client?: GitHubClient) {
+export async function collaboratorsCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
   if (!client) throw new Error('GitHub client is required');
-  const res = await runCommand(client, args);
+  const res = await runCollaborators(client, args);
   await writeOutput(res, args);
   return res;
 }
