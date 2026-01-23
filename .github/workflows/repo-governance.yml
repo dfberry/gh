@@ -25,3 +25,8 @@ jobs:
         run: |
           chmod +x ./scripts/check-no-require.sh
           ./scripts/check-no-require.sh
+
+      - name: Run verify-gh-cleanup check
+        run: |
+          chmod +x ./scripts/verify-gh-cleanup-check.sh
+          ./scripts/verify-gh-cleanup-check.sh
