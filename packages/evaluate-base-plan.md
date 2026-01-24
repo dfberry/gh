@@ -2,6 +2,8 @@
 
 Goal: introduce a reusable evaluation layer so `evaluate-*` commands analyze `gather` outputs and produce structured evaluation artifacts; `change-*` commands will then operate on those evaluation artifacts. Keep existing files intact; add new files and wire them incrementally so each small step can be built and tested.
 
+Generated files are in the repo in ./generated to see current user repo output. These should be treated as readonly. Don't change or remove them.
+
 Phased plan (small, testable steps):
 
 1) Create base evaluator lib
