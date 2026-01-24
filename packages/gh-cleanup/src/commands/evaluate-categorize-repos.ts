@@ -66,7 +66,7 @@ export async function writeOutput(result: any, args: Args) {
     md = addGeneratedTimestamp(md, 'Repository Catalog');
     await emitOutput(md, args.out);
   } else {
-    await emitOutput(formatJsonOutput(results, results.length), args.out);
+    await emitOutput(formatJsonOutput(results), args.out);
   }
 }
 

@@ -99,9 +99,8 @@ export async function writeOutput(result: any, args: Args) {
     await emitOutput(md, args.out || 'actions.md');
     return;
   }
+  if (args.out) await emitOutput(formatJsonOutput(data), args.out);
 
-  // default: JSON
-  if (args.out) await emitOutput(formatJsonOutput(data, data.length), args.out);
 }
 
 export async function evaluateActionsCommand(argv: string[]) {

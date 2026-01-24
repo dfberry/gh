@@ -8,9 +8,8 @@ export function parseArgs(argv: string[]): EvaluateArgs {
 
 export async function runCommand(_client: any, args: EvaluateArgs): Promise<any> {
   const steps: Step[] = [
-    { name: 'evaluate-repos-for-empty', module: '../commands/evaluate-repos-for-empty.js', wrapper: 'evaluateReposForEmptyCommand' },
-    //{ name: 'evaluate-categorize-repos', module: '../commands/evaluate-categorize-repos.js', wrapper: 'categorizeReposCommand' },
-    //{ name: 'evaluate-describe-repos', module: '../commands/evaluate-describe-repos.js', wrapper: 'describeReposCommand' },
+    { name: 'evaluate-categorize-repos', module: '../commands/evaluate-categorize-repos.js', wrapper: 'categorizeReposCommand' },
+    { name: 'evaluate-describe-repos', module: '../commands/evaluate-describe-repos.js', wrapper: 'describeReposCommand' },
     { name: 'evaluate-actions', module: '../commands/evaluate-actions.js', wrapper: 'evaluateActionsCommand' },
   ];
 
