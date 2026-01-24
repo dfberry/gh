@@ -8,9 +8,9 @@ export function parseArgs(argv: string[]): ChangeArgs {
 
 export async function runCommand(_client: any, args: ChangeArgs): Promise<any> {
   const steps = [
-    { name: 'archive-stale-repos', module: '../commands/archive-stale-repos.js', wrapper: 'archiveStaleReposCommand' },
-    { name: 'delete-empty-repos', module: '../commands/delete-empty-repos.js', wrapper: 'deleteEmptyReposCommand' },
-    { name: 'remove-forks', module: '../commands/remove-forks.js', wrapper: 'removeForksCommand' },
+    { name: 'change-stale-repos', module: '../commands/change-stale-repos.js', wrapper: 'archiveStaleReposCommand' },
+    { name: 'change-remove-empty-repos', module: '../commands/change-remove-empty-repos.js', wrapper: 'deleteEmptyReposCommand' },
+    { name: 'change-remove-forks', module: '../commands/change-remove-remove-forks.js', wrapper: 'removeForksCommand' },
   ];
   return runGroupCommand(args, {
     groupName: 'change',
