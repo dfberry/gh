@@ -5,7 +5,7 @@ import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
 import { resolveInputFilePath, computeOutPrefixFromInput, computeNormalizedInputPathName } from '../lib/input-file-utils.js';
 import { repos as repoEndpoints, user as userEndpoints } from 'github-rest';
-import { getGitHubClient } from '../lib/github-auth.js';
+import type { GitHubClient } from 'github-rest';
 import { getDefaultOutDir } from '../config/appConfig.js';
 import { ensureDir } from '../lib/files.js';
 import { writeNormalizedInput } from '../lib/output.js';
@@ -75,10 +75,10 @@ export async function runGroupCommand(
     defaultOutPrefix: string;
     steps: Step[];
   },
+  githubClient: GitHubClient,
 ): Promise<any> {
   const base = (args as any).base as BaseFlags | undefined;
 
-  const client = getGitHubClient();
   startSection(`group: ${opts.groupName}`);
 
   const resolvedInputPath = resolveInputFilePath((args as any).inputFile, args.input, opts.defaultInput);
@@ -123,7 +123,7 @@ export async function runGroupCommand(
   const normalizedInputPath = writeNormalizedInput(outDir, normalizedFilename, repos);
 
   // Fetch token scopes once for the entire gather run and write to output
-  const tokenScopes: string[] = await fetchAndWriteTokenScopes(client, outDir, outPrefix);
+  const tokenScopes: string[] = await fetchAndWriteTokenScopes(githubClient, outDir, outPrefix);
 
   const steps = opts.steps;
   const summary: any = { steps: [] };
@@ -142,7 +142,7 @@ export async function runGroupCommand(
       const [owner, repo] = repos[0].split('/');
       let branch = 'main';
       try {
-        const detected = await repoEndpoints.getDefaultBranch(client, owner, repo);
+        const detected = await repoEndpoints.getDefaultBranch(githubClient, owner, repo);
         if (detected) branch = detected;
       } catch (e) {
         // fallback to main
@@ -161,7 +161,7 @@ export async function runGroupCommand(
     try {
       const m = await import(s.module);
       if (typeof m[s.wrapper] === 'function') {
-        await m[s.wrapper](childArgv, client);
+        await m[s.wrapper](childArgv, githubClient);
         summary.steps.push({ name: s.name, file: stepOut, status: 'ok' });
       } else {
         summary.steps.push({ name: s.name, file: stepOut, status: 'missing' });

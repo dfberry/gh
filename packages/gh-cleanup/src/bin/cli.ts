@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { runCommand, availableCommands } from './commands.js';
+import { getGitHubClient } from '../lib/github-auth.js';
 
 function printHelp() {
   console.log('gh-cleanup — repository cleanup helpers');
@@ -32,7 +33,8 @@ async function main(argv: string[]) {
     return;
   }
 
-  await runCommand(cmd, rest);
+  const githubClient = getGitHubClient();
+  await runCommand(cmd, rest, githubClient);
 }
 
 main(process.argv).catch((e) => {

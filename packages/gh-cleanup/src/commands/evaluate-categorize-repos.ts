@@ -15,7 +15,8 @@
  * Notes:
  *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
  */
-import { GitHubClient, repos, pagination } from 'github-rest';
+import type { GitHubClient } from 'github-rest';
+import { repos, pagination } from 'github-rest';
 import { toMarkdownTable, Categorized, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';

@@ -15,9 +15,8 @@
  * Notes:
  *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
  */
-
-import * as fs from 'fs/promises';
-import * as path from 'path';
+import type { GitHubClient } from 'github-rest';
+import * as fs from 'node:fs/promises';
 import { LLMConfig } from 'llm-completion';
 import { repos } from 'github-rest';
 import { describeRepoWithLLM, createClient } from '../lib/describe-common.js';
@@ -41,7 +40,7 @@ export function parseArgs(argv: string[]): Args {
 	return args;
 }
 
-export async function runCommand(client: ReturnType<typeof createClient>, args: Args) {
+export async function runCommand(client: GitHubClient, args: Args) {
 	const cfg: LLMConfig = {};
 	if (args.openaiKey) cfg.key = args.openaiKey;
 	if (args.openaiModel) cfg.model = args.openaiModel;
@@ -53,18 +52,18 @@ export async function runCommand(client: ReturnType<typeof createClient>, args: 
 	const [owner, repo] = (args.repo || '').split('/');
 	if (!owner || !repo) throw new Error('Invalid --repo value, expected owner/repo');
 
-	const ai = await describeRepoWithLLM(client as any, cfg, args.prompt, owner, repo);
+	const ai = await describeRepoWithLLM(client, cfg, args.prompt, owner, repo);
 	let appliedDescription = false;
 	let appliedTopics = false;
 	if (args.apply) {
 		try {
-			await repos.updateRepo(client as any, owner, repo, { description: ai.short_description });
+			await repos.updateRepo(client, owner, repo, { description: ai.short_description });
 			appliedDescription = true;
 		} catch (err) {
 			console.error('Failed to apply description:', (err as any)?.message || err);
 		}
 		try {
-			await repos.updateTopics(client as any, owner, repo, (ai.topics || []).slice(0, 20));
+			await repos.updateTopics(client, owner, repo, (ai.topics || []).slice(0, 20));
 			appliedTopics = true;
 		} catch (err) {
 			console.error('Failed to apply topics:', (err as any)?.message || err);
@@ -102,7 +101,7 @@ export async function writeOutput(result: any, args: Args) {
 	}
 }
 
-export async function describeRepoCommand(argv: string[], client?: any) {
+export async function describeRepoCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
   if (!client) throw new Error('GitHub client is required');
   const res = await runCommand(client, args);

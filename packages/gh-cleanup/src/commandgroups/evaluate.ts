@@ -1,3 +1,4 @@
+import type { GitHubClient } from 'github-rest';
 import { parseArgs as parseGroupArgs, runGroupCommand, writeGroupOutput, GroupArgs, Step } from './base.js';
 
 export type EvaluateArgs = GroupArgs;
@@ -6,7 +7,7 @@ export function parseArgs(argv: string[]): EvaluateArgs {
   return parseGroupArgs(argv) as EvaluateArgs;
 }
 
-export async function runCommand(_client: any, args: EvaluateArgs): Promise<any> {
+export async function runCommand(_client: GitHubClient, args: EvaluateArgs): Promise<any> {
   const steps: Step[] = [
     { name: 'evaluate-categorize-repos', module: '../commands/evaluate-categorize-repos.js', wrapper: 'categorizeReposCommand' },
     { name: 'evaluate-describe-repos', module: '../commands/evaluate-describe-repos.js', wrapper: 'describeReposCommand' },
@@ -19,16 +20,17 @@ export async function runCommand(_client: any, args: EvaluateArgs): Promise<any>
     normalizedInputSuffix: '.tmp-evaluate-input.json',
     defaultOutPrefix: 'evaluate-dryrun',
     steps,
-  });
+  }, _client);
 }
 
 export async function writeOutput(result: any, args: EvaluateArgs): Promise<void> {
   return writeGroupOutput(result, args, 'evaluate', 'evaluate-dryrun');
 }
 
-export async function evaluateCommand(argv: string[]): Promise<void> {
+export async function evaluateCommand(argv: string[], client?: GitHubClient): Promise<void> {
   const args = parseArgs(argv);
-  const result = await runCommand(null, args);
+  if (!client) throw new Error('GitHub client is required');
+  const result = await runCommand(client, args);
   await writeOutput(result, args);
   console.log('evaluate: completed');
 }

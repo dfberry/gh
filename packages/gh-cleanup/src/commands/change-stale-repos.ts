@@ -16,8 +16,8 @@
  * Notes:
  *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
  */
-
-import { GitHubClient, repos, pagination } from 'github-rest';
+import type { GitHubClient } from 'github-rest';
+import { repos, pagination } from 'github-rest';
 import wrapGitHubRest, { GitHubRestResult } from '../lib/github-rest-wrapper.js';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { requireTypedConfirmation } from '../lib/confirm.js';
