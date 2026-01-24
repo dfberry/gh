@@ -71,6 +71,12 @@ LLM-driven generation of short/long descriptions, suggested topics, and links.
 - Flags: `--output=json|md`, `--out=<path>` and other common flags such as `--debug`.
 - Ensure the `GH_TOKEN` has `repo` or read scopes for private repos.
 
+### `evaluate-repos-for-empty`
+
+- Evaluate repositories to identify empty candidates (repositories with `size === 0`), supporting evaluation of both a selected input list and the authenticated user's repositories when a token is provided. Outputs a structured JSON with `empty` and `not_empty` partitions.
+- Flags: `--input=<path>|--input-file=<file>`, `--config-file=<path>`, `--out=<path>`, `--out-prefix=<prefix>`, `--debug`.
+
+
 ## Output annotations
 
 The describe step writes structured output where each item includes:

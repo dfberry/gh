@@ -45,6 +45,10 @@ const commands: Record<string, CommandRunner> = {
     const m = await import('../commands/evaluate-actions.js');
     await m.evaluateActionsCommand(argv);
   },
+  'evaluate-repos-for-empty': async (argv: string[]) => {
+    const m = await import('../commands/evaluate-repos-for-empty.js');
+    await m.evaluateReposForEmptyCommand(argv);
+  },
   'gather': async (argv: string[]) => {
     const m = await import('../commandgroups/gather.js');
     await m.gatherCommand(argv);
