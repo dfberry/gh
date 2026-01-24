@@ -1,0 +1,5 @@
+{
+  "olderThanDays": 365,
+  "excludeForks": true,
+  "excludeArchived": true
+}

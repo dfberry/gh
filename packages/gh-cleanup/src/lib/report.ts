@@ -89,8 +89,8 @@ export function addGeneratedTimestamp(md: string, title?: string) {
 import { ensureDirForFile } from './fs.js';
 import * as fs from 'node:fs/promises';
 
-export function formatJsonOutput(items: any[]) {
-  return JSON.stringify({ generated_at: new Date().toISOString(), count: Array.isArray(items) ? items.length : 0, items: items ?? [] }, null, 2);
+export function formatJsonOutput(items: any[], count: number | null = null) {
+  return JSON.stringify({ generated_at: new Date().toISOString(), count: count !== null ? count : (Array.isArray(items) ? items.length : 0), items: items ?? [] }, null, 2);
 }
 /**
  * Write or print output. If `out` is provided, ensures parent dir and writes file,

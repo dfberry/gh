@@ -26,26 +26,20 @@ Phased plan (small, testable steps):
 - File: `packages/gh-cleanup/src/commands/evaluate-repos-for-empty.ts`
 - Use `evaluate-base-user-repos` to determine empty candidates and emit evaluation JSON (list of candidates with metadata).
 
-3) Implement `evaluate-repos-for-archive`
-- File: `packages/gh-cleanup/src/commands/evaluate-repos-for-archive.ts`
-- Use `evaluate-base-user-repos` and config (older-than-days) to mark stale repos.
-
-4) Implement `evaluate-repos-for-forks`
-- File: `packages/gh-cleanup/src/commands/evaluate-repos-for-forks.ts`
-- Use `evaluate-base-user-repos` to identify owned fork candidates.
-
-6) Add simple config support
+3) Add simple config support
 - Support `--config-file=<path>` (JSON) for per-evaluation rules (e.g., stale days, exclude forks)
 - Provide a default config path `./packages/gh-cleanup/evaluate-config.json` if none provided.
 
 
-7) Wire individual evaluate commands into the CLI (register commands)
-- Register the individual evaluate command modules (`evaluate-repos-for-empty`, `evaluate-repos-for-archive`, `evaluate-repos-for-forks`) with the project's command registry so they can be invoked directly via the CLI (e.g. `npm --prefix packages/gh-cleanup run evaluate-repos-for-empty -- --input-file=...`). Keep these commands non-destructive by default.
+4) Wire `evaluate-repos-for-empty` into the CLI (register command)
+- Register the `evaluate-repos-for-empty` command module with the project's command registry so it can be invoked directly via the CLI (e.g. `npm --prefix packages/gh-cleanup run evaluate-repos-for-empty -- --input-file=...`). Keep this command non-destructive by default.
 
-8) Wire evaluate commands into evaluate group
+
+
+5) Wire evaluate commands into evaluate group
 - Add the individual evaluate command modules into the existing `packages/gh-cleanup/src/commandgroups/evaluate.ts` steps list so they can be executed via the group. Keep the group non-destructive; commands will be added but only evaluation steps will run by default.
 
-9) Manual user test
+6) Manual user test
 - Run the evaluate commands manually against the sample gather output and verify results by inspection. Example commands:
 
     ```bash
@@ -66,7 +60,17 @@ Phased plan (small, testable steps):
         - **Config:** change `--config-file` values (e.g., `olderThanDays`) to verify behavior changes.
         - **Report:** save any unexpected results and share the output files for follow-up.
 
-10) Follow-up: adapt `change-*` commands to accept evaluate output
+7) Implement `evaluate-repos-for-archive`
+- File: `packages/gh-cleanup/src/commands/evaluate-repos-for-archive.ts`
+- Use `evaluate-base-user-repos` and config (older-than-days) to mark stale repos.
+- After implementation: register the command with the project's CLI (update command registry).
+
+8) Implement `evaluate-repos-for-forks`
+- File: `packages/gh-cleanup/src/commands/evaluate-repos-for-forks.ts`
+- Use `evaluate-base-user-repos` to identify owned fork candidates.
+- After implementation: register the command with the project's CLI (update command registry).
+
+9) Follow-up: adapt `change-*` commands to accept evaluate output
 - Once evaluate artifacts are stable, refactor `change-*` commands to read evaluation outputs instead of raw gather lists (done incrementally in follow-up PRs).
 
 Testing and roll-forward strategy:
