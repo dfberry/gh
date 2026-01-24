@@ -1,0 +1,15 @@
+{
+  "defaultInputDir": "./generated",
+  "defaultInputFilePattern": "gather--gather.json",
+  "commands": {
+    "change-stale-repos": {
+      "inputFile": "./generated/gh-cleanup-gather/gather--gather.json"
+    },
+    "change-remove-empty-repos": {
+      "inputFile": "./generated/gh-cleanup-gather/gather--gather.json"
+    },
+    "change-remove-forks": {
+      "inputFile": "./generated/gh-cleanup-gather/gather--gather.json"
+    }
+  }
+}

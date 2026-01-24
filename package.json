@@ -6,7 +6,7 @@
 
     "gather": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js gather --input=\"./active-sample-repos.json\" --out=\"./generated/gh-cleanup-gather\" --out-prefix=\"gather\"",
     "evaluate": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js evaluate --input=\"./active-sample-repos.json\" --out=\"./generated/gh-cleanup-evaluate\" --out-prefix=\"evaluate\"",
-    "change": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js change --input=\"./active-sample-repos.json\" --out=\"./generated/gh-cleanup-change\" --out-prefix=\"change\"",
+    "change": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js change --input-file=\"./generated\" --out=\"./generated/gh-cleanup-change\" --out-prefix=\"change\"",
 
 
     "test": "npm run test --workspaces --if-present",
