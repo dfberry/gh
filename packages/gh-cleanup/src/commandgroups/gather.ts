@@ -9,6 +9,7 @@ export function parseArgs(argv: string[]): GatherArgs {
 export async function runCommand(_client: any, args: GatherArgs): Promise<any> {
   const steps = [
     { name: 'branch-protection', module: '../commands/gather-branch-protection.js', wrapper: 'branchProtectionCommand' },
+    { name: 'user-repos', module: '../commands/gather-user-repos.js', wrapper: 'gatherUserReposCommand' },
     { name: 'collaborators', module: '../commands/gather-collaborators.js', wrapper: 'collaboratorsCommand' },
     { name: 'repo-secrets', module: '../commands/gather-repo-secrets.js', wrapper: 'repoSecretsCommand' },
     { name: 'actions', module: '../commands/gather-actions.js', wrapper: 'actionsCommand' },
