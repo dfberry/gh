@@ -73,8 +73,10 @@ export class EvaluateBase {
 
   isEmptyCandidate(repo: Repo): boolean {
     if (!repo) return false;
+    // Treat a repo as empty only when its reported size is explicitly 0.
+    // Previously we inferred emptiness from missing timestamps which produced false positives
+    // when gather outputs lacked metadata. This stricter check avoids misclassifying repos.
     if (typeof repo.size === 'number') return repo.size === 0;
-    if (!repo.pushed_at && !repo.updated_at) return true;
     return false;
   }
 

@@ -60,6 +60,15 @@ Phased plan (small, testable steps):
         - **Config:** change `--config-file` values (e.g., `olderThanDays`) to verify behavior changes.
         - **Report:** save any unexpected results and share the output files for follow-up.
 
+6a) Evaluate user repos vs selected repos
+- Purpose: allow evaluators to run against the authenticated user's repositories (derived from the token) and/or against an explicit selection list passed via `--input`/`--input-file`.
+- Behavior:
+    - If the token maps to a user account, run evaluations against that user's repositories and write output files containing the word `user` in their names.
+    - If a repo list is provided via `--input`/`--input-file`, run evaluations against that list and write output files containing the word `selected` in their names.
+    - If both are present, support evaluating both sets and emitting separate outputs for clarity.
+    - If neither a user (from token) nor a selected list is available, skip repo evaluations and surface a clear message indicating no repositories to evaluate.
+- Notes: Keep this change non-destructive. Implement as a clear, opt-in behavior in `EvaluateBase` and the evaluate commands so downstream `change-*` steps can rely on the `user` vs `selected` naming convention.
+
 7) Implement `evaluate-repos-for-archive`
 - File: `packages/gh-cleanup/src/commands/evaluate-repos-for-archive.ts`
 - Use `evaluate-base-user-repos` and config (older-than-days) to mark stale repos.
