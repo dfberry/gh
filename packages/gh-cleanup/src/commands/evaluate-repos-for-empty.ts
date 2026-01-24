@@ -100,7 +100,7 @@ export async function writeOutput(result: any, args: Args) {
   await emitOutput(formatJsonOutput(data));
 }
 
-export async function evaluateReposForEmptyCommand(argv: string[]) {
+export async function evaluateReposForEmptyCommand(argv: string[], _client?: any) {
   const args = parseArgs(argv);
   const res = await runCommand(args);
   await writeOutput(res, args);

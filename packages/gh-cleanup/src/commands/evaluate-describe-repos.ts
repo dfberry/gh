@@ -269,9 +269,8 @@ export async function writeOutput(resultObj: any, args: Args) {
 
 export async function describeReposCommand(argv: string[], client?: any) {
   const args = parseArgs(argv);
-  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-  const c = client ?? createClient(token);
-  const res = await runCommand(c as any, args);
+  if (!client) throw new Error('GitHub client is required');
+  const res = await runCommand(client, args);
   await writeOutput(res, args);
 }
 

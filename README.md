@@ -168,6 +168,20 @@ Debugging LLM calls
 	- `--debug-dir=<path>`: directory to write debug files (input prompt and full response JSON).
 	- These map to the `LLMConfig.debug` settings passed to the LLM client; callers may also enable debugging programmatically.
 
+## Command signature convention (developer note)
+
+Commands follow a small, consistent calling convention to support both standalone CLI usage and orchestrated group runs:
+
+- Wrapper (module CLI entry): accepts `(argv: string[], client?: GitHubClient)` — called by the group runner. The wrapper is responsible for parsing `argv` into `args` and may validate flags.
+- Implementation (`runCommand`): accepts `(client: GitHubClient | null, args: ParsedArgs)` — the parsed `args` and an optional `client` provided by the group runner. `runCommand` contains the command logic and should handle a `null` client when appropriate.
+
+Flow example:
+
+1. `runGroupCommand` creates a single `client` and calls the module wrapper: `await module.wrapper(childArgv, client)`.
+2. The wrapper parses `childArgv` to `args` and calls: `await runCommand(client, args)`.
+
+This keeps a single `getGitHubClient()` call per group run and preserves the ability to run commands standalone for testing.
+
 
 ## Generate repo descriptions and topics
 
