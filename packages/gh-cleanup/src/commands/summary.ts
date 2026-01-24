@@ -1,4 +1,6 @@
-import { GitHubClient, pagination, repos } from 'github-rest';
+
+import type { GitHubClient } from 'github-rest';
+import { pagination, repos } from 'github-rest';
 import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { toMarkdownTable, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
@@ -22,7 +24,7 @@ export function parseArgs(argv: string[]): Args {
   return args;
 }
 
-export async function runCommand(client: any, args: Args): Promise<any> {
+export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
   let me: string;
   try {
     const u = await client.getAuthenticatedUser();
@@ -182,7 +184,7 @@ export async function writeOutput(result: any, args: Args, client: any) {
   }
 }
 
-export async function summaryCommand(argv: string[], client?: any) {
+export async function summaryCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
   if (!client) throw new Error('GitHub client is required');
   const res = await runCommand(client, args);

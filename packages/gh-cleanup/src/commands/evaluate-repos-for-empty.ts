@@ -5,7 +5,7 @@
  *   Use the evaluate base to mark repositories that are empty candidates
  *   (size === 0 or no pushes) and emit a structured evaluation JSON file.
  */
-
+import type { GitHubClient } from 'github-rest';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { resolveInputFilePath } from '../lib/input-file-utils.js';
@@ -74,7 +74,7 @@ export function parseArgs(argv: string[]): Args {
   return args;
 }
 
-export async function runCommand(args: Args) {
+export async function runCommand(client: GitHubClient, args: Args) {
   const inputPath = resolveInputFilePath((args as any).inputFile, args.input);
   if (!inputPath) throw new Error(MISSING_INPUT_ERROR);
 
@@ -100,9 +100,10 @@ export async function writeOutput(result: any, args: Args) {
   await emitOutput(formatJsonOutput(data));
 }
 
-export async function evaluateReposForEmptyCommand(argv: string[]) {
+export async function evaluateReposForEmptyCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
-  const res = await runCommand(args);
+    if (!client) throw new Error('GitHub client is required');
+  const res = await runCommand(client, args);
   await writeOutput(res, args);
 }
 

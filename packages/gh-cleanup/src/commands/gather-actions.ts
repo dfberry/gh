@@ -1,7 +1,7 @@
-import { GitHubClient, permissions } from 'github-rest';
+import { permissions } from 'github-rest';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import * as fs from 'fs';
-
+import type { GitHubClient } from 'github-rest';
 export type Args = BaseFlags & { input: string; out: string };
 
 export function parseArgs(argv: string[]): Args {

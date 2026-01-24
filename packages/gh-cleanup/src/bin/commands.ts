@@ -1,65 +1,66 @@
-export type CommandRunner = (argv: string[]) => Promise<void>;
+import type { GitHubClient } from 'github-rest';
+export type CommandRunner = (argv: string[], client?: GitHubClient) => Promise<void>;
 
 const commands: Record<string, CommandRunner> = {
-  'branch-protection': async (argv: string[]) => {
+  'branch-protection': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/gather-branch-protection.js');
-    await m.branchProtectionCommand(argv);
+    await m.branchProtectionCommand(argv, client);
   },
-  'collaborators': async (argv: string[]) => {
+  'collaborators': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/gather-collaborators.js');
-    await m.collaboratorsCommand(argv);
+    await m.collaboratorsCommand(argv, client);
   },
-  'repo-secrets': async (argv: string[]) => {
+  'repo-secrets': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/gather-repo-secrets.js');
-    await m.repoSecretsCommand(argv);
+    await m.repoSecretsCommand(argv, client);
   },
-  'remove-forks': async (argv: string[]) => {
+  'remove-forks': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/change-remove-remove-forks.js');
-    await m.removeForksCommand(argv);
+    await m.removeForksCommand(argv, client);
   },
-  'archive-stale-repos': async (argv: string[]) => {
+  'archive-stale-repos': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/change-stale-repos.js');
-    await m.archiveStaleReposCommand(argv);
+    await m.archiveStaleReposCommand(argv, client);
   },
-  summary: async (argv: string[]) => {
+  summary: async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/summary.js');
-    await m.summaryCommand(argv);
+    await m.summaryCommand(argv, client);
   },
-  'categorize-repos': async (argv: string[]) => {
+  'categorize-repos': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/evaluate-categorize-repos.js');
-    await m.categorizeReposCommand(argv);
+    await m.categorizeReposCommand(argv, client);
   },
-  'describe-repo': async (argv: string[]) => {
+  'describe-repo': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/describe-repo.js');
-    await m.describeRepoCommand(argv);
+    await m.describeRepoCommand(argv, client);
   },
-  'describe-repos': async (argv: string[]) => {
+  'describe-repos': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/evaluate-describe-repos.js');
-    await m.describeReposCommand(argv);
+    await m.describeReposCommand(argv, client);
   },
-  'delete-empty-repos': async (argv: string[]) => {
+  'delete-empty-repos': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/change-remove-empty-repos.js');
-    await m.deleteEmptyReposCommand(argv);
+    await m.deleteEmptyReposCommand(argv, client);
   },
-  'evaluate-actions': async (argv: string[]) => {
+  'evaluate-actions': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/evaluate-actions.js');
-    await m.evaluateActionsCommand(argv);
+    await m.evaluateActionsCommand(argv, client);
   },
-  'evaluate-repos-for-empty': async (argv: string[]) => {
+  'evaluate-repos-for-empty': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commands/evaluate-repos-for-empty.js');
-    await m.evaluateReposForEmptyCommand(argv);
+    await m.evaluateReposForEmptyCommand(argv, client);
   },
-  'gather': async (argv: string[]) => {
+  'gather': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commandgroups/gather.js');
-    await m.gatherCommand(argv);
+    await m.gatherCommand(argv, client);
   },
-  'evaluate': async (argv: string[]) => {
+  'evaluate': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commandgroups/evaluate.js');
-    await m.evaluateCommand(argv);
+    await m.evaluateCommand(argv, client);
   },
-  'change': async (argv: string[]) => {
+  'change': async (argv: string[], client?: GitHubClient) => {
     const m = await import('../commandgroups/change.js');
-    await m.changeCommand(argv);
+    await m.changeCommand(argv, client);
   },
 };
 
@@ -67,7 +68,7 @@ export function availableCommands(): string[] {
   return Object.keys(commands);
 }
 
-export async function runCommand(name: string | undefined, argv: string[]): Promise<void> {
+export async function runCommand(name: string | undefined, argv: string[], client?: any): Promise<void> {
   if (!name) {
     console.log('gh-cleanup CLI');
     console.log('Commands:', availableCommands().join(', '));
@@ -79,7 +80,7 @@ export async function runCommand(name: string | undefined, argv: string[]): Prom
     console.log('Commands:', availableCommands().join(', '));
     return;
   }
-  await runner(argv);
+  await runner(argv, client);
 }
 
 export default { runCommand, availableCommands };

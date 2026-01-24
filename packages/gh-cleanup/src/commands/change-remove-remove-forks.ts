@@ -1,4 +1,5 @@
-import { GitHubClient, repos, pagination, hasAdminPermission } from 'github-rest';
+import type { GitHubClient } from 'github-rest';
+import { repos, pagination, hasAdminPermission } from 'github-rest';
 import wrapGitHubRest from '../lib/github-rest-wrapper.js';
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';

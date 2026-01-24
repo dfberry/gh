@@ -15,7 +15,7 @@
  * Notes:
  *   Keep this header updated when flags or behavior change; update Markdown docs accordingly.
  */
-
+import type { GitHubClient } from 'github-rest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as readline from 'readline';
@@ -57,7 +57,7 @@ export function parseArgs(argv: string[]): Args {
   return cfg;
 }
 
-export async function runCommand(client: any, args: Args): Promise<any> {
+export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
   const flags = [] as string[]; // legacy uses
   const cfg: LLMConfig = {};
   if (args.openaiKey) cfg.key = args.openaiKey;
@@ -267,11 +267,10 @@ export async function writeOutput(resultObj: any, args: Args) {
   }
 }
 
-export async function describeReposCommand(argv: string[], client?: any) {
+export async function describeReposCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
-  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-  const c = client ?? createClient(token);
-  const res = await runCommand(c as any, args);
+  if (!client) throw new Error('GitHub client is required');
+  const res = await runCommand(client, args);
   await writeOutput(res, args);
 }
 

@@ -168,6 +168,23 @@ Debugging LLM calls
 	- `--debug-dir=<path>`: directory to write debug files (input prompt and full response JSON).
 	- These map to the `LLMConfig.debug` settings passed to the LLM client; callers may also enable debugging programmatically.
 
+## Command signature convention (developer note)
+
+Commands follow a small, consistent calling convention to support both standalone CLI usage and orchestrated group runs.
+
+- CLI: creates a single `GitHubClient` and calls the top-level `runCommand(name, argv, client?)` helper. The CLI is the single place that should call `getGitHubClient()` for grouped runs.
+- `runCommand` (top-level command dispatcher): forwards the optional `client` to the command module wrapper. It may be invoked without a `client` for standalone testing.
+- Wrapper (module CLI entry): accepts `(argv: string[], client?: GitHubClient)` — parses `argv` into `args` and may validate flags. The wrapper should forward the `client` into the implementation call.
+- Implementation (`runCommand` inside the module): accepts `(client?: GitHubClient, args: ParsedArgs)` — contains the command logic and should handle a missing `client` when appropriate (for read-only or test modes).
+
+Flow example:
+
+1. CLI creates a single `client` and calls: `await runCommand(cmd, childArgv, client)`.
+2. The dispatcher forwards the `client` and calls the module wrapper: `await module.wrapper(childArgv, client)`.
+3. The wrapper parses `childArgv` to `args` and calls the module's implementation: `await runCommand(client, args)`.
+
+This keeps a single `getGitHubClient()` call for grouped runs while preserving the ability to run commands standalone without a client.
+
 
 ## Generate repo descriptions and topics
 

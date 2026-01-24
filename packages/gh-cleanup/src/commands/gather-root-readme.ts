@@ -12,7 +12,7 @@ import { createClient } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { repos } from 'github-rest';
 import { parseRepoInput } from '../lib/input-parser.js';
-
+import type { GitHubClient } from 'github-rest';
 export type Args = BaseFlags & {
   outPath?: string;
 };
@@ -24,7 +24,7 @@ export function parseArgs(argv: string[]): Args {
   };
 }
 
-export async function runCommand(client: any, args: Args) {
+export async function runCommand(client: GitHubClient, args: Args) {
   const inputPath = args.input;
   const repoList: string[] = inputPath ? parseRepoInput(inputPath) : [];
   const results: any[] = [];
@@ -55,11 +55,10 @@ export async function writeOutput(resultObj: any, args: Args) {
   }
 }
 
-export async function gatherRootReadmeCommand(argv: string[], client?: any) {
+export async function gatherRootReadmeCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
-  const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
-  const c = client ?? createClient(token);
-  const res = await runCommand(c as any, args);
+  if (!client) throw new Error('GitHub client is required');
+  const res = await runCommand(client, args);
   await writeOutput(res, args);
 }
 

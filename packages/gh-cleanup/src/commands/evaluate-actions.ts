@@ -10,7 +10,7 @@
  *   - `parseArgs(argv)`, `runCommand(client, args)`, `writeOutput(result, args)`
  *   - `evaluateActionsCommand(argv)` — thin CLI wrapper used by the bin
  */
-
+import type { GitHubClient } from 'github-rest';
 import { emitOutput, formatJsonOutput, addGeneratedTimestamp } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import * as fs from 'fs';
@@ -46,7 +46,7 @@ function extractDescriptionFromWorkflow(content: string | null): string | null {
   return (m[1] || m[2] || m[3] || '').trim();
 }
 
-export async function runCommand(args: Args): Promise<any> {
+export async function runCommand(_client: GitHubClient, args: Args): Promise<any> {
   // Only work on existing actions data file
   const { input } = args as any;
   if (!input) throw new Error('Missing --input (actions data file)');
@@ -104,8 +104,9 @@ export async function writeOutput(result: any, args: Args) {
   if (args.out) await emitOutput(formatJsonOutput(data), args.out);
 }
 
-export async function evaluateActionsCommand(argv: string[]) {
+export async function evaluateActionsCommand(argv: string[], client?: GitHubClient) {
   const args = parseArgs(argv);
-  const res = await runCommand(args);
+  if (!client) throw new Error('GitHub client is required');
+  const res = await runCommand(client, args);
   await writeOutput(res, args);
 }

@@ -1,8 +1,8 @@
-import { GitHubClient, repos, user, pagination } from 'github-rest';
+import { repos, user, pagination } from 'github-rest';
 import wrapGitHubRest, { GitHubRestResult } from '../lib/github-rest-wrapper.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import * as fs from 'fs';
-
+import type { GitHubClient } from 'github-rest';
 export type Args = BaseFlags & { out: string };
 
 export function parseArgs(argv: string[]): Args {
