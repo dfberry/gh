@@ -102,7 +102,6 @@ export async function writeOutput(result: any, args: Args) {
 
   // default: JSON
   if (args.out) await emitOutput(formatJsonOutput(data), args.out);
-
 }
 
 export async function evaluateActionsCommand(argv: string[]) {
