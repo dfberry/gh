@@ -23,6 +23,7 @@ Welcome to the project! This document guides GitHub Copilot, other AI coding ass
 ## Coding Style
 - Use TypeScript types and interfaces for API responses and function signatures.
 - Require `async/await` for asynchronous code. If same functionality is offered via sync and async APIs, require async.
+- Avoid synchronous filesystem APIs (for example: `fs.readFileSync`, `fs.writeFileSync`, `fs.existsSync`, `fs.readdirSync`, etc.). Use the asynchronous `fs/promises` APIs or other async abstractions so tooling and CI remain non-blocking.
 - Use named exports for modules.
 - Keep functions focused; prefer composition over inheritance.
 - Centralize error handling in utilities.
