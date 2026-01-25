@@ -36,7 +36,7 @@ export function parseArgs(argv: string[]): Args {
 }
 
 import { scoreCategory, loadRules, Rule } from '../lib/categorizer.js';
-import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
+import { categorizeReposWithMetadata } from '../lib/github-repos.js';
 
 export async function runCommand(client: GitHubClient, args: Args) {
   const all = await pagination.paginateAll(async (page: number) => {

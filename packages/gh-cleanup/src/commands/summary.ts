@@ -1,7 +1,7 @@
 
 import type { GitHubClient } from 'github-rest';
 import { pagination, repos } from 'github-rest';
-import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
+import { categorizeReposWithMetadata } from '../lib/github-repos.js';
 import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { toMarkdownTable, addGeneratedTimestamp, emitOutput, formatJsonOutput } from '../lib/report.js';
 import * as fs from 'node:fs/promises';

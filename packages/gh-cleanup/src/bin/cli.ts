@@ -1,11 +1,17 @@
 #!/usr/bin/env node
+import { readFile } from 'fs/promises';
 import { runCommand, availableCommands } from './commands.js';
 import { getGitHubClient } from '../lib/github-auth.js';
+import { setMode } from '../lib/runtime-mode.js';
 
 function printHelp() {
   console.log('gh-cleanup — repository cleanup helpers');
   console.log('Usage: gh-cleanup <command> [flags]');
-  console.log('Commands:', availableCommands().join(', '));
+  console.log('\nMode (required):');
+  console.log('  --mode=selected|user   Top-level mode: "selected" uses the provided input files; "user" uses the authenticated user repos');
+  console.log('  --selected             Shortcut for --mode=selected');
+  console.log('  --user                 Shortcut for --mode=user');
+  console.log('\nCommands:', availableCommands().join(', '));
   console.log('\nCommon flags:');
   console.log('  --yes            Perform destructive actions (default: dry-run)');
   console.log('  --force          Skip typed confirmation prompts');
@@ -14,13 +20,51 @@ function printHelp() {
   console.log('  --debug          Enable verbose debug logging for commands');
   console.log('  --debug-dir=<d>  Directory to write debug logs to');
   console.log('\nExamples:');
-  console.log('  gh-cleanup categorize-repos --fetch --output=md --out=generated/catalog.md');
-  console.log('  gh-cleanup summary --output=json --out=generated/active.json');
+  console.log('  gh-cleanup --mode=selected categorize-repos --fetch --output=md --out=generated/catalog.md');
+  console.log('  gh-cleanup --mode=user summary --output=json --out=generated/active.json');
+}
+
+function detectMode(argv: string[]): string | undefined {
+  let mode: string | undefined;
+  argv.forEach((a) => {
+    if (a === '--user') mode = 'user';
+    if (a === '--selected') mode = 'selected';
+    if (a.startsWith('--mode=')) mode = a.split('=', 2)[1];
+  });
+  if (mode) return mode.toLowerCase();
+  return undefined;
 }
 
 async function main(argv: string[]) {
-  const cmd = argv[2];
-  const rest = argv.slice(3);
+  const rawArgs = argv.slice(2); // user-supplied args
+
+  const mode = detectMode(rawArgs);
+  if (!mode) {
+    printHelp();
+    // try to print package version from package.json in this package
+    try {
+      const pkgPath = new URL('../../package.json', import.meta.url);
+      const raw = await readFile(pkgPath, 'utf8');
+      const pkg = JSON.parse(raw.toString());
+      console.log('version:', pkg.version || 'unknown');
+    } catch (e) {
+      // ignore
+    }
+    return;
+  }
+
+  // expose chosen mode for downstream modules via runtime singleton (avoid global env mutation)
+  try {
+    setMode(mode);
+  } catch (e) {
+    console.error('Invalid mode:', e);
+    process.exit(1);
+  }
+
+  // find the first non-flag token as the command
+  const cmdIndex = rawArgs.findIndex((a) => !a.startsWith('-'));
+  const cmd = cmdIndex === -1 ? undefined : rawArgs[cmdIndex];
+  const rest = cmdIndex === -1 ? rawArgs.slice(1) : rawArgs.slice(cmdIndex + 1);
 
   if (!cmd || cmd === '--help' || cmd === '-h' || cmd === 'help') {
     printHelp();

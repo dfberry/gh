@@ -36,9 +36,9 @@ fi
 if [ -z "$matches" ]; then
   set +e
   if [ "$INCLUDE_SCRIPTS" -eq 1 ]; then
-    matches=$(grep -R -nE --exclude-dir=".git" --exclude-dir="node_modules" --exclude-dir="dist" --exclude-dir="generated" "$PATTERN" packages solutions scripts . || true)
+    matches=$(grep -R -nE --exclude-dir=".git" --exclude-dir=".github" --exclude-dir="node_modules" --exclude-dir="dist" --exclude-dir="generated" "$PATTERN" packages solutions scripts . || true)
   else
-    matches=$(grep -R -nE --exclude-dir=".git" --exclude-dir="node_modules" --exclude-dir="dist" --exclude-dir="generated" --exclude-dir="scripts" "$PATTERN" packages solutions . || true)
+    matches=$(grep -R -nE --exclude-dir=".git" --exclude-dir=".github" --exclude-dir="node_modules" --exclude-dir="dist" --exclude-dir="generated" --exclude-dir="scripts" "$PATTERN" packages solutions . || true)
   fi
   set -e
 fi

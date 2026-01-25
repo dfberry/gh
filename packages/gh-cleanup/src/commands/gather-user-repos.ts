@@ -1,8 +1,7 @@
-import { repos, user, pagination } from 'github-rest';
-import wrapGitHubRest, { GitHubRestResult } from '../lib/github-rest-wrapper.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { promises as fs } from 'fs';
 import type { GitHubClient } from 'github-rest';
+import { fetchAuthenticatedUserRepos } from '../lib/github-repos.js';
 export type Args = BaseFlags & { out: string };
 
 export function parseArgs(argv: string[]): Args {
@@ -12,21 +11,8 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runUserRepos(client: GitHubClient, args: Args) {
-  // Fetch authenticated user
-  const ures: GitHubRestResult<any> = await wrapGitHubRest(() => user.getAuthenticatedUser(client));
-  if (!ures.ok) {
-    return { ok: false, error: ures.response ?? ures.original };
-  }
-  const username = ures.data?.login ?? null;
-
-  // Fetch all repositories for the authenticated user via github-rest helpers
-  const rres: GitHubRestResult<any[]> = await wrapGitHubRest(() => pagination.paginateAll((page: number) => repos.listAuthenticatedUserRepos(client, page, 100)));
-  if (!rres.ok) {
-    return { ok: false, user: username, error: rres.response ?? rres.original };
-  }
-
-  const reposList = rres.data ?? [];
-  return { ok: true, user: username, total: reposList.length, repos: reposList };
+  const res = await fetchAuthenticatedUserRepos(client);
+  return res;
 }
 
 export async function writeOutput(result: any, args: Args) {
