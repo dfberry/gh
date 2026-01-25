@@ -22,12 +22,13 @@ Welcome to the project! This document guides GitHub Copilot, other AI coding ass
 
 ## Coding Style
 - Use TypeScript types and interfaces for API responses and function signatures.
-- Prefer `async/await` for asynchronous code.
+- Require `async/await` for asynchronous code. If same functionality is offered via sync and async APIs, require async.
 - Use named exports for modules.
 - Keep functions focused; prefer composition over inheritance.
 - Centralize error handling in utilities.
 - Use environment variables for secrets and tokens; never hardcode credentials.
 - This repository uses ES Modules (ESM). Use `import`/`export` not `require()`.
+- When importing for the Type of an object, such as parameters or return types, use the `import type { ... } from '...'` syntax to avoid runtime side-effects.
 
 ## Testing Conventions
 - Place tests next to modules (`*.test.ts`).
