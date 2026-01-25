@@ -79,7 +79,7 @@ export async function runCommand(client: GitHubClient, args: Args) {
   if (!inputPath) throw new Error(MISSING_INPUT_ERROR);
 
   // Resolve --out into a concrete file path (handles directory case using outPrefix)
-  const outPathToPass = resolveOutFile(args.out, (args as any).outPrefix, DEFAULT_OUT_FILENAME);
+  const outPathToPass = await resolveOutFile(args.out, (args as any).outPrefix, DEFAULT_OUT_FILENAME);
 
   // prefer explicit config-file, otherwise use package default which may be present in repo
   const cfg = args.configFile || DEFAULT_CONFIG_PATH;
@@ -91,7 +91,7 @@ export async function runCommand(client: GitHubClient, args: Args) {
 export async function writeOutput(result: any, args: Args) {
   const data = (result && result.evaluation) || [];
   if (args.out) {
-    const filePath = resolveOutFile(args.out, (args as any).outPrefix, DEFAULT_OUT_FILENAME);
+    const filePath = await resolveOutFile(args.out, (args as any).outPrefix, DEFAULT_OUT_FILENAME);
     await emitOutput(formatJsonOutput(data, result.evaluation.empty.length), filePath);
     return;
   }

@@ -1,6 +1,6 @@
 import { permissions } from 'github-rest';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
-import * as fs from 'fs';
+import { promises as fs } from 'fs';
 import type { GitHubClient } from 'github-rest';
 export type Args = BaseFlags & { input: string; out: string };
 
@@ -11,7 +11,7 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
-  const raw = fs.readFileSync(args.input, 'utf8');
+  const raw = await fs.readFile(args.input, 'utf8');
   let repos: string[] = [];
   try {
     repos = JSON.parse(raw);
@@ -38,7 +38,7 @@ export async function runCommand(client: GitHubClient, args: Args): Promise<any>
 }
 
 export async function writeOutput(result: any, args: Args) {
-  if (args.out) fs.writeFileSync(args.out, JSON.stringify(result, null, 2), 'utf8');
+  if (args.out) await fs.writeFile(args.out, JSON.stringify(result, null, 2), 'utf8');
   console.log(JSON.stringify(result, null, 2));
 }
 

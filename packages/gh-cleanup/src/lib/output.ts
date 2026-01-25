@@ -1,11 +1,11 @@
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import { ensureDir } from './files.js';
 
-export function writeNormalizedInput(outDir: string, normalizedInputSuffix: string, repos: unknown): string {
-  ensureDir(outDir);
+export async function writeNormalizedInput(outDir: string, normalizedInputSuffix: string, repos: unknown): Promise<string> {
+  await ensureDir(outDir);
   const normalizedInputPath = `${outDir}/${normalizedInputSuffix}`;
   try {
-    fs.writeFileSync(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8');
+    await fs.writeFile(normalizedInputPath, JSON.stringify(repos, null, 2), 'utf8');
   } catch (e) {
     console.error(`Failed to write normalized input file "${normalizedInputPath}":`, e);
   }

@@ -13,7 +13,7 @@
 import type { GitHubClient } from 'github-rest';
 import { emitOutput, formatJsonOutput, addGeneratedTimestamp } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
-import * as fs from 'fs';
+import { promises as fs } from 'fs';
 
 export type Args = BaseFlags & { output?: 'json' | 'md' };
 
@@ -50,7 +50,7 @@ export async function runCommand(_client: GitHubClient, args: Args): Promise<any
   // Only work on existing actions data file
   const { input } = args as any;
   if (!input) throw new Error('Missing --input (actions data file)');
-  const raw = fs.readFileSync(input, 'utf8');
+  const raw = await fs.readFile(input, 'utf8');
   let actionsData: any[] = [];
   try {
     actionsData = JSON.parse(raw);

@@ -60,7 +60,7 @@ export async function runCommand(client: GitHubClient, args: Args) {
   const inputPath = resolveInputFilePath((args as any).inputFile, (args as any).input);
   console.log('Incoming input path:', inputPath || '(none)');
   if (inputPath) {
-    const repoNames = parseRepoInput(inputPath);
+    const repoNames = await parseRepoInput(inputPath);
     const set = new Set(repoNames.map(String));
     ownedForks = ownedForks.filter((r: any) => set.has(r.full_name));
   }

@@ -12,7 +12,7 @@
 // To add more requirements, add new rule objects to the `rules` array.
 // -------------------------------------------------------------------------
 
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
 // Root of the monorepo
@@ -58,8 +58,8 @@ function collectImportViolations(content, file, regex) {
 }
 
 // Scan a single file for import violations
-function scanFile(file) {
-  const content = fs.readFileSync(file, 'utf8');
+async function scanFile(file) {
+  const content = await fs.readFile(file, 'utf8');
   // Regex patterns to match various import-like statements:
   // - ES module imports:   import ... from '...'
   // - Bare imports:        import '...'
@@ -75,24 +75,24 @@ function scanFile(file) {
   ];
 
   let errors = [];
-for (const pattern of importPatterns) {
-  // Always clone the regex to avoid lastIndex issues
-  const regex = new RegExp(pattern, 'g');
-  errors = errors.concat(collectImportViolations(content, file, regex));
-}
+  for (const pattern of importPatterns) {
+    // Always clone the regex to avoid lastIndex issues
+    const regex = new RegExp(pattern, 'g');
+    errors = errors.concat(collectImportViolations(content, file, regex));
+  }
   return errors;
 }
 
 // Recursively walk a directory and return all .ts/.js files
-function walk(dir) {
+async function walk(dir) {
   let results = [];
-  const list = fs.readdirSync(dir);
+  const list = await fs.readdir(dir);
   for (const file of list) {
     const filePath = path.join(dir, file);
-    const stat = fs.statSync(filePath);
+    const stat = await fs.stat(filePath);
     if (stat && stat.isDirectory()) {
       // Recurse into subdirectories
-      results = results.concat(walk(filePath));
+      results = results.concat(await walk(filePath));
     } else if (file.endsWith('.ts') || file.endsWith('.js')) {
       results.push(filePath);
     }
@@ -101,23 +101,30 @@ function walk(dir) {
 }
 
 // Main logic: scan all files in target folders
-let allErrors = [];
-for (const pkg of PACKAGES) {
-  const pkgPath = path.join(ROOT, pkg);
-  if (!fs.existsSync(pkgPath)) continue; // skip missing folders
-  const files = walk(pkgPath);
-  for (const file of files) {
-    allErrors = allErrors.concat(scanFile(file));
+(async () => {
+  let allErrors = [];
+  for (const pkg of PACKAGES) {
+    const pkgPath = path.join(ROOT, pkg);
+    try {
+      await fs.access(pkgPath);
+    } catch (err) {
+      continue; // skip missing folders
+    }
+    const files = await walk(pkgPath);
+    for (const file of files) {
+      const errs = await scanFile(file);
+      allErrors = allErrors.concat(errs);
+    }
   }
-}
 
-// Report results and exit with error if violations found
-if (allErrors.length) {
-  console.error('github-rest import errors found:');
-  for (const err of allErrors) {
-    console.error('  ' + err);
+  // Report results and exit with error if violations found
+  if (allErrors.length) {
+    console.error('github-rest import errors found:');
+    for (const err of allErrors) {
+      console.error('  ' + err);
+    }
+    process.exit(1);
+  } else {
+    console.log('All github-rest imports are valid.');
   }
-  process.exit(1);
-} else {
-  console.log('All github-rest imports are valid.');
-}
+})();

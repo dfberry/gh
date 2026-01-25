@@ -1,10 +1,16 @@
 #!/usr/bin/env node
-const fs = require('fs');
+const fs = require('fs').promises;
 const path = require('path');
 
-function load(file) {
-  if (!file || !fs.existsSync(file)) return null;
-  return JSON.parse(fs.readFileSync(file, 'utf8'));
+async function load(file) {
+  if (!file) return null;
+  try {
+    await fs.access(file);
+  } catch (err) {
+    return null;
+  }
+  const raw = await fs.readFile(file, 'utf8');
+  return JSON.parse(raw);
 }
 
 function sanitize(obj) {
@@ -36,34 +42,36 @@ if (!aFile || !bFile) {
   process.exit(2);
 }
 
-const a = load(aFile);
-const b = load(bFile);
-if (!a) {
-  console.error('Committed lockfile not found:', aFile);
-  process.exit(1);
-}
-if (!b) {
-  console.error('Generated lockfile not found:', bFile);
-  process.exit(1);
-}
+(async () => {
+  const a = await load(aFile);
+  const b = await load(bFile);
+  if (!a) {
+    console.error('Committed lockfile not found:', aFile);
+    process.exit(1);
+  }
+  if (!b) {
+    console.error('Generated lockfile not found:', bFile);
+    process.exit(1);
+  }
 
 // Provide access to rootObj for sanitize to skip root.name
-global.rootObj = a;
-const sanA = sanitize(a);
-global.rootObj = b;
-const sanB = sanitize(b);
+  global.rootObj = a;
+  const sanA = sanitize(a);
+  global.rootObj = b;
+  const sanB = sanitize(b);
 
-const sa = stableStringify(sanA);
-const sb = stableStringify(sanB);
+  const sa = stableStringify(sanA);
+  const sb = stableStringify(sanB);
 
-if (sa === sb) {
-  console.log('Lockfiles are equivalent after sanitization.');
-  process.exit(0);
-}
+  if (sa === sb) {
+    console.log('Lockfiles are equivalent after sanitization.');
+    process.exit(0);
+  }
 
-console.error('Lockfiles differ after sanitization.');
-// Write sanitized copies for debugging
-fs.writeFileSync('package-lock.sanitized.committed.json', sa, 'utf8');
-fs.writeFileSync('package-lock.sanitized.generated.json', sb, 'utf8');
-console.error('Wrote package-lock.sanitized.*.json for inspection.');
-process.exit(1);
+  console.error('Lockfiles differ after sanitization.');
+  // Write sanitized copies for debugging
+  await fs.writeFile('package-lock.sanitized.committed.json', sa, 'utf8');
+  await fs.writeFile('package-lock.sanitized.generated.json', sb, 'utf8');
+  console.error('Wrote package-lock.sanitized.*.json for inspection.');
+  process.exit(1);
+})();
