@@ -16,6 +16,8 @@ Welcome to the project! This document guides GitHub Copilot, other AI coding ass
 ## Preferred Frameworks & Tools
 - **Language:** TypeScript (strict mode recommended).
 - **Testing:** Vitest (use `vi` for mocking; mock network with `globalThis.fetch`).
+ - **Testing:** Vitest (use `vi` for mocking; mock network with `globalThis.fetch`).
+   - Unit tests should mock external I/O (network and filesystem). Use `vi.mock()` to stub `fetch-user-repos`, `ensureDir`, and `writeNormalizedInput` in unit tests so they run quickly and deterministically.
 - **Linting:** ESLint + Prettier.
 - **Build:** `tsc`.
 - **Containerization:** Docker (see `Dockerfile` in each package).

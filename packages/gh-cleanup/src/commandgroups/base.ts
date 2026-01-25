@@ -10,6 +10,8 @@ import { getDefaultOutDir } from '../config/appConfig.js';
 import { ensureDir } from '../lib/files.js';
 import { writeNormalizedInput } from '../lib/output.js';
 import { fetchAndWriteTokenScopes } from '../lib/token-scopes.js';
+import { getMode } from '../lib/runtime-mode.js';
+import fetchAuthenticatedUserRepos from '../lib/fetch-user-repos.js';
 export type GroupArgs = {
   input?: string;
   inputFile?: string;
@@ -66,6 +68,64 @@ export async function confirmDestructiveForwarding(
 
 export type Step = { name: string; module: string; wrapper: string };
 
+async function gatherReposForUser(githubClient: GitHubClient): Promise<{ inputPath?: string; repos: string[] }> {
+  if (!githubClient) throw new Error('GitHub client required for user mode');
+  const fetched = await fetchAuthenticatedUserRepos(githubClient);
+  if (!fetched.ok) {
+    throw new Error(`Failed to fetch authenticated user repos: ${String(fetched.error)}`);
+  }
+  const repoObjs = fetched.repos || [];
+  const repos: string[] = [];
+  for (const r of repoObjs) {
+    if (r.full_name) repos.push(r.full_name);
+    else if (r.owner && r.name) repos.push(`${r.owner.login || r.owner}/${r.name}`);
+  }
+  return { repos };
+}
+
+async function gatherReposFromSelectedInput(args: GroupArgs, opts: {
+  groupName: string;
+  defaultInput: string;
+  normalizedInputSuffix: string;
+  defaultOutPrefix: string;
+  steps: Step[];
+}): Promise<{ inputPath?: string; repos: string[] }> {
+  const resolvedInputPath = resolveInputFilePath((args as any).inputFile, args.input, opts.defaultInput);
+  let inputPath = resolvedInputPath;
+  try {
+    if (inputPath) {
+      try {
+        const st = await fs.stat(inputPath);
+        if (st && st.isDirectory()) {
+          const entries = (await fs.readdir(inputPath)).filter((f) => f.endsWith('.json'));
+          if (entries.length === 0) {
+            throw new Error(`No JSON files found in directory ${inputPath}`);
+          }
+          const defaultCandidate = entries.find((e) => e === opts.defaultInput);
+          let chosen: string | undefined = defaultCandidate;
+          if (!chosen) {
+            chosen = entries.find((e) => e.includes('gather'));
+          }
+          if (!chosen && entries.length === 1) chosen = entries[0];
+          if (!chosen) {
+            throw new Error(`Multiple JSON files found in ${inputPath}; please pass a specific file via --input-file. Candidates: ${entries.join(', ')}`);
+          }
+          inputPath = `${inputPath}/${chosen}`;
+          console.log('Selected input file from directory:', inputPath);
+        }
+      } catch (innerErr) {
+        throw innerErr;
+      }
+    }
+  } catch (err) {
+    console.error('Failed to read input file "' + resolvedInputPath + '":', err);
+    throw err;
+  }
+
+  const repos = await parseRepoInput(inputPath);
+  return { inputPath, repos };
+}
+
 export async function runGroupCommand(
   args: GroupArgs,
   opts: {
@@ -81,44 +141,21 @@ export async function runGroupCommand(
 
   startSection(`group: ${opts.groupName}`);
 
-  const resolvedInputPath = resolveInputFilePath((args as any).inputFile, args.input, opts.defaultInput);
-  let inputPath = resolvedInputPath;
-  // If the resolved input path is a directory, try to pick a suitable JSON file inside it.
-  try {
-    if (inputPath) {
-      try {
-        const st = await fs.stat(inputPath);
-        if (st && st.isDirectory()) {
-          const entries = (await fs.readdir(inputPath)).filter((f) => f.endsWith('.json'));
-          if (entries.length === 0) {
-            throw new Error(`No JSON files found in directory ${inputPath}`);
-          }
-          // Prefer the defaultInput filename if present
-          const defaultCandidate = entries.find((e) => e === opts.defaultInput);
-          let chosen: string | undefined = defaultCandidate;
-          if (!chosen) {
-            // Prefer any file with 'gather' in the name
-            chosen = entries.find((e) => e.includes('gather'));
-          }
-          if (!chosen && entries.length === 1) chosen = entries[0];
-          if (!chosen) {
-            throw new Error(`Multiple JSON files found in ${inputPath}; please pass a specific file via --input-file. Candidates: ${entries.join(', ')}`);
-          }
-          inputPath = `${inputPath}/${chosen}`;
-          console.log('Selected input file from directory:', inputPath);
-        }
-      } catch (innerErr) {
-        // If stat fails, rethrow as original behavior
-        throw innerErr;
-      }
-    }
-  } catch (err) {
-    console.error('Failed to read input file "' + resolvedInputPath + '":', err);
-    // propagate so callers see a failure immediately
-    throw err;
-  }
+  const mode = (getMode && getMode()) || 'selected';
+  console.log(`Operating mode: ${mode}`);
 
-  const repos = await parseRepoInput(inputPath);
+  let inputPath: string | undefined;
+  let repos: string[] = [];
+
+  if (mode === 'user') {
+    const result = await gatherReposForUser(githubClient);
+    repos = result.repos;
+    // leave inputPath undefined; we'll write a normalized input file below
+  } else {
+    const result = await gatherReposFromSelectedInput(args, opts);
+    inputPath = result.inputPath;
+    repos = result.repos;
+  }
 
   const timestamp = new Date().toISOString();
 
@@ -197,7 +234,7 @@ export async function runGroupCommand(
   const status = summary.errorCount > 0 ? 'errors' : 'ok';
   endSection(`group: ${opts.groupName}`, status);
 
-  return { step: opts.groupName, repos, timestamp, summary };
+  return { step: opts.groupName, repos, timestamp, summary, mode };
 }
 
 export async function writeGroupOutput(result: any, args: GroupArgs, groupName: string, defaultPrefix: string): Promise<void> {

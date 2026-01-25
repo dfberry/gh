@@ -22,7 +22,7 @@
 
 ## Implementation Steps
 
-1. CLI changes
+1. CLI changes - COMPLETED
    - File: `packages/gh-cleanup/src/bin/cli.ts`
    - Parse mode flags early (before command dispatch).
    - If mode missing: print help + version and exit.
@@ -31,22 +31,22 @@
    - Notes: CLI now uses async file I/O for package.json version lookup (`fs/promises`).
 
 2. Shared command-group changes
-   - File: `packages/gh-cleanup/src/commandgroups/base.ts`
-   - Read mode from the runtime singleton (`getMode()` / `ensureMode()`), not from `process.env`.
-   - If `mode === 'user'`:
-     - Ignore `--input`/`--input-file` and fetch authenticated user repos via the shared GitHub client (use `packages/github-rest` client APIs).
-     - Produce normalized input JSON (via `writeNormalizedInput`) containing the discovered `owner/repo` strings so downstream steps are unchanged.
-   - If `mode === 'selected'`:
-     - Preserve current behavior: resolve input file, parse repos.
-   - Ensure result returned from `runGroupCommand` includes `mode` for auditability.
-      - Ensure result returned from `runGroupCommand` includes `mode` for auditability.
+    - File: `packages/gh-cleanup/src/commandgroups/base.ts`
+    - Read mode from the runtime singleton (`getMode()` / `ensureMode()`), not from `process.env`.
+    - If `mode === 'user'`:
+       - Ignore `--input`/`--input-file` and call the centralized helper `fetchAuthenticatedUserRepos(client)` (in `packages/gh-cleanup/src/lib/fetch-user-repos.ts`).
+       - Normalize the returned repo objects to `owner/name` strings and produce a normalized input JSON (via `writeNormalizedInput`) so downstream steps are unchanged.
+    - If `mode === 'selected'`:
+       - Preserve current behavior: resolve input file, parse repos.
+    - Ensure result returned from `runGroupCommand` includes `mode` for auditability and log the chosen mode.
 
-   Completed work (so far)
-   - CLI: mode flags parsing implemented; mode is stored via `runtime-mode` singleton and validated.
-   - CLI: async `readFile` used instead of sync fs.
-   - Repo scripts: `package.json` gained `:user` variants for `gather`, `evaluate`, `change`, and `all`.
-   - Repository Copilot instructions updated to explicitly forbid synchronous FS APIs.
-   - Runtime singleton added: `packages/gh-cleanup/src/lib/runtime-mode.ts`.
+    Completed work (so far)
+    - CLI: mode flags parsing implemented; mode is stored via `runtime-mode` singleton and validated.
+    - CLI: async `readFile` used instead of sync fs.
+    - Repo scripts: `package.json` gained `:user` variants for `gather`, `evaluate`, `change`, and `all`.
+    - Repository Copilot instructions updated to explicitly forbid synchronous FS APIs.
+    - Runtime singleton added: `packages/gh-cleanup/src/lib/runtime-mode.ts`.
+    - Authenticated-user repo fetch helper added: `packages/gh-cleanup/src/lib/fetch-user-repos.ts` and used by `gather-user-repos`.
 
 3. GitHub client usage
    - Use shared client in `packages/github-rest` (do not call `fetch` directly).
@@ -64,6 +64,12 @@
      - `--mode=user` fetches user repos and writes normalized input (mock client to return a few repos).
      - Error fetching user repos surfaces a helpful error.
      - Downstream steps receive normalized input file path as `--input`.
+
+   - Implementation notes for tests:
+      - Use `vitest` for unit tests and `vi` for mocking.
+      - Mock network/GitHub interactions by mocking `packages/gh-cleanup/src/lib/fetch-user-repos.ts`.
+      - Mock filesystem interactions (`ensureDir`, `writeNormalizedInput`) so tests remain unit-level and fast.
+      - Tests added: `packages/gh-cleanup/src/commandgroups/base.test.ts` (covers `user` and `selected` modes).
 
    Remaining work
    - Update `packages/gh-cleanup/src/commandgroups/base.ts` to read mode via `getMode()` and implement user-mode repo fetching and normalized input writing.
