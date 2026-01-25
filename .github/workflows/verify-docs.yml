@@ -2,7 +2,9 @@ name: Verify Docs
 
 on:
   pull_request:
-
+  push:
+    branches: [ 'main' ]
+    
 jobs:
   verify-docs:
     runs-on: ubuntu-latest
