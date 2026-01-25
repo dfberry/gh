@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import * as fs from 'fs/promises';
 import * as readline from 'readline';
 import { startSection, endSection } from '../lib/cli-log.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
@@ -85,24 +85,32 @@ export async function runGroupCommand(
   let inputPath = resolvedInputPath;
   // If the resolved input path is a directory, try to pick a suitable JSON file inside it.
   try {
-    if (inputPath && fs.existsSync(inputPath) && fs.statSync(inputPath).isDirectory()) {
-      const entries = fs.readdirSync(inputPath).filter((f) => f.endsWith('.json'));
-      if (entries.length === 0) {
-        throw new Error(`No JSON files found in directory ${inputPath}`);
+    if (inputPath) {
+      try {
+        const st = await fs.stat(inputPath);
+        if (st && st.isDirectory()) {
+          const entries = (await fs.readdir(inputPath)).filter((f) => f.endsWith('.json'));
+          if (entries.length === 0) {
+            throw new Error(`No JSON files found in directory ${inputPath}`);
+          }
+          // Prefer the defaultInput filename if present
+          const defaultCandidate = entries.find((e) => e === opts.defaultInput);
+          let chosen: string | undefined = defaultCandidate;
+          if (!chosen) {
+            // Prefer any file with 'gather' in the name
+            chosen = entries.find((e) => e.includes('gather'));
+          }
+          if (!chosen && entries.length === 1) chosen = entries[0];
+          if (!chosen) {
+            throw new Error(`Multiple JSON files found in ${inputPath}; please pass a specific file via --input-file. Candidates: ${entries.join(', ')}`);
+          }
+          inputPath = `${inputPath}/${chosen}`;
+          console.log('Selected input file from directory:', inputPath);
+        }
+      } catch (innerErr) {
+        // If stat fails, rethrow as original behavior
+        throw innerErr;
       }
-      // Prefer the defaultInput filename if present
-      const defaultCandidate = entries.find((e) => e === opts.defaultInput);
-      let chosen: string | undefined = defaultCandidate;
-      if (!chosen) {
-        // Prefer any file with 'gather' in the name
-        chosen = entries.find((e) => e.includes('gather'));
-      }
-      if (!chosen && entries.length === 1) chosen = entries[0];
-      if (!chosen) {
-        throw new Error(`Multiple JSON files found in ${inputPath}; please pass a specific file via --input-file. Candidates: ${entries.join(', ')}`);
-      }
-      inputPath = `${inputPath}/${chosen}`;
-      console.log('Selected input file from directory:', inputPath);
     }
   } catch (err) {
     console.error('Failed to read input file "' + resolvedInputPath + '":', err);
@@ -110,17 +118,17 @@ export async function runGroupCommand(
     throw err;
   }
 
-  const repos = parseRepoInput(inputPath);
+  const repos = await parseRepoInput(inputPath);
 
   const timestamp = new Date().toISOString();
 
   const outDir = args.out || (base && (base as any).out) || getDefaultOutDir();
   const outPrefix =
     args.outPrefix || (base && (base as any).outPrefix) || computeOutPrefixFromInput(inputPath, opts.defaultOutPrefix);
-  ensureDir(outDir);
+  await ensureDir(outDir);
 
   const normalizedFilename = computeNormalizedInputPathName(inputPath || opts.defaultInput, opts.normalizedInputSuffix);
-  const normalizedInputPath = writeNormalizedInput(outDir, normalizedFilename, repos);
+  const normalizedInputPath = await writeNormalizedInput(outDir, normalizedFilename, repos);
 
   // Fetch token scopes once for the entire gather run and write to output
   const tokenScopes: string[] = await fetchAndWriteTokenScopes(githubClient, outDir, outPrefix);
@@ -181,7 +189,7 @@ export async function runGroupCommand(
 
   const summaryFile = `${outDir}/${outPrefix}-summary.json`;
   try {
-    fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
+    await fs.writeFile(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
   } catch (e) {
     console.error(`Failed to write summary file "${summaryFile}":`, e);
   }
@@ -196,9 +204,9 @@ export async function writeGroupOutput(result: any, args: GroupArgs, groupName: 
   const out = args.out || `${process.cwd()}/generated`;
   const prefix = args.outPrefix || defaultPrefix;
   try {
-    ensureDir(out);
+    await ensureDir(out);
     const stepFile = `${out}/${prefix}-${groupName}.json`;
-    fs.writeFileSync(stepFile, JSON.stringify(result, null, 2), 'utf8');
+    await fs.writeFile(stepFile, JSON.stringify(result, null, 2), 'utf8');
     const summaryFile = `${out}/${prefix}-summary.json`;
     const summary = {
       steps: [
@@ -213,7 +221,7 @@ export async function writeGroupOutput(result: any, args: GroupArgs, groupName: 
       errorCount: result?.summary?.errorCount || 0,
       failedSteps: result?.summary?.failedSteps || [],
     };
-    fs.writeFileSync(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
+    await fs.writeFile(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
   } catch (e) {
     // ignore write errors for stub
   }

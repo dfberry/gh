@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createGitHubClient, getUserPrComments } from 'github-rest';
-import { writeFileSync } from 'fs';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 async function main() {
@@ -29,7 +29,7 @@ async function main() {
   try {
     const comments = await getUserPrComments(client, options);
     const outPath = path.resolve(process.cwd(), `comments-${owner}-${repo}-${username}.json`);
-    writeFileSync(outPath, JSON.stringify(comments, null, 2));
+    await fs.writeFile(outPath, JSON.stringify(comments, null, 2));
     console.log(`Saved ${comments.length} comments to ${outPath}`);
   } catch (err) {
     console.error('Error fetching user PR comments:', err);

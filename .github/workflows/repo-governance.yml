@@ -3,6 +3,7 @@ name: Repo Governance
 on:
   pull_request:
   push:
+    branches: [ 'main' ]
 
 jobs:
   verify-github-rest-usage:
@@ -25,6 +26,11 @@ jobs:
         run: |
           chmod +x ./scripts/check-no-require.sh
           ./scripts/check-no-require.sh
+
+      - name: Run sync-fs check
+        run: |
+          chmod +x ./scripts/check-no-sync-fs.sh
+          ./scripts/check-no-sync-fs.sh
 
       - name: Run verify-gh-cleanup check
         run: |

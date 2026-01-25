@@ -5,15 +5,12 @@
 
 import { moveFilesBetweenRepos } from './index.js';
 import { parseArgs } from 'node:util';
-import { readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const packageJson = JSON.parse(
-  readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')
-);
-const version = packageJson.version;
+let version = '0.0.0';
 
 const usage = `
 Usage: move-between-repos --source <repo> --target <repo> --files <path> [options]
@@ -61,6 +58,13 @@ interface CliArgs {
 
 async function main() {
   try {
+    // Load package.json version lazily
+    try {
+      const packageJson = JSON.parse(await readFile(join(__dirname, '..', 'package.json'), 'utf-8'));
+      version = packageJson.version || version;
+    } catch (e) {
+      // ignore, fallback to default version
+    }
     const { values } = parseArgs({
       options: {
         source: { type: 'string' },

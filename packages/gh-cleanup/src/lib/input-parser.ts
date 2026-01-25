@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import { promises as fs } from 'fs';
 
 /**
  * Parse repository input from a file.
@@ -7,27 +7,30 @@ import * as fs from 'fs';
  * @param inputPath - Path to the input file
  * @returns Array of repository full names
  */
-export function parseRepoInput(inputPath: string): string[] {
-  let repos: string[] = [];
-  let raw = '';
+export async function parseRepoInput(inputPath: string): Promise<string[]> {
+  const repos: string[] = [];
+  if (!inputPath) return repos;
 
-  if (!fs.existsSync(inputPath)) {
+  let raw = '';
+  try {
+    await fs.access(inputPath);
+  } catch (err) {
     console.error(`Input file not found: ${inputPath}`);
     return repos;
   }
 
   try {
-    raw = fs.readFileSync(inputPath, 'utf8');
+    raw = await fs.readFile(inputPath, 'utf8');
   } catch (error) {
     console.error(`Failed to read input file "${inputPath}":`, error);
     return repos;
   }
-  
+
   // Try to parse as JSON array first
   if (raw.trim().startsWith('[')) {
     try {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) repos = parsed.map(String).filter(Boolean);
+      if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
     } catch (e) {
       console.warn(
         'Failed to parse repository input as JSON array; falling back to newline-separated format:',
@@ -35,11 +38,11 @@ export function parseRepoInput(inputPath: string): string[] {
       );
     }
   }
-  
+
   // Fallback to newline-separated format
-  if (repos.length === 0 && raw.trim().length > 0) {
-    repos = raw.split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean);
+  if (raw.trim().length > 0) {
+    return raw.split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean);
   }
-  
+
   return repos;
 }

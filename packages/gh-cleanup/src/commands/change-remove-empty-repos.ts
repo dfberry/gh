@@ -44,7 +44,7 @@ export async function runCommand(client: GitHubClient, args: Args) {
   console.log('Incoming input path:', inputPath || '(none)');
   const results: any[] = [];
   if (inputPath) {
-    const repoNames = parseRepoInput(inputPath);
+    const repoNames = await parseRepoInput(inputPath);
     for (const full of repoNames) {
       try {
         const [owner, name] = full.split('/');

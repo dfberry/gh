@@ -27,7 +27,7 @@ export type Args = BaseFlags & {
 
 export async function runCommand(client: GitHubClient, args: Args) {
   const inputPath = args.input;
-  const repoList: string[] = inputPath ? parseRepoInput(inputPath) : [];
+  const repoList: string[] = inputPath ? await parseRepoInput(inputPath) : [];
   const results: any[] = [];
   for (const repoFull of repoList) {
     const [owner, repo] = repoFull.split('/');

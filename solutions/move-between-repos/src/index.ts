@@ -3,7 +3,7 @@
  */
 
 import { spawnSync, spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, existsSync, rmSync, mkdirSync, cpSync } from 'node:fs';
+import { mkdtemp, readFile, access, rm, mkdir, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { GitHubClient, repos, errors } from 'github-rest';
@@ -132,12 +132,14 @@ async function createRepo(client: GitHubClient, owner: string, repo: string): Pr
  * Load files list from JSON file
  * Supports: ["file.txt"], [{"from": "file.txt", "to": "newfile.txt"}], or {"files": [...]}
  */
-function loadFilesList(filesPath: string): FileMapping[] {
-  if (!existsSync(filesPath)) {
+async function loadFilesList(filesPath: string): Promise<FileMapping[]> {
+  try {
+    await access(filesPath);
+  } catch (err) {
     throw new Error(`Files list not found: ${filesPath}`);
   }
 
-  const content = readFileSync(filesPath, 'utf-8');
+  const content = await readFile(filesPath, 'utf-8');
   try {
     const parsed = JSON.parse(content);
     
@@ -264,7 +266,7 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
   const targetRepo = parseRepo(target);
 
   // Load files list
-  const fileMappings = loadFilesList(filesPath);
+  const fileMappings = await loadFilesList(filesPath);
   console.log(`Files to move (${fileMappings.length}):`);
   fileMappings.forEach((mapping) => {
     if (mapping.from === mapping.to) {
@@ -281,7 +283,7 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
   }
 
   // Create temporary directories
-  const tmpBase = mkdtempSync(join(tmpdir(), 'move-repos-'));
+  const tmpBase = await mkdtemp(join(tmpdir(), 'move-repos-'));
   const sourceDir = join(tmpBase, 'source');
   const targetDir = join(tmpBase, 'target');
 
@@ -296,7 +298,9 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
     console.log('\nVerifying files exist in source repository...');
     for (const mapping of fileMappings) {
       const filePath = join(sourceDir, mapping.from);
-      if (!existsSync(filePath)) {
+      try {
+        await access(filePath);
+      } catch (err) {
         throw new Error(`File or folder not found in source: ${mapping.from}`);
       }
       console.log(`  ✓ ${mapping.from}`);
@@ -362,16 +366,19 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
       
       // Create parent directories if needed
       const targetParent = dirname(targetPath);
-      mkdirSync(targetParent, { recursive: true });
-      
+      await mkdir(targetParent, { recursive: true });
+
       // Copy file or directory
-      if (existsSync(sourcePath)) {
-        cpSync(sourcePath, targetPath, { recursive: true });
+      try {
+        await access(sourcePath);
+        await cp(sourcePath, targetPath, { recursive: true });
         if (mapping.from === mapping.to) {
           console.log(`  ✓ Copied: ${mapping.from}`);
         } else {
           console.log(`  ✓ Copied: ${mapping.from} → ${mapping.to}`);
         }
+      } catch (err) {
+        // ignore missing source since we previously validated
       }
     }
 
@@ -450,8 +457,8 @@ export async function moveFilesBetweenRepos(options: MoveOptions): Promise<void>
   } finally {
     // Cleanup temporary directories
     console.log('\nCleaning up temporary files...');
-    try {
-      rmSync(tmpBase, { recursive: true, force: true });
+      try {
+      await rm(tmpBase, { recursive: true, force: true });
       console.log('✓ Cleanup complete');
     } catch (error) {
       console.warn('Warning: Failed to cleanup temporary directory:', tmpBase);

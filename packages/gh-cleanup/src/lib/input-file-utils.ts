@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import { promises as fs } from 'fs';
 import * as path from 'path';
 
 export function resolveInputFilePath(inputFile?: string, input?: string, defaultInput?: string): string {
@@ -22,8 +22,8 @@ export function computeOutPrefixFromInput(inputPath: string | undefined, default
 
 export async function readJsonInput<T = any>(inputPath: string): Promise<T | null> {
   try {
-    if (!fs.existsSync(inputPath)) return null;
-    const raw = fs.readFileSync(inputPath, 'utf8');
+    await fs.access(inputPath);
+    const raw = await fs.readFile(inputPath, 'utf8');
     return JSON.parse(raw) as T;
   } catch (e) {
     return null;
