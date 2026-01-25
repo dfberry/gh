@@ -1,7 +1,7 @@
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { promises as fs } from 'fs';
 import type { GitHubClient } from 'github-rest';
-import fetchAuthenticatedUserRepos from '../lib/fetch-user-repos.js';
+import { fetchAuthenticatedUserRepos } from '../lib/github-repos.js';
 export type Args = BaseFlags & { out: string };
 
 export function parseArgs(argv: string[]): Args {

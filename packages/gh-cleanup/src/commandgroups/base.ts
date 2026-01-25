@@ -4,14 +4,13 @@ import { startSection, endSection } from '../lib/cli-log.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
 import { resolveInputFilePath, computeOutPrefixFromInput, computeNormalizedInputPathName } from '../lib/input-file-utils.js';
-import { repos as repoEndpoints, user as userEndpoints } from 'github-rest';
 import type { GitHubClient } from 'github-rest';
+import { getDefaultBranch, fetchAuthenticatedUserRepoNames } from '../lib/github-repos.js';
 import { getDefaultOutDir } from '../config/appConfig.js';
 import { ensureDir } from '../lib/files.js';
 import { writeNormalizedInput } from '../lib/output.js';
 import { fetchAndWriteTokenScopes } from '../lib/token-scopes.js';
 import { getMode } from '../lib/runtime-mode.js';
-import fetchAuthenticatedUserRepos from '../lib/fetch-user-repos.js';
 export type GroupArgs = {
   input?: string;
   inputFile?: string;
@@ -68,20 +67,6 @@ export async function confirmDestructiveForwarding(
 
 export type Step = { name: string; module: string; wrapper: string };
 
-async function gatherReposForUser(githubClient: GitHubClient): Promise<{ inputPath?: string; repos: string[] }> {
-  if (!githubClient) throw new Error('GitHub client required for user mode');
-  const fetched = await fetchAuthenticatedUserRepos(githubClient);
-  if (!fetched.ok) {
-    throw new Error(`Failed to fetch authenticated user repos: ${String(fetched.error)}`);
-  }
-  const repoObjs = fetched.repos || [];
-  const repos: string[] = [];
-  for (const r of repoObjs) {
-    if (r.full_name) repos.push(r.full_name);
-    else if (r.owner && r.name) repos.push(`${r.owner.login || r.owner}/${r.name}`);
-  }
-  return { repos };
-}
 
 async function gatherReposFromSelectedInput(args: GroupArgs, opts: {
   groupName: string;
@@ -148,8 +133,8 @@ export async function runGroupCommand(
   let repos: string[] = [];
 
   if (mode === 'user') {
-    const result = await gatherReposForUser(githubClient);
-    repos = result.repos;
+    if (!githubClient) throw new Error('GitHub client required for user mode');
+    repos = await fetchAuthenticatedUserRepoNames(githubClient);
     // leave inputPath undefined; we'll write a normalized input file below
   } else {
     const result = await gatherReposFromSelectedInput(args, opts);
@@ -187,7 +172,7 @@ export async function runGroupCommand(
       const [owner, repo] = repos[0].split('/');
       let branch = 'main';
       try {
-        const detected = await repoEndpoints.getDefaultBranch(githubClient, owner, repo);
+        const detected = await getDefaultBranch(githubClient, owner, repo);
         if (detected) branch = detected;
       } catch (e) {
         // fallback to main

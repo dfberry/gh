@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Mock dependencies before importing the module under test
 vi.mock('../lib/runtime-mode.js', () => ({ getMode: vi.fn() }));
 vi.mock('fs/promises', () => ({ stat: vi.fn(async (p: string) => ({ isDirectory: () => false })), readdir: vi.fn(async () => []), writeFile: vi.fn(async () => {}) }));
-vi.mock('../lib/fetch-user-repos.js', () => ({ default: vi.fn() }));
+vi.mock('../lib/github-repos.js', () => ({ fetchAuthenticatedUserRepoNames: vi.fn(), getDefaultBranch: vi.fn() }));
 vi.mock('../lib/output.js', () => ({ writeNormalizedInput: vi.fn(async (outDir, name, repos) => `${outDir}/${name}`) }));
 vi.mock('../lib/files.js', () => ({ ensureDir: vi.fn(async () => {}) }));
 vi.mock('../lib/input-parser.js', () => ({ parseRepoInput: vi.fn(async (p) => ['selected/one']) }));
@@ -11,7 +11,7 @@ vi.mock('../lib/token-scopes.js', () => ({ fetchAndWriteTokenScopes: vi.fn(async
 
 import { runGroupCommand } from './base.js';
 import { getMode } from '../lib/runtime-mode.js';
-import fetchAuthenticatedUserRepos from '../lib/fetch-user-repos.js';
+import { fetchAuthenticatedUserRepoNames } from '../lib/github-repos.js';
 import { writeNormalizedInput } from '../lib/output.js';
 import { parseRepoInput } from '../lib/input-parser.js';
 
@@ -23,7 +23,7 @@ describe('runGroupCommand mode handling', () => {
   it('writes normalized input and returns repos in user mode', async () => {
     // arrange
     (getMode as any).mockReturnValue('user');
-    (fetchAuthenticatedUserRepos as any).mockResolvedValue({ ok: true, repos: [{ full_name: 'owner/repo' }] });
+    (fetchAuthenticatedUserRepoNames as any).mockResolvedValue(['owner/repo']);
 
     const args = { out: './generated-test', outPrefix: 'test' } as any;
     const opts = { groupName: 'g', defaultInput: 'active-sample-repos.json', normalizedInputSuffix: 'normalized', defaultOutPrefix: 'g', steps: [] } as any;

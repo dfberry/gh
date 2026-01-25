@@ -53,6 +53,32 @@
    - Implement a small helper in `base.ts` to paginate `/user/repos` using the shared client APIs (`request` or `paginate`).
    - Fail fast with clear error if client not present in user mode.
 
+   2a. Consolidate GitHub repo utilities into a single `./lib` module
+
+    - Goal: centralize all repository-related GitHub REST logic (pagination, metadata fetches, default-branch, readme, languages, etc.) into one module under `packages/gh-cleanup/src/lib` so callers import a single, well-tested API.
+    - Target file: `packages/gh-cleanup/src/lib/github-repos.ts` (or `github-rest-repos.ts` if preferred).
+    - Exports to provide (examples):
+       - `fetchAuthenticatedUserRepos(client): Promise<FetchUserReposResult>` — paginated list of repos (preserve existing return shape).
+       - `getRepo(client, owner, repo)` — wrapper returning repo object or null on 404.
+       - `getDefaultBranch(client, owner, repo)` — returns default branch name.
+       - `getRepoReadme(client, owner, repo)` — returns README text or null.
+       - `getRepoLanguages(client, owner, repo)` — returns language map.
+       - `paginateUserRepos(client, opts)` — lower-level pagination hook for callers that need raw pages.
+    - Migration steps:
+       1. Audit current usages of `fetch-user-repos.ts`, `repo-utils.ts`, and any direct `github-rest` calls across the package.
+       2. Create `github-repos.ts` implementing the consolidated helpers. Reuse `fetchAuthenticatedUserRepos` implementation as a starting point.
+       3. Add small adapter functions for other utilities currently duplicated (default branch lookup, languages, readme, getRepo) and wire them to `github-rest` bindings.
+       4. Update imports across the package to use the new module. Replace `import fetchAuthenticatedUserRepos from '../lib/fetch-user-repos.js'` and `import repoUtils from '../lib/repo-utils'` with the consolidated module imports.
+       5. Add unit tests for the new module (mock the `GitHubClient` methods or the `github-rest` binding) and update existing tests to mock the consolidated module instead of individual files.
+       6. Remove the old files (`fetch-user-repos.ts`, `repo-utils.ts`) once callers are migrated and tests updated.
+    - Testing & compatibility notes:
+       - Keep the `FetchUserReposResult` shape backward-compatible to minimize changes in callers.
+       - Add explicit tests for error cases (rate limits, 401/403, network errors).
+       - Mock the consolidated module in higher-level tests (`commandgroups/base.test.ts`) to keep tests deterministic.
+    - Rollout strategy:
+       - Implement the new module behind a feature branch, update a few callers (CLI and `base.ts`) and run tests.
+       - Gradually migrate other callers in small PRs, verifying tests and builds at each step.
+
 4. Tests
    - Add unit tests next to modified modules:
      - `packages/gh-cleanup/src/bin/cli.test.ts`
