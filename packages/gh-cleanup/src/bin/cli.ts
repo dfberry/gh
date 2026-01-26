@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { readFile } from 'fs/promises';
+import { realpathSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { runCommand, availableCommands } from './commands.js';
 import { getGitHubClient } from '../lib/github-auth.js';
@@ -92,13 +93,34 @@ export async function mainWithDeps(argv: string[], deps: CliDeps = {}): Promise<
 }
 
 export async function main(argv: string[]): Promise<void> {
-  const _scriptPath = fileURLToPath(import.meta.url);
-  if (process.argv[1] === _scriptPath) {
+  // Compare real paths to detect execution even after transpilation/relocation
+  try {
+    const _scriptPath = realpathSync(fileURLToPath(import.meta.url));
+    const invoked = process.argv[1] ? realpathSync(process.argv[1]) : null;
+    if (invoked && invoked === _scriptPath) {
+      try {
+        await mainWithDeps(process.argv);
+      } catch (e) {
+        console.error(e);
+        process.exit(1);
+      }
+    }
+  } catch (e) {
+    // Fallback: attempt to run main if path resolution fails
     try {
       await mainWithDeps(process.argv);
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       process.exit(1);
     }
   }
+}
+
+// If this file is executed directly, call `main()` with the process argv.
+// `main()` contains a guard so it will no-op when the module is imported.
+if (process.argv && process.argv.length) {
+  main(process.argv).catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
 }
