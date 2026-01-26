@@ -67,6 +67,59 @@ export async function confirmDestructiveForwarding(
 
 export type Step = { name: string; module: string; wrapper: string };
 
+export async function runStepForEachRepo(
+  s: Step,
+  repos: string[],
+  githubClient: GitHubClient,
+  outDir: string,
+  outPrefix: string,
+  normalizedInputPath: string,
+  forwardApply: boolean,
+  args: GroupArgs,
+  base: BaseFlags | undefined,
+  summary: any,
+): Promise<boolean> {
+  // returns true if caller should abort all further processing
+  for (const repoFull of repos) {
+    startSection(`step: ${s.name} repo: ${repoFull}`);
+    const [owner, repo] = repoFull.split('/');
+    const safeRepo = repoFull.replace(/[\/]/g, '_');
+    const stepOut = `${outDir}/${outPrefix}-${s.name}-${safeRepo}.json`;
+    const childArgv: string[] = [];
+    childArgv.push(`--input=${normalizedInputPath}`);
+    childArgv.push(`--out=${stepOut}`);
+    childArgv.push(`--owner=${owner}`);
+    childArgv.push(`--repo=${repo}`);
+
+    if (!forwardApply) {
+      // dry-run is only useful for commands that change state
+      childArgv.push('--dry-run');
+    } else {
+      if (args.yes) childArgv.push('--yes');
+      if (args.force) childArgv.push('--force');
+    }
+    if (base?.debug) childArgv.push('--debug');
+
+    try {
+      const m = await import(s.module);
+      if (typeof m[s.wrapper] === 'function') {
+        await m[s.wrapper](childArgv, githubClient);
+        summary.steps.push({ name: s.name, repo: repoFull, file: stepOut, status: 'ok' });
+      } else {
+        summary.steps.push({ name: s.name, repo: repoFull, file: stepOut, status: 'missing' });
+      }
+      endSection(`step: ${s.name} repo: ${repoFull}`, 'ok');
+    } catch (e) {
+      summary.steps.push({ name: s.name, repo: repoFull, file: stepOut, status: 'error', error: String(e) });
+      endSection(`step: ${s.name} repo: ${repoFull}`, 'error');
+      if (!args.continueOnError) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 
 async function gatherReposFromSelectedInput(args: GroupArgs, opts: {
   groupName: string;
@@ -121,7 +174,7 @@ export async function runGroupCommand(
     steps: Step[];
   },
   githubClient: GitHubClient,
-): Promise<any> {
+): Promise<{ step: string; repos: string[]; timestamp: string; summary: any; mode: string }> {
   const base = (args as any).base as BaseFlags | undefined;
 
   startSection(`group: ${opts.groupName}`);
@@ -161,46 +214,28 @@ export async function runGroupCommand(
   const destructiveStepNames = steps.map((s) => s.name);
   const forwardApply = await confirmDestructiveForwarding(args, destructiveStepNames);
 
+  // Run each step for all repos when available. Produce per-repo outputs.
+  let abortAll = false;
   for (const s of steps) {
-    startSection(`step: ${s.name}`);
-    const stepOut = `${outDir}/${outPrefix}-${s.name}.json`;
-    const childArgv: string[] = [];
-    childArgv.push(`--input=${normalizedInputPath}`);
-    childArgv.push(`--out=${stepOut}`);
-    if (s.name === 'branch-protection' && Array.isArray(repos) && repos.length > 0) {
-      // Use first repo in list for demonstration; could loop for all
-      const [owner, repo] = repos[0].split('/');
-      let branch = 'main';
-      try {
-        const detected = await getDefaultBranch(githubClient, owner, repo);
-        if (detected) branch = detected;
-      } catch (e) {
-        // fallback to main
+    if (abortAll) break;
+    if (Array.isArray(repos) && repos.length > 0) {
+      // Run this step for every repo via the dedicated helper
+      const shouldAbort = await runStepForEachRepo(
+        s,
+        repos,
+        githubClient,
+        outDir,
+        outPrefix,
+        normalizedInputPath,
+        forwardApply,
+        args,
+        base,
+        summary,
+      );
+      if (shouldAbort) {
+        abortAll = true;
+        break;
       }
-      childArgv.push(`--owner=${owner}`);
-      childArgv.push(`--repo=${repo}`);
-      childArgv.push(`--branch=${branch}`);
-    }
-    if (!forwardApply) {
-      childArgv.push('--dry-run');
-    } else {
-      if (args.yes) childArgv.push('--yes');
-      if (args.force) childArgv.push('--force');
-    }
-    if (base?.debug) childArgv.push('--debug');
-    try {
-      const m = await import(s.module);
-      if (typeof m[s.wrapper] === 'function') {
-        await m[s.wrapper](childArgv, githubClient);
-        summary.steps.push({ name: s.name, file: stepOut, status: 'ok' });
-      } else {
-        summary.steps.push({ name: s.name, file: stepOut, status: 'missing' });
-      }
-      endSection(`step: ${s.name}`, 'ok');
-    } catch (e) {
-      summary.steps.push({ name: s.name, file: stepOut, status: 'error', error: String(e) });
-      endSection(`step: ${s.name}`, 'error');
-      if (!args.continueOnError) break;
     }
   }
 
@@ -245,6 +280,6 @@ export async function writeGroupOutput(result: any, args: GroupArgs, groupName: 
     };
     await fs.writeFile(summaryFile, JSON.stringify(summary, null, 2), 'utf8');
   } catch (e) {
-    // ignore write errors for stub
+    console.error(`Failed to write group output for "${groupName}":`, e);
   }
 }
