@@ -1,10 +1,18 @@
 #!/usr/bin/env node
 import { readFile } from 'fs/promises';
+import { fileURLToPath } from 'url';
 import { runCommand, availableCommands } from './commands.js';
 import { getGitHubClient } from '../lib/github-auth.js';
 import { setMode } from '../lib/runtime-mode.js';
 
-function printHelp() {
+export type CliDeps = {
+  readFile?: typeof readFile;
+  getGitHubClient?: typeof getGitHubClient;
+  setMode?: typeof setMode;
+  runCommand?: typeof runCommand;
+};
+
+export function printHelp(): void {
   console.log('gh-cleanup — repository cleanup helpers');
   console.log('Usage: gh-cleanup <command> [flags]');
   console.log('\nMode (required):');
@@ -24,7 +32,7 @@ function printHelp() {
   console.log('  gh-cleanup --mode=user summary --output=json --out=generated/active.json');
 }
 
-function detectMode(argv: string[]): string | undefined {
+export function detectMode(argv: string[]): string | undefined {
   let mode: string | undefined;
   argv.forEach((a) => {
     if (a === '--user') mode = 'user';
@@ -35,7 +43,7 @@ function detectMode(argv: string[]): string | undefined {
   return undefined;
 }
 
-async function main(argv: string[]) {
+export async function mainWithDeps(argv: string[], deps: CliDeps = {}): Promise<void> {
   const rawArgs = argv.slice(2); // user-supplied args
 
   const mode = detectMode(rawArgs);
@@ -44,7 +52,7 @@ async function main(argv: string[]) {
     // try to print package version from package.json in this package
     try {
       const pkgPath = new URL('../../package.json', import.meta.url);
-      const raw = await readFile(pkgPath, 'utf8');
+      const raw = await (deps.readFile ?? readFile)(pkgPath, 'utf8');
       const pkg = JSON.parse(raw.toString());
       console.log('version:', pkg.version || 'unknown');
     } catch (e) {
@@ -55,10 +63,12 @@ async function main(argv: string[]) {
 
   // expose chosen mode for downstream modules via runtime singleton (avoid global env mutation)
   try {
-    setMode(mode);
+    const setter = deps.setMode ?? setMode;
+    setter(mode);
   } catch (e) {
     console.error('Invalid mode:', e);
     process.exit(1);
+    return;
   }
 
   // find the first non-flag token as the command
@@ -77,11 +87,18 @@ async function main(argv: string[]) {
     return;
   }
 
-  const githubClient = getGitHubClient();
-  await runCommand(cmd, rest, githubClient);
+  const githubClient = (deps.getGitHubClient ?? getGitHubClient)();
+  await (deps.runCommand ?? runCommand)(cmd, rest, githubClient);
 }
 
-main(process.argv).catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+export async function main(argv: string[]): Promise<void> {
+  const _scriptPath = fileURLToPath(import.meta.url);
+  if (process.argv[1] === _scriptPath) {
+    try {
+      await mainWithDeps(process.argv);
+    } catch (e) {
+      console.error(e);
+      process.exit(1);
+    }
+  }
+}
