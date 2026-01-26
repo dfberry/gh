@@ -159,3 +159,35 @@ in YAML frontmatter and the `summary` file now includes per-category public/priv
 ```bash
 npm run start -w gh-cleanup -- describe-repo --repo=owner/repo
 ```
+
+### Internal command keys
+
+The CLI registers commands using these internal command keys (these names appear
+in the source files under `src/commands/*.ts`). Include these exact backticked
+names when referencing commands in docs so `scripts/verify-docs.sh` can find
+them programmatically.
+
+- `remove-forks`
+- `archive-stale-repos`
+- `delete-empty-repos`
+- `branch-protection`
+- `repo-secrets`
+- `categorize-repos`
+- `summary`
+- `describe-repo`
+- `describe-repos`
+- `evaluate-actions`
+- `evaluate-repos-for-empty`
+- `evaluate-categorize-repos`
+- `evaluate-describe-repos`
+- `change-remove-empty-repos`
+- `change-remove-remove-forks`
+- `change-stale-repos`
+- `gather-actions`
+- `gather-branch-protection`
+- `gather-collaborators`
+- `gather-repo-secrets`
+- `gather-root-contents`
+- `gather-root-readme`
+- `gather-user-repos`
+- `summary`

@@ -45,6 +45,17 @@ import { vi } from 'vitest';
 globalThis.fetch = vi.fn(async () => ({ ok: true, json: async () => ({}) }));
 ```
 
+### Maintainer testing preferences
+
+- Prefer `vi.fn()` spies/mocks over writing to global state (avoid `globalThis.__*` captures).
+- When testing modules that use dynamic `import()`, prefer injecting an `importFn` (defaulting to `import`) so tests can pass `vi.fn()` stubs instead of creating on-disk fake modules.
+- Avoid mutating the default `commands` registry in tests; inject a test registry into functions like `runCommand` or use a `createCommands()` factory to build an isolated registry for tests.
+- Make default command registries immutable in production (e.g. `Object.freeze(...)`) and pass mutable clones to tests when needed.
+- Under ESM `node16`/`nodenext` resolution, use explicit `.js` extensions in test imports (for example: `import { foo } from './module.js'`).
+- Prefer asserting on `vi.fn()` calls (e.g. `expect(spy).toHaveBeenCalledWith(argv, client)`) rather than relying on global side-effects.
+- Keep tests fast and deterministic: mock external I/O (`fetch`, filesystem) and avoid network or disk access where possible.
+
+
 ## Documentation
 - Add or update JSDoc for public APIs.
 - Update this file if conventions change.
