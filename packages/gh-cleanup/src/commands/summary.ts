@@ -1,4 +1,4 @@
-
+/* DEPRECATED: made redundant by other commands */
 import type { GitHubClient } from 'github-rest';
 import { pagination, repos } from 'github-rest';
 import { categorizeReposWithMetadata } from '../lib/github-repos.js';
