@@ -173,6 +173,12 @@ PR authors should add this checklist to the PR description and mark each item as
 
 ---
 
+## Command Execution Semantics
+
+- **Default single-repo behavior:** Individual command modules under `packages/gh-cleanup/src/commands/` are written to operate on a single repository per invocation. When running a command from the CLI or via the `makeRunner` test helper, prefer using `--repo=owner/name` where supported; otherwise pass `--input` that contains a single repo (for example, a JSON array like `["org/name"]`).
+- **CLI/runner behavior:** The top-level CLI and test helpers may run a single-command module once per repo when given a multi-repo input (by creating per-repo normalized input files and appending `--owner`/`--repo`). This ensures command modules that read `--input` see only one repo at a time.
+- **Exceptions:** If a command must operate over the full repo list in one invocation, document that explicitly in the module header and in this file so reviewers and the CLI runner can treat it accordingly.
+
 Thank you for keeping the project clean and maintainable.
 
 Contacts / Owners

@@ -1,4 +1,7 @@
 import type { GitHubClient } from 'github-rest';
+import { parseRepoInput } from '../lib/input-parser.js';
+import { writeNormalizedInput } from '../lib/output.js';
+import * as path from 'path';
 export type CommandRunner = (argv: string[], client?: GitHubClient) => Promise<void>;
 
 export type ImportFn = (modulePath: string) => Promise<any>;
@@ -15,7 +18,43 @@ export function makeRunner(
     if (typeof fn !== 'function') {
       throw new Error(`Export ${exportName} not found in ${modulePath}`);
     }
-    await fn(argv, client);
+
+    // Default centralized per-repo behavior for single commands (not command groups)
+    // Command groups (under /commandgroups/) already manage per-repo behavior.
+    if (modulePath.includes('/commandgroups/')) {
+      await fn(argv, client);
+      return;
+    }
+
+    // find an input arg
+    const inputArg = argv.find((a) => a.startsWith('--input=') || a.startsWith('--input-file='));
+    if (!inputArg) {
+      await fn(argv, client);
+      return;
+    }
+    const inputPath = inputArg.split('=', 2)[1];
+    const repos = await parseRepoInput(inputPath);
+    if (!Array.isArray(repos) || repos.length <= 1) {
+      await fn(argv, client);
+      return;
+    }
+
+    // determine out dir from argv or default
+    const outArg = argv.find((a) => a.startsWith('--out='));
+    const outDir = outArg ? outArg.split('=', 2)[1] : `${process.cwd()}/generated`;
+
+    for (const repoFull of repos) {
+      const [owner, repo] = repoFull.split('/');
+      const safeRepo = repoFull.replace(/[\\/]/g, '_');
+      const perRepoInputName = `${path.basename(inputPath, path.extname(inputPath))}-${safeRepo}.json`;
+      const perRepoInputPath = await writeNormalizedInput(outDir, perRepoInputName, [repoFull]);
+
+      const perRepoArgv = argv.map((a) => (a.startsWith('--input=') || a.startsWith('--input-file=')) ? `--input=${perRepoInputPath}` : a);
+      perRepoArgv.push(`--owner=${owner}`);
+      perRepoArgv.push(`--repo=${repo}`);
+
+      await fn(perRepoArgv, client);
+    }
   };
 }
 

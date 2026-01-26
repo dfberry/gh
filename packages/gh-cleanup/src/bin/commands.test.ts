@@ -25,6 +25,27 @@ describe('makeRunner', () => {
     const runner = makeRunner('unused', 'missingExport', mockImport);
     await expect(runner([], {} as any)).rejects.toThrow(/not found/);
   });
+
+  it('wraps single command to run per-repo when input contains multiple repos', async () => {
+    // create an input file
+    const tmp = './tmp-multi-input.json';
+    await (await import('fs/promises')).writeFile(tmp, JSON.stringify(['a/one', 'b/two']), 'utf8');
+
+    const spy = vi.fn(async (_argv: string[], _client?: any) => {});
+    const mockImport = vi.fn(async (_: string) => ({ testCommand: spy }));
+
+    const runner = makeRunner('unused', 'testCommand', mockImport);
+    const argv = [`--input=${tmp}`, '--out=./generated-test'];
+    await runner(argv, {} as any);
+
+    // should be called twice (once per repo)
+    expect(spy.mock.calls.length).toBe(2);
+    // each call should have owner and repo appended
+    expect(spy.mock.calls[0][0].some((a: string) => a.startsWith('--owner='))).toBe(true);
+
+    // cleanup
+    await (await import('fs/promises')).unlink(tmp).catch(() => {});
+  });
 });
 
 describe('runCommand', () => {
