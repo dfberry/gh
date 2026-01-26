@@ -1,3 +1,4 @@
+import { reportError, extractStatus, getDebugConfig } from '../lib/debug.js';
 /**
  * Command: gather-root-readme
  *
@@ -25,26 +26,26 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runCommand(client: any, args: Args) {
+  const debugConfig = getDebugConfig(args.debug);
   const inputPath = args.input;
   const repoList: string[] = inputPath ? parseRepoInput(inputPath) : [];
   const results: any[] = [];
   for (const repoFull of repoList) {
     const [owner, repo] = repoFull.split('/');
+    let readme = undefined;
+    let error = null;
     try {
-      // Use existing describeHelpers.getReadme which fetches /repos/:owner/:repo/readme
       const readmeResp = await describeHelpers.getReadme(client, owner, repo);
-      let readme = undefined;
       if (readmeResp && typeof readmeResp === 'object' && 'content' in readmeResp) {
         const encoding = (readmeResp as any).encoding || 'base64';
         readme = Buffer.from((readmeResp as any).content, encoding).toString('utf8');
       }
-      results.push({ repo: repoFull, readme });
     } catch (err) {
-      // If not found, treat as no README
-      results.push({ repo: repoFull, readme: null, error: (err as any)?.message || String(err) });
+      error = reportError(err, debugConfig);
     }
+    results.push({ repo: repoFull, readme, error });
   }
-  return { results };
+  return { results, status: 'ok' };
 }
 
 export async function writeOutput(resultObj: any, args: Args) {

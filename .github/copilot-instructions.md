@@ -174,3 +174,90 @@ Contacts / Owners
 - **Build & CI:** After altering `package.json` or build deps, run `npm install` locally and commit the updated `package-lock.json` so CI `npm ci` remains deterministic.
 - **Releases:** For publish automation, ensure `NPM_TOKEN` is set in CI. Consider Changesets for monorepo-aware versioning; if using `semantic-release`, update and commit the lockfile before CI runs.
 - **Related docs:** See [TS Project References](docs/TS_PROJECT_REFERENCES.md) for build and project-reference conventions.
+
+## Command File Consistency and Template (2026-01)
+
+### Command File Template
+
+All new command files must follow this template for consistency, error handling, and debug support:
+
+```typescript
+import { parseBaseFlags } from '../lib/flags.js';
+import { reportError, extractStatus, getDebugConfig } from '../lib/debug.js';
+import * as fs from 'fs';
+// Import any required GitHub REST helpers
+
+/**
+ * Command: <command-name>
+ *
+ * Purpose:
+ *   <Describe what this command does>
+ *
+ * Flags:
+ *   - <list supported flags>
+ *   - common base flags via `parseBaseFlags()` (e.g. `--debug`)
+ *
+ * Exports:
+ *   - <commandName>Command(argv)
+ */
+export async function <commandName>Command(argv: string[]) {
+  const args = parseBaseFlags(argv);
+  const { input, out, debug } = args;
+  const debugConfig = getDebugConfig(debug); // Always use this for debug
+  if (!input || !out) throw new Error('Missing --input or --out');
+  const raw = fs.readFileSync(input, 'utf8');
+  let repos: string[] = [];
+  try {
+    repos = JSON.parse(raw);
+  } catch {
+    repos = raw.split('\n').map(x => x.trim()).filter(Boolean);
+  }
+  const results = [];
+  for (const repoFull of repos) {
+    const [owner, repo] = repoFull.split('/');
+    // For each API call, use try/catch and add both the result and an <feature>Error property
+    let feature = null;
+    let status = 'ok';
+    let message = undefined;
+    let featureError = null;
+    try {
+      feature = await someApiCall(owner, repo);
+      status = 'ok';
+    } catch (err: any) {
+      feature = null;
+      status = extractStatus(err);
+      message = err?.message || String(err);
+      featureError = reportError(err, debugConfig);
+    }
+    results.push({ owner, repo, feature, status, ...(message ? { message } : {}), ...(featureError ? { featureError } : {}) });
+  }
+  fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
+  console.log(JSON.stringify(results, null, 2));
+  return results;
+}
+```
+
+### Key Consistency Rules
+
+- **Debug Handling:**
+  - Always use `getDebugConfig(debug)` as the single source of truth for debug configuration.
+  - Do not manually check `process.env` or parse debug flags elsewhere.
+- **Error Reporting:**
+  - For each API call, add both the result and a `<feature>Error` property if an error occurs.
+  - Always include `status` and `message` fields for each repo/feature.
+  - Use `reportError` and `extractStatus` for all error handling.
+- **Input/Output:**
+  - Use `parseBaseFlags` and accept `debug` from argv.
+  - Read input as JSON or newline-delimited, write output as JSON with all error/status fields included.
+- **Documentation:**
+  - Include a clear header block documenting purpose, flags, and exports at the top of each command file.
+- **Minimal Boilerplate:**
+  - Command files should contain only business logic, error handling, and output. All shared logic (debug, error formatting) must be in utilities.
+
+### Issues to Watch For
+
+- Some legacy commands do not use the `<feature>Error` pattern or lack detailed error objects—refactor as needed.
+- Not all commands propagate the debug flag or use `getDebugConfig`—ensure this is consistent.
+- Some files lack a clear header block—add for clarity and maintainability.
+
+**When adding or updating a command, copy the template above and follow all rules in this section.**

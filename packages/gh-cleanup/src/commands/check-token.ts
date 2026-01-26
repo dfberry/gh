@@ -15,12 +15,19 @@ export async function checkTokenStatus() {
     const client = createGitHubClient();
     const user = await client.get('/user');
     let scopes: string[] = [];
+    let orgs: any[] = [];
     try {
       scopes = await client.getTokenScopes();
     } catch (scopeErr) {
       // If we can't get scopes, leave as empty array
     }
-    return { status: 'ok', user, scopes };
+    try {
+      const { getUserOrganizations } = await import('github-rest');
+      orgs = await getUserOrganizations() as any[];
+    } catch (orgErr) {
+      // If we can't get orgs, leave as empty array
+    }
+    return { status: 'ok', user, scopes, orgs };
   } catch (err: any) {
     return { status: 'invalid', message: err?.message || String(err), error: err };
   }

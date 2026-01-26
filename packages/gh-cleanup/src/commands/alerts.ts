@@ -1,4 +1,6 @@
+
 import { parseBaseFlags } from '../lib/flags.js';
+import { getDebugConfig, handleApiError } from '../lib/debug.js';
 import * as fs from 'fs';
 import {
   getVulnerabilityAlerts,
@@ -8,9 +10,15 @@ import {
   listRepositorySecurityAdvisories
 } from 'github-rest';
 
+async function fetchAlertWithStatus(fn: Function, owner: string, repo: string, debugConfig: any) {
+  const { result, status } = await handleApiError(() => fn(owner, repo), debugConfig);
+  return { result, status };
+}
+
 export async function gatherAlertsCommand(argv: string[]) {
   const args = parseBaseFlags(argv);
-  const { input, out } = args;
+  const { input, out, debug } = args;
+  const debugConfig = getDebugConfig(debug);
   if (!input || !out) throw new Error('Missing --input or --out');
   const raw = fs.readFileSync(input, 'utf8');
   let repos: string[] = [];
@@ -22,29 +30,26 @@ export async function gatherAlertsCommand(argv: string[]) {
   const results = [];
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
-    try {
-      const vulnerabilityAlerts = await getVulnerabilityAlerts(owner, repo);
-      const dependabotAlerts = await listDependabotAlerts(owner, repo);
-      const codeScanningAlerts = await listCodeScanningAlerts(owner, repo);
-      const secretScanningAlerts = await listSecretScanningAlerts(owner, repo);
-      const securityAdvisories = await listRepositorySecurityAdvisories(owner, repo);
-      results.push({
-        owner,
-        repo,
-        vulnerabilityAlerts,
-        dependabotAlerts,
-        codeScanningAlerts,
-        secretScanningAlerts,
-        securityAdvisories,
-        status: 'ok'
-      });
-    } catch (err: any) {
-      results.push({ owner, repo, error: err?.message || String(err), status: err?.status || 'error' });
+    const alertResults: any = { owner, repo };
+    const alertTypes = [
+      { key: 'vulnerabilityAlerts', fn: getVulnerabilityAlerts },
+      { key: 'dependabotAlerts', fn: listDependabotAlerts },
+      { key: 'codeScanningAlerts', fn: listCodeScanningAlerts },
+      { key: 'secretScanningAlerts', fn: listSecretScanningAlerts },
+      { key: 'securityAdvisories', fn: listRepositorySecurityAdvisories }
+    ];
+    for (const { key, fn } of alertTypes) {
+      const { result, status } = await fetchAlertWithStatus(fn, owner, repo, debugConfig);
+      alertResults[key] = result;
+      alertResults[`${key}Status`] = status;
     }
+    // Compose a single status object summarizing all alert statuses
+    const allStatuses = alertTypes.map(({ key }) => alertResults[`${key}Status`]);
+    const hasError = allStatuses.some(s => s && s.error);
+    alertResults.status = hasError ? { code: 207, message: 'partial-error' } : { code: 200, message: 'ok' };
+    results.push(alertResults);
   }
   fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
   console.log(JSON.stringify(results, null, 2));
   return results;
 }
-
-export default gatherAlertsCommand;

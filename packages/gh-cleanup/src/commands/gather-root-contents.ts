@@ -1,9 +1,9 @@
-export function parseArgs(argv: string[]): Args {
-  return {
-    ...parseBaseFlags(argv),
-    outPath: argv.find(x => x.startsWith('--out='))?.split('=')[1],
-  };
-}
+import { reportError, extractStatus, getDebugConfig, handleApiError } from '../lib/debug.js';
+import * as fs from 'fs/promises';
+import { createClient } from '../lib/describe-common.js';
+import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { describeHelpers, getRootContents } from 'github-rest';
+import { parseRepoInput } from '../lib/input-parser.js';
 /**
  * Command: gather-root-contents
  *
@@ -13,31 +13,53 @@ export function parseArgs(argv: string[]): Args {
  * Usage:
  *   --input=FILE --out=FILE
  */
-import * as fs from 'fs/promises';
-import { createClient } from '../lib/describe-common.js';
-import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
-import { describeHelpers, repos } from 'github-rest';
-import { parseRepoInput } from '../lib/input-parser.js';
 
+export function parseArgs(argv: string[]): Args {
+  return {
+    ...parseBaseFlags(argv),
+    outPath: argv.find(x => x.startsWith('--out='))?.split('=')[1],
+  };
+}
 export type Args = BaseFlags & {
   outPath?: string;
 };
 
 export async function runCommand(client: any, args: Args) {
+  const debugConfig = getDebugConfig(args.debug);
   const inputPath = args.input;
   const repoList: string[] = inputPath ? parseRepoInput(inputPath) : [];
   const results: any[] = [];
+  let hasError = false;
   for (const repoFull of repoList) {
     const [owner, repo] = repoFull.split('/');
-    try {
-      const branch = await describeHelpers.getDefaultBranch(owner, repo) || 'main';
-      const contents = await repos.getContents(client, owner, repo, '');
-      results.push({ repo: repoFull, branch, contents });
-    } catch (err) {
-      results.push({ repo: repoFull, error: (err as any)?.message || String(err) });
+    const { branch, branchStatus } = await getDefaultBranchWithStatus(owner, repo, debugConfig);
+    if (!branch || (branchStatus && branchStatus.code !== 200)) {
+      hasError = true;
+      results.push({ repo: repoFull, branch, contents: null, status: branchStatus });
+      continue;
     }
+    const { contents, status } = await getRootContentsWithStatus(client, owner, repo, branch as string, debugConfig);
+    if (status && status.error) hasError = true;
+    results.push({ repo: repoFull, branch, contents, status });
   }
-  return { results };
+  return { results, status: hasError ? { code: 207, message: 'partial-error' } : { code: 200, message: 'ok' } };
+}
+
+async function getDefaultBranchWithStatus(owner: string, repo: string, debugConfig: any) {
+  try {
+    const branch = await describeHelpers.getDefaultBranch(owner, repo) || 'main';
+    return { branch, branchStatus: { code: 200, message: 'ok' } };
+  } catch (err) {
+    return { branch: null, branchStatus: extractStatus(err) };
+  }
+}
+
+async function getRootContentsWithStatus(client: any, owner: string, repo: string, branch: string, debugConfig: any) {
+  const { result, status } = await handleApiError(
+    () => getRootContents(client, owner, repo, branch),
+    debugConfig
+  );
+  return { contents: result, status };
 }
 
 export async function writeOutput(resultObj: any, args: Args) {

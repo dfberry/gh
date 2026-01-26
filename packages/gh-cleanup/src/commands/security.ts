@@ -1,9 +1,19 @@
-import { getBranchProtection, listCollaborators, listRepoSecrets, getAutomatedSecurityFixes } from 'github-rest';
-import { describeHelpers } from 'github-rest';
-import { getDefaultBranchProtection } from 'github-rest';
+import { getBranchProtection, listCollaborators, listRepoSecrets, getAutomatedSecurityFixes, describeHelpers } from 'github-rest';
+import { getDebugConfig, handleApiError, reportError, extractStatus } from '../lib/debug.js';
+import { parseBaseFlags } from '../lib/flags.js';
+import * as fs from 'fs';
+
+async function fetchWithStatus(fn: Function, ...args: any[]) {
+  const debugConfig = args[args.length - 1];
+  const callArgs = args.slice(0, -1);
+  const { result, status } = await handleApiError(() => fn(...callArgs), debugConfig);
+  return { result, status };
+}
+
 export async function gatherSecurityCommand(argv: string[]) {
   const args = parseBaseFlags(argv);
-  const { input, out, branch } = args;
+  const { input, out, branch, debug } = args;
+  const debugConfig = getDebugConfig(debug);
   if (!input || !out) throw new Error('Missing --input or --out');
   const raw = fs.readFileSync(input, 'utf8');
   let repos: string[] = [];
@@ -16,37 +26,32 @@ export async function gatherSecurityCommand(argv: string[]) {
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
     const repoResult: Record<string, any> = { owner, repo };
+    // Branch protection (optional)
+    let branchProtectionStatus = null;
     if (branch) {
-      try {
-        repoResult.branchProtection = await getBranchProtection(owner, repo, branch);
-      } catch (err: any) {
-        repoResult.branchProtection = { error: err?.message || String(err), status: err?.status || 'error' };
-      }
+      const { result: branchProtection, status } = await fetchWithStatus(getBranchProtection, owner, repo, branch, debugConfig);
+      repoResult.branchProtection = branchProtection;
+      branchProtectionStatus = status;
     }
-    try {
-      repoResult.collaborators = await listCollaborators(owner, repo);
-    } catch (err: any) {
-      repoResult.collaborators = { error: err?.message || String(err), status: err?.status || 'error' };
-    }
-    try {
-      repoResult.repoSecrets = await listRepoSecrets(owner, repo);
-    } catch (err: any) {
-      repoResult.repoSecrets = { error: err?.message || String(err), status: err?.status || 'error' };
-    }
-    try {
-      repoResult.automatedSecurityFixes = await getAutomatedSecurityFixes(owner, repo);
-    } catch (err: any) {
-      repoResult.automatedSecurityFixes = { error: err?.message || String(err), status: err?.status || 'error' };
-    }
+    // Collaborators
+    const { result: collaborators, status: collabStatus } = await fetchWithStatus(listCollaborators, owner, repo, debugConfig);
+    repoResult.collaborators = collaborators;
+    // Repo secrets
+    const { result: repoSecrets, status: secretsStatus } = await fetchWithStatus(listRepoSecrets, owner, repo, debugConfig);
+    repoResult.repoSecrets = repoSecrets;
+    // Automated security fixes
+    const { result: autoFixes, status: autoFixesStatus } = await fetchWithStatus(getAutomatedSecurityFixes, owner, repo, debugConfig);
+    repoResult.automatedSecurityFixes = autoFixes;
+    // Compose a single status object summarizing all feature statuses
+    const statuses = [branchProtectionStatus, collabStatus, secretsStatus, autoFixesStatus].filter(Boolean);
+    const hasError = statuses.some(s => s && s.error);
+    repoResult.status = hasError ? { code: 207, message: 'partial-error' } : { code: 200, message: 'ok' };
     results.push(repoResult);
   }
   fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
   console.log(JSON.stringify(results, null, 2));
   return results;
 }
-import { parseBaseFlags } from '../lib/flags.js';
-import * as fs from 'fs';
-
 export async function gatherBranchProtectionCommand(argv: string[]) {
   const args = parseBaseFlags(argv);
   const { input, out, branch } = args;
@@ -62,37 +67,31 @@ export async function gatherBranchProtectionCommand(argv: string[]) {
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
     let branchName = branch || null;
+    let protection = null;
+    let status = 'ok';
+    let message = undefined;
+    let branchProtectionError = null;
     try {
       if (!branchName) {
         // Always try to get the default branch name
         const defaultBranch = await describeHelpers.getDefaultBranch(owner, repo);
         branchName = defaultBranch ?? null;
       }
-      let protection = null;
-      let status = 'ok';
-      let message = undefined;
       if (branchName) {
         try {
           protection = await getBranchProtection(owner, repo, branchName);
+          status = 'ok';
         } catch (err: any) {
-          if (err?.status === 404 || err?.statusCode === 404) {
-            status = 'no-protection';
-            message = 'No branch protection enabled';
-          } else if (err?.status === 403 || err?.statusCode === 403) {
-            status = 'no-access';
-            message = 'No access to branch protection';
-          } else if (err?.status === 401 || err?.statusCode === 401) {
-            status = 'Bad credentials (401)';
-            message = err?.message || 'Bad credentials';
-          } else {
-            status = err?.message || 'error';
-            message = err?.message || String(err);
-          }
+          protection = null;
+          status = extractStatus(err);
+          message = err?.message || String(err);
+          branchProtectionError = reportError(err, getDebugConfig());
         }
       }
-      results.push({ owner, repo, branch: branchName, protection, status, ...(message ? { message } : {}) });
+      results.push({ owner, repo, branch: branchName, protection, status, ...(message ? { message } : {}), ...(branchProtectionError ? { branchProtectionError } : {}) });
     } catch (err: any) {
-      results.push({ owner, repo, branch: branchName, protection: null, message: err?.message || String(err), status: err?.status || 'error' });
+      branchProtectionError = reportError(err, getDebugConfig());
+      results.push({ owner, repo, branch: branchName, protection: null, message: err?.message || String(err), status: extractStatus(err), branchProtectionError });
     }
   }
   fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
@@ -114,18 +113,20 @@ export async function gatherCollaboratorsCommand(argv: string[]) {
   const results = [];
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
+    let collaborators = null;
+    let status = 'ok';
+    let message = undefined;
+    let collaboratorsError = null;
     try {
-      const result = await listCollaborators(owner, repo);
-      results.push({ owner, repo, collaborators: result, status: 'ok' });
+      collaborators = await listCollaborators(owner, repo);
+      status = 'ok';
     } catch (err: any) {
-      let message = err?.message || String(err);
-      if (err && (err.status === 403 || err.statusCode === 403)) {
-        let apiMsg = '';
-        if (err.body && err.body.message) apiMsg = err.body.message;
-        message = `Insufficient permissions or access denied. ${apiMsg ? 'GitHub: ' + apiMsg : ''}`;
-      }
-      results.push({ owner, repo, collaborators: null, message, status: err?.status || 'error' });
+      collaborators = null;
+      status = extractStatus(err);
+      message = err?.message || String(err);
+      collaboratorsError = reportError(err, getDebugConfig());
     }
+    results.push({ owner, repo, collaborators, status, ...(message ? { message } : {}), ...(collaboratorsError ? { collaboratorsError } : {}) });
   }
   fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
   console.log(JSON.stringify(results, null, 2));
@@ -146,18 +147,20 @@ export async function gatherRepoSecretsCommand(argv: string[]) {
   const results = [];
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
+    let secrets = null;
+    let status = 'ok';
+    let message = undefined;
+    let repoSecretsError = null;
     try {
-      const result = await listRepoSecrets(owner, repo);
-      results.push({ owner, repo, secrets: result, status: 'ok' });
+      secrets = await listRepoSecrets(owner, repo);
+      status = 'ok';
     } catch (err: any) {
-      let message = err?.message || String(err);
-      if (err && (err.status === 403 || err.statusCode === 403)) {
-        let apiMsg = '';
-        if (err.body && err.body.message) apiMsg = err.body.message;
-        message = `Insufficient permissions or access denied. ${apiMsg ? 'GitHub: ' + apiMsg : ''}`;
-      }
-      results.push({ owner, repo, secrets: null, message, status: err?.status || 'error' });
+      secrets = null;
+      status = extractStatus(err);
+      message = err?.message || String(err);
+      repoSecretsError = reportError(err, getDebugConfig());
     }
+    results.push({ owner, repo, secrets, status, ...(message ? { message } : {}), ...(repoSecretsError ? { repoSecretsError } : {}) });
   }
   fs.writeFileSync(out, JSON.stringify(results, null, 2), 'utf8');
   console.log(JSON.stringify(results, null, 2));

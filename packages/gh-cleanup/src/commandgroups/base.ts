@@ -71,6 +71,9 @@ export async function runGroupCommand(
 ): Promise<any> {
   const base = (args as any).base as BaseFlags | undefined;
 
+  // Parse global debug flag from CLI args or env
+  const debugFlag = args.debug || process.env.GH_CLEANUP_DEBUG === 'true';
+  const debugConfig = { debug: !!debugFlag };
 
   // Check token status and report before running group
   const tokenStatus = await checkAndReportToken();
@@ -84,13 +87,13 @@ export async function runGroupCommand(
 
   const outDir = args.out || (base && (base as any).out) || `${process.cwd()}/generated`;
   const outPrefix = args.outPrefix || (base && (base as any).outPrefix) || opts.defaultOutPrefix;
-    // Now safe to write token status file
-    const tokenStatusFile = `${outDir}/${outPrefix}-token-status.json`;
-    try {
-      fs.writeFileSync(tokenStatusFile, JSON.stringify(tokenStatus, null, 2), 'utf8');
-    } catch (e) {
-      console.error(`Failed to write token status file "${tokenStatusFile}":`, e);
-    }
+  // Now safe to write token status file
+  const tokenStatusFile = `${outDir}/${outPrefix}-token-status.json`;
+  try {
+    fs.writeFileSync(tokenStatusFile, JSON.stringify(tokenStatus, null, 2), 'utf8');
+  } catch (e) {
+    console.error(`Failed to write token status file "${tokenStatusFile}":`, e);
+  }
   try {
     fs.mkdirSync(outDir, { recursive: true });
   } catch (e) {
@@ -116,6 +119,8 @@ export async function runGroupCommand(
     const childArgv: string[] = [];
     childArgv.push(`--input=${normalizedInputPath}`);
     childArgv.push(`--out=${stepOut}`);
+    // Pass debug flag to each step
+    if (debugConfig.debug) childArgv.push('--debug');
     if (s.name === 'branch-protection' && Array.isArray(repos) && repos.length > 0) {
       // Use first repo in list for demonstration; could loop for all
       const [owner, repo] = repos[0].split('/');

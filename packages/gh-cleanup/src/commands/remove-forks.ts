@@ -2,6 +2,7 @@ import { GitHubClient, repos, pagination, hasAdminPermission } from 'github-rest
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { reportError, extractStatus, getDebugConfig } from '../lib/debug.js';
 
 export type Args = BaseFlags;
 /**
@@ -25,62 +26,48 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runCommand(client: GitHubClient, args: Args) {
-  // validate token and scopes using shared helper
-  let me: string;
+  const debugConfig = getDebugConfig(args.debug);
+  let me: string = '';
+  let error: any = null;
   try {
-    const { login, scopes, missing } = await (async () => {
-      const m = await import('github-rest');
-      return m.getActorWithScopeCheck(client, ['repo', 'delete_repo']);
-    })();
+    const { login } = await (await import('github-rest')).getActorWithScopeCheck(client, ['repo', 'delete_repo']);
     me = login;
-    console.log('Token scopes:', scopes.join(', ') || '(none)');
-    if (missing.length > 0) {
-      console.warn('Warning: token is missing required scopes:', missing.join(', '), 'Destructive operations may fail.');
-    }
   } catch (err: any) {
-    console.error('Failed to validate GH_TOKEN or fetch authenticated user:', err?.message ?? err);
-    return { details: [], deleted: 0 };
+    error = reportError(err, debugConfig);
+    return { details: [], deleted: 0, status: extractStatus(err), error };
   }
-
-  const all = await pagination.paginateAll(async (page: number) => {
-    return repos.listAuthenticatedUserRepos(client, page, 100);
-  });
-
+  let all: any[] = [];
+  try {
+    all = await pagination.paginateAll(async (page: number) => repos.listAuthenticatedUserRepos(client, page, 100));
+  } catch (err: any) {
+    error = reportError(err, debugConfig);
+    return { details: [], deleted: 0, status: extractStatus(err), error };
+  }
   const ownedForks = all.filter((r: any) => r.fork && r.owner?.login === me);
-
-  const foundCount = ownedForks.length;
-  console.log(`Found ${foundCount} fork(s) owned by ${me}`);
   if (ownedForks.length === 0) {
-    return { details: [], deleted: 0 };
+    return { details: [], deleted: 0, status: 'ok' };
   }
-
-  const details = [] as Array<{ full_name: string; html_url: string; size: number; permissions?: any; willDelete?: boolean; parent?: string }>;
+  const details: any[] = [];
   for (const f of ownedForks) {
     try {
       const full = await repos.getRepo(client, f.owner.login, f.name);
       details.push({ full_name: full.full_name, html_url: full.html_url, size: full.size, permissions: args.audit ? full.permissions : undefined, willDelete: false, parent: (full as any).parent ? (full as any).parent.full_name : undefined });
     } catch (e) {
-      details.push({ full_name: f.full_name, html_url: f.html_url, size: f.size, permissions: undefined, willDelete: false, parent: undefined });
+      details.push({ full_name: f.full_name, html_url: f.html_url, size: f.size, permissions: undefined, willDelete: false, parent: undefined, getRepoError: reportError(e, debugConfig) });
     }
   }
-
-  // Deletions and checks
   if (!args.yes) {
-    console.log('Dry-run mode. Use --yes to perform deletions.');
-    return { details, deleted: 0 };
+    return { details, deleted: 0, status: 'dry-run' };
   }
-
   if (!args.force) {
-    console.log('About to delete the repositories listed above. This is destructive.');
     const ok = await requireTypedConfirmation('Type YES to delete the listed repositories:');
     if (!ok) {
-      console.log('Aborted by user.');
-      return { details, deleted: 0 };
+      return { details, deleted: 0, status: 'aborted' };
     }
   }
-
   let deletedCount = 0;
   for (const d of details) {
+    let deleteError = null;
     try {
       const [owner, name] = d.full_name.split('/');
       const parentFull = (d as any).parent as string | undefined;
@@ -91,34 +78,28 @@ export async function runCommand(client: GitHubClient, args: Args) {
           const res = await (client as any).rawRequest('GET', `/search/issues?q=${encodeURIComponent(q)}&per_page=1`);
           const count = (res.body && (res.body.total_count ?? res.body.total)) ?? 0;
           if (count > 0) {
-            console.warn(`Skipping ${d.full_name}: user ${me} has ${count} open PR(s) in parent ${parentFull}.`);
-            if (args.debug) console.log(`DEBUG: Ignored ${d.full_name} due to ${count} open PR(s) in parent ${parentFull}`);
+            d.skipReason = `User ${me} has ${count} open PR(s) in parent ${parentFull}`;
             continue;
-          } else {
-            if (args.debug) console.log(`DEBUG: No open PRs by ${me} in parent ${parentFull}; ${d.full_name} eligible for deletion.`);
           }
         } catch (err: any) {
-          console.warn(`Could not verify open PRs for parent ${parentFull}:`, err?.message ?? err);
-          console.warn(`Skipping ${d.full_name}: unable to confirm no active PRs in parent.`);
+          d.skipReason = `Could not verify open PRs for parent ${parentFull}: ${(err?.message ?? err)}`;
           continue;
         }
       }
       const ok = await hasAdminPermission(client, owner, name);
       if (!ok) {
-        console.warn(`Skipping ${d.full_name}: token does not have admin permission.`);
-        if (args.debug) console.log(`DEBUG: Ignored ${d.full_name} because token lacks admin permission.`);
+        d.skipReason = 'Token does not have admin permission.';
         continue;
       }
-      if (args.debug) console.log(`DEBUG: Deleting ${d.full_name}`);
-      const did = await repos.deleteRepo(client, owner, name, { dryRun: false });
-      console.log(`Deleted ${d.full_name}: ${did}`);
+      await repos.deleteRepo(client, owner, name, { dryRun: false });
+      d.deleted = true;
       deletedCount++;
     } catch (e: any) {
-      console.error(`Failed to delete ${d.full_name}:`, e?.message ?? e);
+      deleteError = reportError(e, debugConfig);
+      d.deleteError = deleteError;
     }
   }
-  console.log(`Deletion attempted for ${deletedCount} repository(ies).`);
-  return { details, deleted: deletedCount };
+  return { details, deleted: deletedCount, status: 'ok' };
 }
 
 export async function writeOutput(result: any, args: Args) {

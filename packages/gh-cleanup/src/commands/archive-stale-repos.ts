@@ -22,6 +22,7 @@ import { DEFAULT_STALE_DAYS } from '../constants.js';
 import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { reportError, extractStatus, getDebugConfig } from '../lib/debug.js';
 
 export type Args = BaseFlags & { olderThanDays?: number; excludeForks?: boolean };
 
@@ -36,48 +37,50 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runCommand(client: any, args: Args): Promise<any> {
-  const all = await pagination.paginateAll(async (page: number) => {
-    return repos.listAuthenticatedUserRepos(client, page, 100);
-  });
-
+  const debugConfig = getDebugConfig(args.debug);
+  let all: any[] = [];
+  let error: any = null;
+  try {
+    all = await pagination.paginateAll(async (page: number) => repos.listAuthenticatedUserRepos(client, page, 100));
+  } catch (err: any) {
+    error = reportError(err, debugConfig);
+    return { candidates: [], details: [], archived: [], status: extractStatus(err), error };
+  }
   const cutoff = new Date(Date.now() - (args.olderThanDays ?? 365) * 24 * 60 * 60 * 1000);
-
   const maybe = all.filter((r: any) => repos.repoIsEligibleForStale(r as any, { excludeForks: args.excludeForks }));
-  const flags = await Promise.all(maybe.map((r: any) => repos.isStale(client, r as any, cutoff)));
+  let flags: boolean[] = [];
+  try {
+    flags = await Promise.all(maybe.map((r: any) => repos.isStale(client, r as any, cutoff)));
+  } catch (err: any) {
+    error = reportError(err, debugConfig);
+    return { candidates: [], details: [], archived: [], status: extractStatus(err), error };
+  }
   const candidates = maybe.filter((_: any, i: number) => flags[i]);
-
-  console.log(`Found ${candidates.length} stale repo(s) older than ${args.olderThanDays} days.`);
   if (candidates.length === 0) {
-    return { candidates: [] };
+    return { candidates: [], details: [], archived: [], status: 'ok' };
   }
-
   const details = candidates.map((c: any) => ({ full_name: c.full_name, html_url: c.html_url, pushed_at: c.pushed_at, size: c.size }));
-
   if (!args.yes) {
-    // report only
-    return { candidates, details };
+    return { candidates, details, archived: [], status: 'dry-run' };
   }
-
   if (!args.force) {
-    console.log('About to archive the repositories listed above. This is destructive (archive).');
     const ok = await requireTypedConfirmation('Type YES to archive the listed repositories:');
     if (!ok) {
-      console.log('Aborted by user.');
-      return { candidates, details };
+      return { candidates, details, archived: [], status: 'aborted' };
     }
   }
-
   const archived: string[] = [];
   for (const c of candidates) {
+    let archiveError = null;
     try {
-      const did = await repos.archiveRepo(client, c.full_name.split('/')[0], c.full_name.split('/')[1], { dryRun: false });
-      console.log(`Archived ${c.full_name}: ${did}`);
+      await repos.archiveRepo(client, c.full_name.split('/')[0], c.full_name.split('/')[1], { dryRun: false });
       archived.push(c.full_name);
     } catch (e: any) {
-      console.error(`Failed to archive ${c.full_name}:`, e?.message ?? e);
+      archiveError = reportError(e, debugConfig);
+      c.archiveError = archiveError;
     }
   }
-  return { candidates, details, archived };
+  return { candidates, details, archived, status: 'ok' };
 }
 
 export async function writeOutput(result: any, args: Args) {

@@ -1,6 +1,18 @@
 export type CommandRunner = (argv: string[]) => Promise<void>;
 
 const commands: Record<string, CommandRunner> = {
+    'actions': async (argv: string[]) => {
+      const m = await import('../commands/actions.js');
+      const { runWithErrorHandling } = await import('../lib/command-executor.js');
+      const debug = argv.includes('--debug');
+      const result = await runWithErrorHandling(m.gatherActionsCommand, argv, { debug });
+      if (result.error) {
+        console.error('Error:', result.error);
+      }
+      if (result.result) {
+        console.log('Result:', result.result);
+      }
+    },
   'remove-forks': async (argv: string[]) => {
     const m = await import('../commands/remove-forks.js');
     await m.removeForksCommand(argv);

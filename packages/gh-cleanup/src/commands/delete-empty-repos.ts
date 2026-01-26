@@ -21,6 +21,7 @@ import { requireTypedConfirmation } from '../lib/confirm.js';
 import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { getRepoPermissions, hasAdminPermission } from 'github-rest';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { reportError, extractStatus, getDebugConfig, handleApiError } from '../lib/debug.js';
 
 export type Args = BaseFlags & { excludeForks?: boolean };
 
@@ -31,51 +32,89 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runCommand(client: GitHubClient, args: Args) {
-  // Delegate candidate-finding (and optional verification) to the REST helper.
-  const candidates = await repos.findEmptyRepos(client, { excludeForks: args.excludeForks, verify: true });
-  console.log(`Found ${candidates.length} candidate empty repo(s) (size === 0 — 0 KB).`);
-  if (candidates.length === 0) {
-    return { toDelete: [] };
+  const debugConfig = getDebugConfig(args.debug);
+
+  // Step 1: Find empty repo candidates
+  const { candidates, findStatus } = await findEmptyRepoCandidates(client, args, debugConfig);
+  if (findStatus) {
+    return { toDelete: [], deleted: [], status: findStatus };
+  }
+  if (!candidates || candidates.length === 0) {
+    return { toDelete: [], deleted: [], status: { code: 200, message: 'ok' } };
   }
 
-  const toDelete = [] as Array<{ full_name: string; owner: string; name: string; permissions?: any }>;
-  for (const r of candidates) {
-    const permissions = await getRepoPermissions(client, r as any);
-    toDelete.push({ full_name: r.full_name, owner: r.owner.login, name: r.name, permissions: args.audit ? permissions : undefined });
-  }
+  // Step 2: Build toDelete list with permission status
+  const toDelete = await buildToDeleteList(client, candidates, args, debugConfig);
 
-  console.log(`Matched ${toDelete.length} empty repo(s) after metadata checks.`);
-
+  // Step 3: Confirm deletion if required
   if (!args.yes) {
-    console.log('Dry-run mode. Use --yes to perform deletions.');
-    return { toDelete };
+    return { toDelete, deleted: [], status: { code: 202, message: 'dry-run' } };
   }
-
   if (!args.force) {
-    console.log('About to delete the repositories listed above. This is destructive.');
     const ok = await requireTypedConfirmation('Type YES to delete the listed repositories:');
     if (!ok) {
-      console.log('Aborted by user.');
-      return { toDelete };
+      return { toDelete, deleted: [], status: { code: 400, message: 'aborted' } };
     }
   }
 
+  // Step 4: Attempt deletion
+  const deleted = await deleteReposWithStatus(client, toDelete, debugConfig);
+
+  return { toDelete, deleted, status: { code: 200, message: 'ok' } };
+}
+// --- Helpers for runCommand ---
+
+async function findEmptyRepoCandidates(client: GitHubClient, args: Args, debugConfig: any) {
+  const { result, status } = await handleApiError(
+    () => repos.findEmptyRepos(client, { excludeForks: args.excludeForks, verify: true }),
+    debugConfig
+  );
+  if (status.error) {
+    return { candidates: [], findStatus: status };
+  }
+  return { candidates: result || [], findStatus: null };
+}
+
+async function buildToDeleteList(client: GitHubClient, candidates: any[], args: Args, debugConfig: any) {
+  const toDelete: any[] = [];
+  for (const r of candidates) {
+    const { status: permStatus } = await handleApiError(
+      () => getRepoPermissions(client, r as any),
+      debugConfig
+    );
+    toDelete.push({
+      full_name: r.full_name,
+      owner: r.owner.login,
+      name: r.name,
+      permissions: args.audit,
+      status: permStatus
+    });
+  }
+  return toDelete;
+}
+
+async function deleteReposWithStatus(client: GitHubClient, toDelete: any[], debugConfig: any) {
   const deleted: string[] = [];
   for (const d of toDelete) {
-    const ok = await hasAdminPermission(client, d);
-    if (!ok) {
-      console.warn(`Skipping ${d.full_name}: no admin permission`);
+    const { result: hasAdmin, status: adminStatus } = await handleApiError(
+      () => hasAdminPermission(client, d),
+      debugConfig
+    );
+    d.status = adminStatus;
+    if (!hasAdmin) {
       continue;
     }
-    try {
-      const did = await repos.deleteRepo(client, d.owner, d.name, { dryRun: false });
-      console.log(`Deleted ${d.full_name}: ${did}`);
+    const { status: delStatus } = await handleApiError(
+      () => repos.deleteRepo(client, d.owner, d.name, { dryRun: false }),
+      debugConfig
+    );
+    d.status = delStatus;
+    if (!delStatus.error) {
       deleted.push(d.full_name);
-    } catch (e: any) {
-      console.error(`Failed to delete ${d.full_name}:`, e?.message ?? e);
+      d.deleted = true;
     }
   }
-  return { toDelete, deleted };
+  return deleted;
 }
 
 export async function writeOutput(result: any, args: Args) {

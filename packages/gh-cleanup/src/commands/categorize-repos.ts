@@ -1,3 +1,4 @@
+import { reportError, extractStatus, getDebugConfig } from '../lib/debug.js';
 /**
  * Command: categorize-repos
  *
@@ -38,25 +39,32 @@ import { scoreCategory, loadRules, Rule } from '../lib/categorizer.js';
 import { categorizeReposWithMetadata } from '../lib/repo-utils.js';
 
 export async function runCommand(client: GitHubClient, args: Args) {
-  const all = await pagination.paginateAll(async (page: number) => {
-    return repos.listAuthenticatedUserRepos(client, page, 100);
-  });
-
-  const results: Categorized[] = [];
+  const debugConfig = getDebugConfig(args.debug);
+  let all: any[] = [];
+  let error: any = null;
+  try {
+    all = await pagination.paginateAll(async (page: number) => repos.listAuthenticatedUserRepos(client, page, 100));
+  } catch (err: any) {
+    error = reportError(err, debugConfig);
+    return { results: [], status: extractStatus(err), error };
+  }
   let providedRules: Rule[] | undefined;
   if (args.rules) {
     try {
       providedRules = await loadRules(args.rules);
     } catch (e) {
-      console.warn('Failed to load custom rules, falling back to bundled rules:', (e as any)?.message ?? e);
       providedRules = undefined;
+      error = reportError(e, debugConfig);
     }
   }
-
-  // Use shared helper to fetch optional metadata and score repos
-  const fetched = await categorizeReposWithMetadata(client, all, { fetch: args.fetch, providedRules });
-  results.push(...fetched);
-  return results;
+  let results: Categorized[] = [];
+  try {
+    results = await categorizeReposWithMetadata(client, all, { fetch: args.fetch, providedRules });
+  } catch (err: any) {
+    error = reportError(err, debugConfig);
+    return { results: [], status: extractStatus(err), error };
+  }
+  return { results, status: 'ok', error };
 }
 
 export async function writeOutput(result: any, args: Args) {
