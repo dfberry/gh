@@ -7,7 +7,7 @@ export function parseArgs(argv: string[]): EvaluateArgs {
   return parseGroupArgs(argv) as EvaluateArgs;
 }
 
-export async function runCommand(_client: GitHubClient, args: EvaluateArgs): Promise<any> {
+export async function runCommand(_client: GitHubClient, args: EvaluateArgs): Promise<{ step: string; repos: string[]; timestamp: string; summary: any; mode: string }> {
   const steps: Step[] = [
     { name: 'evaluate-categorize-repos', module: '../commands/evaluate-categorize-repos.js', wrapper: 'categorizeReposCommand' },
     { name: 'evaluate-describe-repos', module: '../commands/evaluate-describe-repos.js', wrapper: 'describeReposCommand' },

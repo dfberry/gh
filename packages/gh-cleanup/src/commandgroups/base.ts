@@ -86,7 +86,10 @@ export async function runStepForEachRepo(
     const safeRepo = repoFull.replace(/[\/]/g, '_');
     const stepOut = `${outDir}/${outPrefix}-${s.name}-${safeRepo}.json`;
     const childArgv: string[] = [];
-    childArgv.push(`--input=${normalizedInputPath}`);
+    // create a per-repo normalized input file so steps that read --input only see this repo
+    const perRepoInputName = `${outPrefix}-${s.name}-${safeRepo}-input.json`;
+    const perRepoInputPath = await writeNormalizedInput(outDir, perRepoInputName, [repoFull]);
+    childArgv.push(`--input=${perRepoInputPath}`);
     childArgv.push(`--out=${stepOut}`);
     childArgv.push(`--owner=${owner}`);
     childArgv.push(`--repo=${repo}`);

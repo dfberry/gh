@@ -7,7 +7,7 @@ export function parseArgs(argv: string[]): ChangeArgs {
   return parseGroupArgs(argv) as ChangeArgs;
 }
 
-export async function runCommand(_client: GitHubClient, args: ChangeArgs): Promise<any> {
+export async function runCommand(_client: GitHubClient, args: ChangeArgs): Promise<{ step: string; repos: string[]; timestamp: string; summary: any; mode: string }> {
   const steps = [
     { name: 'change-stale-repos', module: '../commands/change-stale-repos.js', wrapper: 'archiveStaleReposCommand' },
     { name: 'change-remove-empty-repos', module: '../commands/change-remove-empty-repos.js', wrapper: 'deleteEmptyReposCommand' },
