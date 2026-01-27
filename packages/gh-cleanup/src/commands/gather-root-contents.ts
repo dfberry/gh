@@ -8,11 +8,11 @@
  *   --input=FILE --out=FILE
  */
 import * as fs from 'fs/promises';
-import { createClient } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { repos } from 'github-rest';
-import { parseRepoInput } from '../lib/input-parser.js';
 import type { GitHubClient } from 'github-rest';
+import { readInputRepos } from '../lib/commands-shared.js';
+import type { GatherActionsEntry } from '../lib/commands-shared.js';
 
 export function parseArgs(argv: string[]): Args {
   return {
@@ -25,24 +25,25 @@ export type Args = BaseFlags & {
   outPath?: string;
 };
 
-export async function runCommand(client: GitHubClient, args: Args) {
-  const inputPath = args.input;
-  const repoList: string[] = inputPath ? await parseRepoInput(inputPath) : [];
+export async function runCommand(client: GitHubClient, args: Args): Promise<GatherActionsEntry[]> {
+
+  const incomingRepos = await readInputRepos(args?.input);
+
   const results: any[] = [];
-  for (const repoFull of repoList) {
+  for (const repoFull of incomingRepos) {
     const [owner, repo] = repoFull.split('/');
     try {
       const branch = await repos.getDefaultBranch(client, owner, repo) || 'main';
       const contents = await repos.getContents(client, owner, repo, '');
-      results.push({ repo: repoFull, branch, contents });
+      results.push({ repo: repoFull, details: { branch, contents }, contents });
     } catch (err) {
-      results.push({ repo: repoFull, error: (err as any)?.message || String(err) });
+      results.push({ repo: repoFull, details: null, error: (err as any)?.message || String(err) });
     }
   }
-  return { results };
+  return results;
 }
 
-export async function writeOutput(resultObj: any, args: Args) {
+export async function writeOutput(resultObj: any, args: Args): Promise<void> {
   const results = resultObj?.results || [];
   if (args.outPath) {
     await fs.writeFile(args.outPath, JSON.stringify(results, null, 2), 'utf8');
@@ -50,11 +51,10 @@ export async function writeOutput(resultObj: any, args: Args) {
   }
 }
 
-export async function gatherRootContentsCommand(argv: string[], client?: GitHubClient) {
+export async function gatherRootContentsCommand(argv: string[], client?: GitHubClient): Promise<void> {
   const args = parseArgs(argv);
   if (!client) throw new Error('GitHub client is required');
   const res = await runCommand(client, args);
   await writeOutput(res, args);
 }
 
-export default gatherRootContentsCommand;

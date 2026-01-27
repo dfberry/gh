@@ -3,6 +3,9 @@ import wrapGitHubRest, { GitHubRestResult } from '../lib/github-rest-wrapper.js'
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { promises as fs } from 'fs';
 import type { GitHubClient } from 'github-rest';
+import { readInputRepos } from '../lib/commands-shared.js';
+import type { GatherActionsEntry } from '../lib/commands-shared.js';
+
 export type Args = BaseFlags & { input: string; out: string; branch?: string };
 
 export function parseArgs(argv: string[]): Args {
@@ -11,14 +14,8 @@ export function parseArgs(argv: string[]): Args {
   return base as Args;
 }
 
-export async function runRepoSecrets(client: GitHubClient, args: Args) {
-  const raw = await fs.readFile(args.input, 'utf8');
-  let repos: string[] = [];
-  try {
-    repos = JSON.parse(raw);
-  } catch {
-    repos = raw.split('\n').map(x => x.trim()).filter(Boolean);
-  }
+export async function runRepoSecrets(client: GitHubClient, args: Args): Promise<GatherActionsEntry[]> {
+  const repos = await readInputRepos(args.input);
   const results = [];
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
@@ -28,20 +25,20 @@ export async function runRepoSecrets(client: GitHubClient, args: Args) {
     results.push({
       owner,
       repo,
-      secrets: r.data || null,
+      details: { secrets: r.data || null },
       message: resp?.details || String(resp) || 'no_message_found',
-      status: resp?.status || 'status_not_found',
+      status: resp?.status?.toString() || 'status_not_found',
     });
   }
   return results;
 }
 
-export async function writeOutput(result: any, args: Args) {
+export async function writeOutput(result: any, args: Args): Promise<void> {
   if (args.out) await fs.writeFile(args.out, JSON.stringify(result, null, 2), 'utf8');
   console.log(JSON.stringify(result, null, 2));
 }
 
-export async function repoSecretsCommand(argv: string[], client?: GitHubClient) {
+export async function repoSecretsCommand(argv: string[], client?: GitHubClient): Promise<GatherActionsEntry[]> {
   const args = parseArgs(argv);
   if (!client) throw new Error('GitHub client is required');
   const res = await runRepoSecrets(client, args);

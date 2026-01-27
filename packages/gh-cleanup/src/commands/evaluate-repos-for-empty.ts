@@ -11,6 +11,9 @@ import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { resolveInputFilePath } from '../lib/input-file-utils.js';
 import { EvaluateBase } from '../command-base/evaluate-base-user-repos.js';
 import { resolveOutFile } from '../lib/files.js';
+import { readInputRepos } from '../lib/commands-shared.js';
+import type { GatherActionsEntry } from '../lib/commands-shared.js';
+
 
 // Configurable constants
 const FLAG_INPUT = '--input=';
@@ -33,9 +36,8 @@ const STATUS_SKIPPED = 'skipped';
 
 // Focused evaluator that uses EvaluateBase helpers to produce only empty-repo candidates
 class EmptyEvaluator extends EvaluateBase {
-  async evaluateEmpty(params: { inputFile: string; configFile?: string; outPath?: string }) {
-    const { inputFile, configFile, outPath } = params;
-    const repos = await this.loadInputFile(inputFile);
+  async evaluateEmpty(params: { repos: string[]; configFile?: string; outPath?: string }) {
+    const { repos, configFile, outPath } = params;
     const cfg = await this.loadConfigFile(configFile);
 
     const evaluations = repos.map(r => {
@@ -52,7 +54,7 @@ class EmptyEvaluator extends EvaluateBase {
     const emptyOnly = evaluations.filter(e => e.reason === REASON_EMPTY && e.status === STATUS_CANDIDATE);
     const notEmpty = evaluations.filter(e => !(e.reason === REASON_EMPTY && e.status === STATUS_CANDIDATE));
 
-    const payload = { inputPath: inputFile, configPath: configFile, count: emptyOnly.length,evaluation: { empty: emptyOnly, not_empty: notEmpty } };
+    const payload = { repos, configPath: configFile, count: emptyOnly.length,evaluation: { empty: emptyOnly, not_empty: notEmpty } };
     if (outPath) {
       await this.emitEvaluationOutput(outPath, payload);
     }
@@ -75,8 +77,7 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runCommand(client: GitHubClient, args: Args) {
-  const inputPath = resolveInputFilePath((args as any).inputFile, args.input);
-  if (!inputPath) throw new Error(MISSING_INPUT_ERROR);
+  const repos = await readInputRepos(args.input);
 
   // Resolve --out into a concrete file path (handles directory case using outPrefix)
   const outPathToPass = await resolveOutFile(args.out, (args as any).outPrefix, DEFAULT_OUT_FILENAME);
@@ -84,8 +85,8 @@ export async function runCommand(client: GitHubClient, args: Args) {
   // prefer explicit config-file, otherwise use package default which may be present in repo
   const cfg = args.configFile || DEFAULT_CONFIG_PATH;
   const runner = new EmptyEvaluator();
-  const evaluations = await runner.evaluateEmpty({ inputFile: inputPath, configFile: cfg, outPath: outPathToPass });
-  return { inputPath, configPath: cfg, evaluation: evaluations };
+  const evaluations = await runner.evaluateEmpty({ repos, configFile: cfg, outPath: outPathToPass });
+  return { inputPath: args.input, configPath: cfg, evaluation: evaluations };
 }
 
 export async function writeOutput(result: any, args: Args) {

@@ -10,13 +10,17 @@
     "all:user": "npm run gather:user && npm run evaluate:user",
 
     "gather": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js gather --input=\"./active-sample-repos.json\" --out=\"./generated/gh-cleanup-gather\" --out-prefix=\"gather\"",
-    "gather:user": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js gather --mode=user --out=\"./generated/gh-cleanup-gather-user\" --out-prefix=\"gather-user\"",
+    "gather:user": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js gather --mode=user --out=\"./generated\" --out-prefix=\"gather-user\"",
 
     "evaluate": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js evaluate --input=\"./active-sample-repos.json\" --out=\"./generated/gh-cleanup-evaluate\" --out-prefix=\"evaluate\"",
-    "evaluate:user": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js evaluate --mode=user --out=\"./generated/gh-cleanup-evaluate-user\" --out-prefix=\"evaluate-user\"",
+    "evaluate:user": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js evaluate --mode=user --out=\"./generated\" --out-prefix=\"evaluate-user\"",
 
     "change": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js change --input-file=\"./generated\" --out=\"./generated/gh-cleanup-change\" --out-prefix=\"change\"",
     "change:user": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js change --mode=user --out=\"./generated/gh-cleanup-change-user\" --out-prefix=\"change-user\"",
+
+    "ingest:migrate-flat": "node scripts/migrate-flat-to-per-repo.js --dir=./packages/gh-cleanup/generated-test",
+
+
 
     "evaluate:empty-repos": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js evaluate-repos-for-empty --input=\"./generated/gh-cleanup-gather/gather-user-repos.json\" --config-file=\"./packages/gh-cleanup/evaluate-config.json\" --out=\"./generated/gh-cleanup-evaluate\" --out-prefix=\"evaluate-\"",
 

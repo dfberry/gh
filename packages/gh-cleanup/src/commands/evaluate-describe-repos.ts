@@ -23,6 +23,7 @@ import { LLMConfig } from 'llm-completion';
 import { repos } from 'github-rest';
 import { describeRepoWithLLM, createClient, buildPromptString } from '../lib/describe-common.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
+import { readJsonFile } from '../lib/files.js';
 
 export type Args = BaseFlags & {
   outPath?: string;
@@ -78,13 +79,10 @@ export async function runCommand(client: GitHubClient, args: Args): Promise<any>
   type Entry = { repoStr: string; hasDescription?: boolean; hasTopics?: boolean };
   const entries: Entry[] = [];
   for (const inputPath of inputFlags) {
-    const fileContent = await fs.readFile(inputPath, 'utf8');
-    let parsedFile: any;
-    try {
-      parsedFile = JSON.parse(fileContent);
-    } catch (e) {
-      console.error('Failed to parse input JSON', inputPath);
-      throw e;
+    const parsedFile = await readJsonFile<any>(inputPath);
+    if (!parsedFile) {
+      console.error('Failed to read/parse input JSON', inputPath);
+      throw new Error(`Failed to read/parse input JSON ${inputPath}`);
     }
 
     if (Array.isArray(parsedFile)) {
