@@ -1,22 +1,10 @@
 import { permissions } from 'github-rest';
-import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { promises as fs } from 'fs';
 import type { GitHubClient } from 'github-rest';
-import { readInputRepos } from '../lib/commands-shared.js';
 import type { GatherActionsEntry } from '../lib/commands-shared.js';
+import type { Params } from '../commandgroups/base.js';
 
-
-export type Args = BaseFlags & { input: string; out: string };
-
-export function parseArgs(argv: string[]): Args {
-  const base = parseBaseFlags(argv);
-  if (!base.input || !base.out) throw new Error('Missing --input or --out');
-  return base as Args;
-}
-
-export async function runCommand(client: GitHubClient, args: Args): Promise<GatherActionsEntry[]> {
-
-  const repos = await readInputRepos(args.input);
+export async function runCommand(client: GitHubClient, repos: string[]): Promise<GatherActionsEntry[]> {
 
   const results: GatherActionsEntry[] = [];
   for (const repoFull of repos) {
@@ -37,15 +25,15 @@ export async function runCommand(client: GitHubClient, args: Args): Promise<Gath
   return results;
 }
 
-export async function writeOutput(result: any, args: Args):Promise<void> {
+export async function writeOutput(result: any, args: any):Promise<void> {
   if (args.out) await fs.writeFile(args.out, JSON.stringify(result, null, 2), 'utf8');
   console.log(JSON.stringify(result, null, 2));
 }
 
-export async function actionsCommand(argv: string[], client?: GitHubClient): Promise<GatherActionsEntry[]> {
-  const args = parseArgs(argv);
+export async function actionsCommand(params: Params, client?: GitHubClient): Promise<GatherActionsEntry[]> {
   if (!client) throw new Error('GitHub client is required');
-  const res = await runCommand(client, args);
-  await writeOutput(res, args);
+  if (!params?.data?.repos) throw new Error('No repositories provided');
+  const res = await runCommand(client, params?.data?.repos);
+  await writeOutput(res, params.args);
   return res;
 }

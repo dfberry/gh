@@ -10,6 +10,9 @@ vi.mock('../lib/input-parser.js', () => ({ parseRepoInput: vi.fn(async (p) => ['
 vi.mock('../lib/token-scopes.js', () => ({ fetchAndWriteTokenScopes: vi.fn(async () => []) }));
 
 import { runGroupCommand, runStepForEachRepo } from './base.js';
+import type { Params } from './base.js';
+import { describe as _describe } from 'vitest';
+// we'll dynamically import the helper to avoid TypeScript/ESM import issues in tests
 import * as fs from 'fs/promises';
 import { getMode } from '../lib/runtime-mode.js';
 import { fetchAuthenticatedUserRepoNames } from '../lib/github-repos.js';
@@ -123,6 +126,31 @@ describe('resolveReposForRun (single mode)', () => {
 describe('runStepForEachRepo helper', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+  });
+
+  it('buildParamsForRepo constructs expected params object', async () => {
+    const { buildParamsForRepo } = await import('./base.js');
+    const args = { yes: true, force: false, debug: true } as any;
+    const owner = 'owner';
+    const repo = 'repo';
+    const stepOut = './generated-test/repos/owner_repo/pref-test-step.json';
+    const repoFull = 'owner/repo';
+
+    // when forwardApply is false, dryRun should be true
+    const params1: Params = buildParamsForRepo(args, owner, repo, stepOut, false, repoFull);
+    expect(params1.args.owner).toBe(owner);
+    expect(params1.args.repo).toBe(repo);
+    expect(params1.args.out).toBe(stepOut);
+    expect(params1.args.dryRun).toBe(true);
+    expect(params1.args.yes).toBe(true);
+    expect(params1.args.force).toBeUndefined();
+    expect(params1.data.repos).toEqual([repoFull]);
+
+    // when forwardApply is true and flags are not set, dryRun should be false
+    const args2 = { yes: false, force: true } as any;
+    const params2: Params = buildParamsForRepo(args2, owner, repo, stepOut, true, repoFull);
+    expect(params2.args.dryRun).toBe(false);
+    expect(params2.args.force).toBe(true);
   });
 
   it('runs step wrapper for each repo and records ok', async () => {

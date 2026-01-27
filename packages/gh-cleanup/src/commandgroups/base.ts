@@ -114,7 +114,9 @@ export async function runStepForEachRepo(
     try {
       const m = await import(s.module);
       if (typeof m[s.wrapper] === 'function') {
-        await m[s.wrapper](childArgv, githubClient);
+        const params = buildParamsForRepo(args, owner, repo, stepOut, forwardApply, repoFull);
+
+        await m[s.wrapper](params, githubClient);
         summary.steps.push({ name: s.name, repo: repoFull, file: stepOut, status: 'ok' });
       } else {
         summary.steps.push({ name: s.name, repo: repoFull, file: stepOut, status: 'missing' });
@@ -129,6 +131,23 @@ export async function runStepForEachRepo(
     }
   }
   return false;
+}
+
+export type Params = { args: any; data: { repos: string[] } };
+
+export function buildParamsForRepo(args: GroupArgs, owner: string, repo: string, stepOut: string, forwardApply: boolean, repoFull: string): Params {
+  const childArgs = Object.assign({}, args) as any;
+  childArgs.owner = owner;
+  childArgs.repo = repo;
+  childArgs.out = stepOut;
+  // preserve dry-run/yes/force/debug flags
+  childArgs.dryRun = !forwardApply ? true : (childArgs.dryRun || false);
+  if (args.yes) childArgs.yes = true;
+  else delete childArgs.yes;
+  if (args.force) childArgs.force = true;
+  else delete childArgs.force;
+
+  return { args: childArgs, data: { repos: [repoFull] } };
 }
 
 
