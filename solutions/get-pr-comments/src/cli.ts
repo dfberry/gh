@@ -2,9 +2,9 @@
 import { fetchPRComments } from './index.js';
 
 async function main() {
-  const [owner, repo, prNumberStr] = process.argv.slice(2);
+  const [owner, repo, prNumberStr, username] = process.argv.slice(2);
   if (!owner || !repo || !prNumberStr) {
-    console.error('Usage: get-pr-comments <owner> <repo> <prNumber>');
+    console.error('Usage: get-pr-comments <owner> <repo> <prNumber> [username]');
     process.exit(1);
   }
   const prNumber = Number(prNumberStr);
@@ -21,7 +21,7 @@ async function main() {
   }
 
   try {
-    const comments = await fetchPRComments(owner, repo, prNumber, token);
+    const comments = await fetchPRComments(owner, repo, prNumber, token, username);
     console.log(JSON.stringify(comments, null, 2));
   } catch (err) {
     console.error('Error fetching PR comments:', err);
