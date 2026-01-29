@@ -10,7 +10,6 @@ export interface GenerateInstructionsOptions {
   jsonFile: string;
   systemPrompt: string;
   userPrompt: string;
-  outputFile?: string;
   llmConfig?: LLMConfig;
 }
 
@@ -119,19 +118,18 @@ export function cleanPRComments(prComments: PRCommentsInput): PRCommentsInput {
  * 
  * This function reads a JSON file containing PR comments (both issue comments and review comments),
  * constructs a prompt using provided system and user prompt templates, sends it to an LLM,
- * and optionally writes the generated instructions to an output file.
+ * and returns the generated instructions.
  * 
  * @param options - Configuration options for generating instructions
  * @param options.jsonFile - Path to the JSON file containing PR comments
  * @param options.systemPrompt - System prompt text to set LLM behavior/context
  * @param options.userPrompt - User prompt text describing the task
- * @param options.outputFile - Optional path to write the generated instructions
  * @param options.llmConfig - Optional LLM configuration (model, temperature, etc.)
  * @returns The generated instructions as a string
  * @throws Error if the JSON file cannot be read or parsed
  */
 export async function generateInstructions(options: GenerateInstructionsOptions): Promise<string> {
-  const { jsonFile, systemPrompt, userPrompt, outputFile, llmConfig } = options;
+  const { jsonFile, systemPrompt, userPrompt, llmConfig } = options;
 
   // Validate all required parameters are provided and non-empty
   if (!jsonFile || typeof jsonFile !== 'string' || jsonFile.trim() === '') {
@@ -151,18 +149,6 @@ export async function generateInstructions(options: GenerateInstructionsOptions)
     await fs.promises.access(jsonFile, fs.constants.R_OK);
   } catch (error) {
     throw new Error(`JSON file not found or not readable: ${jsonFile}\nCurrent working directory: ${process.cwd()}`);
-  }
-
-  // Verify the output directory exists if outputFile is specified
-  if (outputFile) {
-    const outputDir = outputFile.substring(0, outputFile.lastIndexOf('/'));
-    if (outputDir) {
-      try {
-        await fs.promises.access(outputDir, fs.constants.W_OK);
-      } catch (error) {
-        throw new Error(`Output directory not found or not writable: ${outputDir}\nCurrent working directory: ${process.cwd()}`);
-      }
-    }
   }
 
   // Read the PR comments JSON file from disk
@@ -193,12 +179,6 @@ export async function generateInstructions(options: GenerateInstructionsOptions)
   const result = await callOpenAI(fullPrompt, llmConfig, { name: 'pr-comments-to-instructions' });
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
   console.log(`LLM call completed in ${duration}s, response length: ${result.length} chars`);
-
-  // Optionally persist the generated instructions to a file
-  // This is useful for review, version control, or further processing
-  if (outputFile) {
-    await fs.promises.writeFile(outputFile, result, 'utf8');
-  }
 
   return result;
 }

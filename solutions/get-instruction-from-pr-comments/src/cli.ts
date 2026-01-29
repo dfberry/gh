@@ -6,14 +6,19 @@ import * as path from 'path';
 /**
  * CLI entry point for generating instructions from PR comments
  * 
- * Usage: get-instruction-from-pr-comments <jsonFile> <systemPromptFile> <userPromptFile> <outputFile> [modelName]
+ * Usage: get-instruction-from-pr-comments <jsonFile> <systemPromptFile> <userPromptFile> <owner> <repo> <prNumber> [modelName]
  * 
  * Arguments:
  *   jsonFile         - Path to JSON file containing PR comments (issueComments and reviewComments)
  *   systemPromptFile - Path to text file containing the system prompt
  *   userPromptFile   - Path to text file containing the user prompt template
- *   outputFile       - Path where generated instructions will be written
+ *   owner            - GitHub organization/owner name (for output filename)
+ *   repo             - GitHub repository name (for output filename)
+ *   prNumber         - PR number (for output filename and context)
  *   modelName        - (Optional) LLM model to use (default: from OPENAI_MODEL env var or 'gpt-4')
+ * 
+ * Output:
+ *   Generates JSON file: {owner}-{repo}-pr-{prNumber}.json
  * 
  * Environment Variables:
  *   OPENAI_API_KEY   - Required: OpenAI API key for LLM completion
@@ -21,21 +26,30 @@ import * as path from 'path';
  */
 async function main() {
   // Parse command line arguments
-  const [jsonFile, systemPromptFile, userPromptFile, outputFile, modelName] = process.argv.slice(2);
+  const [jsonFile, systemPromptFile, userPromptFile, owner, repo, prNumberStr, modelName] = process.argv.slice(2);
 
   // Validate required arguments
-  if (!jsonFile || !systemPromptFile || !userPromptFile || !outputFile) {
+  if (!jsonFile || !systemPromptFile || !userPromptFile || !owner || !repo || !prNumberStr) {
     console.error('Error: Missing required arguments\n');
-    console.error('Usage: get-instruction-from-pr-comments <jsonFile> <systemPromptFile> <userPromptFile> <outputFile> [modelName]');
+    console.error('Usage: get-instruction-from-pr-comments <jsonFile> <systemPromptFile> <userPromptFile> <owner> <repo> <prNumber> [modelName]');
     console.error('\nArguments:');
     console.error('  jsonFile         - Path to JSON file containing PR comments');
     console.error('  systemPromptFile - Path to system prompt text file');
     console.error('  userPromptFile   - Path to user prompt text file');
-    console.error('  outputFile       - Path for generated instructions output');
+    console.error('  owner            - GitHub organization/owner name');
+    console.error('  repo             - GitHub repository name');
+    console.error('  prNumber         - PR number');
     console.error('  modelName        - (Optional) LLM model name\n');
     console.error('Environment Variables:');
     console.error('  OPENAI_API_KEY   - Required: Your OpenAI API key');
     console.error('  OPENAI_MODEL     - Optional: Default model name');
+    process.exit(1);
+  }
+
+  // Validate PR number is numeric
+  const prNumber = Number(prNumberStr);
+  if (isNaN(prNumber)) {
+    console.error('Error: prNumber must be a number');
     process.exit(1);
   }
 
@@ -47,21 +61,24 @@ async function main() {
     process.exit(1);
   }
 
-  // Validate input files exist
-  const filesToCheck = [
-    { path: jsonFile, name: 'JSON file' },
-    { path: systemPromptFile, name: 'System prompt file' },
-    { path: userPromptFile, name: 'User prompt file' }
-  ];
-
-  for (const file of filesToCheck) {
-    if (!fs.existsSync(file.path)) {
-      console.error(`Error: ${file.name} not found: ${file.path}`);
-      process.exit(1);
-    }
-  }
-
   try {
+    // Validate input files exist asynchronously
+    const filesToCheck = [
+      { path: jsonFile, name: 'JSON file' },
+      { path: systemPromptFile, name: 'System prompt file' },
+      { path: userPromptFile, name: 'User prompt file' }
+    ];
+
+    console.log('Validating input files...');
+    for (const file of filesToCheck) {
+      try {
+        await fs.promises.access(file.path, fs.constants.R_OK);
+      } catch (error) {
+        console.error(`Error: ${file.name} not found or not readable: ${file.path}`);
+        process.exit(1);
+      }
+    }
+
     // Read prompt files
     console.log(`Reading system prompt from: ${systemPromptFile}`);
     const systemPrompt = await fs.promises.readFile(systemPromptFile, 'utf8');
@@ -79,24 +96,40 @@ async function main() {
     };
 
     console.log(`Using LLM model: ${llmConfig.model}`);
-    console.log(`Generating instructions...`);
+    console.log(`Generating instructions for ${owner}/${repo}#${prNumber}...`);
 
     // Generate instructions
-    const result = await generateInstructions({
+    const instructionsMarkdown = await generateInstructions({
       jsonFile,
       systemPrompt,
       userPrompt,
-      outputFile,
       llmConfig
     });
 
-    // Resolve output path for display
-    const absoluteOutputPath = path.resolve(outputFile);
+    // Generate output filename: org-repo-pr-prnumber.json
+    const outputFileName = `${owner}-${repo}-pr-${prNumber}.json`;
+    
+    // Create output object with metadata and instructions
+    const outputData = {
+      metadata: {
+        org: owner,
+        repo: repo,
+        prNumber: prNumber,
+        generatedAt: new Date().toISOString(),
+        model: llmConfig.model
+      },
+      instructions: instructionsMarkdown
+    };
+
+    // Write JSON file
+    await fs.promises.writeFile(outputFileName, JSON.stringify(outputData, null, 2), 'utf8');
+    
+    const absoluteOutputPath = path.resolve(outputFileName);
     
     console.log(`\n✓ Instructions generated successfully`);
     console.log(`✓ Output written to: ${absoluteOutputPath}`);
-    console.log(`\nPreview (first 200 chars):`);
-    console.log(result.substring(0, 200) + (result.length > 200 ? '...' : ''));
+    console.log(`\nPreview (first 300 chars):`);
+    console.log(instructionsMarkdown.substring(0, 300) + (instructionsMarkdown.length > 300 ? '...' : ''));
 
   } catch (error) {
     // Handle errors with detailed messages
