@@ -100,9 +100,8 @@ Organize findings into these categories:
 
 ## OUTPUT FORMAT
 
-Generate a markdown file following this template:
+Generate a markdown file following this markdown template:
 
-```markdown
 # =============================================================================
 # {SERVICE NAME} SERVICE-SPECIFIC INSTRUCTIONS
 # =============================================================================
