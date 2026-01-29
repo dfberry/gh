@@ -1,0 +1,143 @@
+{
+  "issueComments": [],
+  "reviewComments": [
+    {
+      "url": "https://api.github.com/repos/dfberry/gh/pulls/comments/2699546190",
+      "pull_request_review_id": 3672176220,
+      "id": 2699546190,
+      "node_id": "PRRC_kwDOQvSlWc6g585O",
+      "diff_hunk": "@@ -28,6 +28,7 @@ Welcome to the project! This document guides GitHub Copilot, other AI coding ass\n - Centralize error handling in utilities.\n - Use environment variables for secrets and tokens; never hardcode credentials.\n - This repository uses ES Modules (ESM). Use `import`/`export` not `require()`.",
+      "path": ".github/copilot-instructions.md",
+      "commit_id": "7477f8fc48edf426e07e35e95b340859f5c21b9f",
+      "original_commit_id": "7477f8fc48edf426e07e35e95b340859f5c21b9f",
+      "user": {
+        "login": "dfberry",
+        "id": 1517008,
+        "node_id": "MDQ6VXNlcjE1MTcwMDg=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1517008?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/dfberry",
+        "html_url": "https://github.com/dfberry",
+        "followers_url": "https://api.github.com/users/dfberry/followers",
+        "following_url": "https://api.github.com/users/dfberry/following{/other_user}",
+        "gists_url": "https://api.github.com/users/dfberry/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/dfberry/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/dfberry/subscriptions",
+        "organizations_url": "https://api.github.com/users/dfberry/orgs",
+        "repos_url": "https://api.github.com/users/dfberry/repos",
+        "events_url": "https://api.github.com/users/dfberry/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/dfberry/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "body": "What is going on here? ",
+      "created_at": "2026-01-16T18:25:48Z",
+      "updated_at": "2026-01-16T18:25:48Z",
+      "html_url": "https://github.com/dfberry/gh/pull/16#discussion_r2699546190",
+      "pull_request_url": "https://api.github.com/repos/dfberry/gh/pulls/16",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/dfberry/gh/pulls/comments/2699546190"
+        },
+        "html": {
+          "href": "https://github.com/dfberry/gh/pull/16#discussion_r2699546190"
+        },
+        "pull_request": {
+          "href": "https://api.github.com/repos/dfberry/gh/pulls/16"
+        }
+      },
+      "reactions": {
+        "url": "https://api.github.com/repos/dfberry/gh/pulls/comments/2699546190/reactions",
+        "total_count": 0,
+        "+1": 0,
+        "-1": 0,
+        "laugh": 0,
+        "hooray": 0,
+        "confused": 0,
+        "heart": 0,
+        "rocket": 0,
+        "eyes": 0
+      },
+      "start_line": null,
+      "original_start_line": null,
+      "start_side": null,
+      "line": 30,
+      "original_line": 30,
+      "side": "RIGHT",
+      "author_association": "OWNER",
+      "original_position": 3,
+      "position": 3,
+      "subject_type": "line"
+    },
+    {
+      "url": "https://api.github.com/repos/dfberry/gh/pulls/comments/2699547106",
+      "pull_request_review_id": 3672177269,
+      "id": 2699547106,
+      "node_id": "PRRC_kwDOQvSlWc6g59Hi",
+      "diff_hunk": "@@ -0,0 +1,180 @@\n+# Active Security Plan\n+\n+TL;DR: Two-stage rollout —",
+      "path": "docs/active-security-plan.md",
+      "commit_id": "7477f8fc48edf426e07e35e95b340859f5c21b9f",
+      "original_commit_id": "7477f8fc48edf426e07e35e95b340859f5c21b9f",
+      "user": {
+        "login": "dfberry",
+        "id": 1517008,
+        "node_id": "MDQ6VXNlcjE1MTcwMDg=",
+        "avatar_url": "https://avatars.githubusercontent.com/u/1517008?v=4",
+        "gravatar_id": "",
+        "url": "https://api.github.com/users/dfberry",
+        "html_url": "https://github.com/dfberry",
+        "followers_url": "https://api.github.com/users/dfberry/followers",
+        "following_url": "https://api.github.com/users/dfberry/following{/other_user}",
+        "gists_url": "https://api.github.com/users/dfberry/gists{/gist_id}",
+        "starred_url": "https://api.github.com/users/dfberry/starred{/owner}{/repo}",
+        "subscriptions_url": "https://api.github.com/users/dfberry/subscriptions",
+        "organizations_url": "https://api.github.com/users/dfberry/orgs",
+        "repos_url": "https://api.github.com/users/dfberry/repos",
+        "events_url": "https://api.github.com/users/dfberry/events{/privacy}",
+        "received_events_url": "https://api.github.com/users/dfberry/received_events",
+        "type": "User",
+        "user_view_type": "public",
+        "site_admin": false
+      },
+      "body": "```suggestion\r\nTL;DR: Two-stage rollout — <THIS IS MY COMMENT>\r\n```",
+      "created_at": "2026-01-16T18:26:12Z",
+      "updated_at": "2026-01-16T18:26:12Z",
+      "html_url": "https://github.com/dfberry/gh/pull/16#discussion_r2699547106",
+      "pull_request_url": "https://api.github.com/repos/dfberry/gh/pulls/16",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/dfberry/gh/pulls/comments/2699547106"
+        },
+        "html": {
+          "href": "https://github.com/dfberry/gh/pull/16#discussion_r2699547106"
+        },
+        "pull_request": {
+          "href": "https://api.github.com/repos/dfberry/gh/pulls/16"
+        }
+      },
+      "reactions": {
+        "url": "https://api.github.com/repos/dfberry/gh/pulls/comments/2699547106/reactions",
+        "total_count": 0,
+        "+1": 0,
+        "-1": 0,
+        "laugh": 0,
+        "hooray": 0,
+        "confused": 0,
+        "heart": 0,
+        "rocket": 0,
+        "eyes": 0
+      },
+      "start_line": null,
+      "original_start_line": null,
+      "start_side": null,
+      "line": 3,
+      "original_line": 3,
+      "side": "RIGHT",
+      "author_association": "OWNER",
+      "original_position": 3,
+      "position": 3,
+      "subject_type": "line"
+    }
+  ]
+}

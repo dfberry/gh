@@ -29,7 +29,7 @@ You will receive a JSON file with this structure:
 
 ### Key Fields to Extract from reviewComments:
 
-- `user.login` - The reviewer's GitHub username
+- `user.login` - The reviewer's GitHub username. Ignore all accounts that are bots.
 - `author_association` - Should be "MEMBER" or "CONTRIBUTOR" for authoritative feedback
 - `body` - The actual comment text (may include code suggestions in markdown)
 - `diff_hunk` - Shows what code/text the comment refers to
@@ -71,6 +71,17 @@ Look for these patterns in reviewer comments:
 "I would word things a bit differently..."
 "This operation is only valid on managed HSMs but not key vaults"
 "Use 'jobs' terminology instead of 'settings'"
+
+**Scope Boundary Corrections** (critical for accuracy):
+"Check availability in resource group, not location"
+"This parameter requires account context, not just service context"
+These define WHERE/HOW operations apply and are high-priority rules.
+
+**Repeated Corrections** (high confidence indicators):
+When the SAME reviewer makes the SAME type of correction multiple times:
+- Mark as HIGH CONFIDENCE rule
+- Generalize the pattern
+- Include multiple examples from the diff_hunk context
 
 **Structural Feedback**:
 "These all refer to the same thing but rephrased differently"
@@ -137,6 +148,24 @@ Generate a markdown file following this template:
 5. **Extract Patterns**: If a reviewer makes the same type of correction multiple times, generalize it into a rule
 6. **Preserve Technical Accuracy**: Service team feedback about technical limitations (like "can't retrieve keys") is critical
 
+## CONFIDENCE SCORING FOR RULES
+
+### High Confidence Rules (ALWAYS include)
+- Stated 2+ times by same/different reviewers
+- Include code suggestions or examples
+- Address scope boundaries or technical limitations
+- Reviewer explicitly says "should", "must", "always", "never"
+
+### Medium Confidence Rules (include with caveat)
+- Stated once with clear explanation
+- Include specific examples
+- Address terminology or naming patterns
+
+### Low Confidence Rules (skip unless high-value)
+- Vague feedback: "I'd word this differently"
+- Generic comments: "Improve clarity"
+- Without specific alternatives or examples
+
 ## HANDLING EDGE CASES
 
 ### When reviewers disagree
@@ -144,12 +173,16 @@ If there are conflicting comments, prefer:
 1. Comments from team members (author_association: "MEMBER")
 2. More recent comments
 3. Comments with code suggestions over plain text
+4. Technical correctness over preference
 
 ### When feedback is unclear
 If a comment's intent isn't clear, skip it rather than guessing.
 
 ### When feedback is too generic
 Don't include feedback like "I'd word this differently" without specific alternatives.
+
+### When a rule is repeated
+If a reviewer makes the same correction 2+ times, mark it as PRIORITY and include all examples as evidence.
 
 ## EXAMPLE ANALYSIS
 
@@ -172,4 +205,7 @@ Extract:
 2. Use kebab-case for service names (e.g., `managed-lustre`, `key-vault`)
 3. Include the PR URL as a source reference
 4. Only output rules that are clearly supported by the review comments
-5. When in doubt, be conservative - it's better to miss a rule than to create an incorrect one
+5. Highlight **scope boundaries** separately (e.g., "resource group vs location")
+6. Mark rules by confidence level: [HIGH], [MEDIUM], [LOW confidence]
+7. When in doubt, be conservative - it's better to miss a rule than to create an incorrect one
+8. Preserve exact terminology from reviewers when possible (use their words as source)
