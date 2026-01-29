@@ -55,12 +55,16 @@ npm run start -- owner repo 123
 import { fetchPRComments } from 'get-pr-comments';
 
 // Get all comments
-const allComments = await fetchPRComments('owner', 'repo', 123, 'ghp_...');
+const allComments = await fetchPRComments('owner', 'repo', 123);
 console.log(allComments);
 
 // Filter comments by username
-const userComments = await fetchPRComments('owner', 'repo', 123, 'ghp_...', 'username');
+const userComments = await fetchPRComments('owner', 'repo', 123, 'username');
 console.log(userComments);
+
+// Filter comments by username with a token
+const userCommentsAuth = await fetchPRComments('owner', 'repo', 123, 'username', 'ghp_...');
+console.log(userCommentsAuth);
 ```
 
 ## Output

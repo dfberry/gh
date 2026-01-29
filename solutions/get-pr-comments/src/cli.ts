@@ -15,13 +15,17 @@ async function main() {
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
 
   if (!token) {
-    console.error('Warning: No GitHub token provided. You may hit rate limits.');
+    if (username) {
+      console.error('Warning: No GitHub token provided. Username filtering may not work correctly without authentication.');
+    } else {
+      console.error('Warning: No GitHub token provided. You may hit rate limits.');
+    }
   } else {
     console.log('Using GitHub token from environment variable.');
   }
 
   try {
-    const comments = await fetchPRComments(owner, repo, prNumber, token, username);
+    const comments = await fetchPRComments(owner, repo, prNumber, username, token);
     console.log(JSON.stringify(comments, null, 2));
   } catch (err) {
     console.error('Error fetching PR comments:', err);

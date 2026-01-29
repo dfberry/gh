@@ -4,8 +4,8 @@ export async function fetchPRComments(
   owner: string,
   repo: string,
   prNumber: number,
-  token?: string,
-  username?: string
+  username?: string,
+  token?: string
 ) {
   const client = new GitHubClient({ token });
   const comments = await getPullRequestComments(client, owner, repo, prNumber);
