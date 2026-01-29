@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node --env-file ../.env ./dist/cli.js"
+    "start": "node --env-file .env ./dist/cli.js"
   },
   "engines": {
     "node": ">=22"

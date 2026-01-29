@@ -2,6 +2,7 @@ export type LLMConfig = {
   key?: string; // API key
   model?: string;
   temperature?: number;
+  maxTokens?: number; // maximum tokens in the completion response
   endpoint?: string; // full completions endpoint
   debug?: {
     enabled?: boolean;
@@ -28,11 +29,14 @@ export async function callOpenAI(prompt: string, cfg?: LLMConfig, opts?: { name?
   const endpoint = cfg?.endpoint ?? process.env.OPENAI_ENDPOINT ?? 'https://api.openai.com/v1/chat/completions';
   try { new URL(endpoint); } catch (e) { throw new Error('endpoint is not a valid URL'); }
 
+  const maxTokens = cfg?.maxTokens ?? (process.env.OPENAI_MAX_TOKENS ? Number(process.env.OPENAI_MAX_TOKENS) : 4096);
+  if (Number.isNaN(maxTokens) || maxTokens <= 0) throw new Error('maxTokens must be a positive number');
+
   const body = {
     model,
     messages: [{ role: 'user', content: prompt }],
     temperature,
-    max_tokens: 800
+    max_tokens: maxTokens
   };
 
   const fetchFn = (globalThis as any).fetch;
@@ -46,8 +50,9 @@ export async function callOpenAI(prompt: string, cfg?: LLMConfig, opts?: { name?
   while (attempt <= maxRetries) {
     try {
       // use AbortController to avoid hung requests
+      // Increased timeout for large prompts (e.g., PR comment analysis)
       const controller = typeof AbortController !== 'undefined' ? new AbortController() : undefined;
-      const timeoutMs = 30000;
+      const timeoutMs = 180000; // 3 minutes for large prompt processing
       const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
       const res = await fetchFn(endpoint, {
         method: 'POST',

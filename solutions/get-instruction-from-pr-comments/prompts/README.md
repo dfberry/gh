@@ -112,3 +112,9 @@ To update an existing instruction file:
 2. **Be conservative**: It's better to miss a rule than create an incorrect one
 3. **Cite sources**: Keep PR URLs as references in the instruction files
 4. **Iterate**: If the first pass misses something, add specific focus areas and regenerate
+
+## Example calls
+
+```
+npm run start -- ../get-pr-comments/MicrosoftDocs-azure-dev-docs-pr-8415.json ./prompts/system.txt ./prompts/user.txt 8415.md
+```

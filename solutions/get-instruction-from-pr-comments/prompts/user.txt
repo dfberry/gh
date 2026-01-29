@@ -53,17 +53,34 @@ When updating, please:
 2. Follow the standard format with these sections:
    - Header with service name and PR source
    - TERMINOLOGY REQUIREMENTS
-   - Service-specific sections as needed
-   - PROMPT STRUCTURE GUIDELINES
+   - SERVICE-SPECIFIC DISTINCTIONS (scope, capabilities, limitations)
+   - NAMING CONVENTIONS
+   - PARAMETER USAGE
+   - PROMPT STRUCTURE GUIDELINES (with example patterns)
    - EXAMPLE CORRECTIONS FROM PR REVIEW
 3. Only include rules that are clearly supported by reviewer comments
 4. Ignore automated bot comments (Acrolinx, PoliCheck, Learn Build Service, etc.)
 5. Focus on comments from reviewers with author_association "MEMBER" or "CONTRIBUTOR"
+6. Mark confidence level for each rule: [HIGH], [MEDIUM], [LOW]
+7. Use exact wording from reviewer comments when possible
+8. Include all examples from repeated corrections (high-priority rules)
 
 ## ANALYSIS FOCUS
 
 For {{SERVICE_NAME}}, pay special attention to:
+
+### REQUIRED ANALYSIS AREAS (fill in based on PR)
+- **Terminology**: Service-specific terms, capitalization, singular vs plural
+- **Scope Boundaries**: Where operations apply (global, regional, resource group, resource level)
+- **Resource Naming**: Conventions for example resource names and resource groups
+- **Operation Nuances**: When operations apply/don't apply, feature distinctions
+- **Parameter Patterns**: How required vs optional parameters should appear in prompts
+- **Example Patterns**: Preferred conversation flow and phrasing from reviewers
+
+{{#if SERVICE_FOCUS_AREAS}}
+### Additional Focus Areas
 {{SERVICE_FOCUS_AREAS}}
+{{/if}}
 
 <!-- Example focus areas:
 For Key Vault:
@@ -76,6 +93,18 @@ For Managed Lustre:
 - Auto-import/auto-export job terminology (not "settings")
 - Naming conventions for filesystems and resource groups
 -->
+
+## VALIDATION CHECKLIST
+
+Before finalizing, verify:
+- [ ] All MEMBER/CONTRIBUTOR comments have been analyzed
+- [ ] Bot comments have been excluded
+- [ ] Repeated corrections are marked as HIGH confidence
+- [ ] Scope boundaries are explicitly stated
+- [ ] Examples use exact terminology from reviewers
+- [ ] No contradictions between rules
+- [ ] Rules are specific to this service (not generic)
+- [ ] Each rule has at least one ✅ CORRECT and ❌ WRONG example
 
 ---
 
