@@ -7,13 +7,22 @@ A CLI and library to fetch all comments for a GitHub pull request using github-r
 CLI usage
 
 ```bash
-get-pr-comments <owner> <repo> <prNumber>
+get-pr-comments <owner> <repo> <prNumber> [username]
 ```
+
+- `owner`: Repository owner
+- `repo`: Repository name
+- `prNumber`: Pull request number
+- `username` (optional): Filter comments by this GitHub username
 
 NPM usage
 
 ```bash
+# Get all comments
 npm run start -- dfberry gh 16
+
+# Filter comments by username
+npm run start -- dfberry gh 16 copilot
 ```
 
 ## Authentication
@@ -45,8 +54,17 @@ npm run start -- owner repo 123
 ```ts
 import { fetchPRComments } from 'get-pr-comments';
 
-const comments = await fetchPRComments('owner', 'repo', 123, 'ghp_...');
-console.log(comments);
+// Get all comments
+const allComments = await fetchPRComments('owner', 'repo', 123);
+console.log(allComments);
+
+// Filter comments by username
+const userComments = await fetchPRComments('owner', 'repo', 123, 'username');
+console.log(userComments);
+
+// Filter comments by username with a token
+const userCommentsAuth = await fetchPRComments('owner', 'repo', 123, 'username', 'ghp_...');
+console.log(userCommentsAuth);
 ```
 
 ## Output

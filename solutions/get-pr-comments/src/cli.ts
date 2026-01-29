@@ -2,9 +2,9 @@
 import { fetchPRComments } from './index.js';
 
 async function main() {
-  const [owner, repo, prNumberStr] = process.argv.slice(2);
+  const [owner, repo, prNumberStr, username] = process.argv.slice(2);
   if (!owner || !repo || !prNumberStr) {
-    console.error('Usage: get-pr-comments <owner> <repo> <prNumber>');
+    console.error('Usage: get-pr-comments <owner> <repo> <prNumber> [username]');
     process.exit(1);
   }
   const prNumber = Number(prNumberStr);
@@ -15,13 +15,17 @@ async function main() {
   const token = process.env.GH_TOKEN || process.env.GITHUB_TOKEN;
 
   if (!token) {
-    console.error('Warning: No GitHub token provided. You may hit rate limits.');
+    if (username) {
+      console.error('Warning: No GitHub token provided. Username filtering may not work correctly without authentication.');
+    } else {
+      console.error('Warning: No GitHub token provided. You may hit rate limits.');
+    }
   } else {
     console.log('Using GitHub token from environment variable.');
   }
 
   try {
-    const comments = await fetchPRComments(owner, repo, prNumber, token);
+    const comments = await fetchPRComments(owner, repo, prNumber, username, token);
     console.log(JSON.stringify(comments, null, 2));
   } catch (err) {
     console.error('Error fetching PR comments:', err);
