@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { writeFile } from 'fs/promises';
 import { fetchPRComments } from './index.js';
 
 async function main() {
@@ -22,7 +23,9 @@ async function main() {
 
   try {
     const comments = await fetchPRComments(owner, repo, prNumber, token);
-    console.log(JSON.stringify(comments, null, 2));
+    const fileName = `${owner}-${repo}-${prNumber}-comments.json`;
+    await writeFile(fileName, JSON.stringify(comments, null, 2));
+    console.log(`Comments written to ${fileName}`);
   } catch (err) {
     console.error('Error fetching PR comments:', err);
     process.exit(2);

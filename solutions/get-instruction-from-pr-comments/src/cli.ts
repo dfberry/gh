@@ -6,7 +6,7 @@ import * as path from 'path';
 /**
  * CLI entry point for generating instructions from PR comments
  * 
- * Usage: get-instruction-from-pr-comments <jsonFile> <systemPromptFile> <userPromptFile> <owner> <repo> <prNumber> [modelName]
+ * Usage: get-instruction-from-pr-comments <jsonFile> <systemPromptFile> <userPromptFile> <owner> <repo> <prNumber> [options]
  * 
  * Arguments:
  *   jsonFile         - Path to JSON file containing PR comments (issueComments and reviewComments)
@@ -15,7 +15,11 @@ import * as path from 'path';
  *   owner            - GitHub organization/owner name (for output filename)
  *   repo             - GitHub repository name (for output filename)
  *   prNumber         - PR number (for output filename and context)
- *   modelName        - (Optional) LLM model to use (default: from OPENAI_MODEL env var or 'gpt-4')
+ * 
+ * Options:
+ *   --model <name>     - LLM model to use (default: from OPENAI_MODEL env var or 'gpt-4')
+ *   --max-comments <n> - Maximum comments to include per type (default: 40)
+ *   --summary-mode     - Truncate comment bodies to 300 chars for faster processing
  * 
  * Output:
  *   Generates JSON file: {owner}-{repo}-pr-{prNumber}.json
@@ -26,24 +30,44 @@ import * as path from 'path';
  */
 async function main() {
   // Parse command line arguments
-  const [jsonFile, systemPromptFile, userPromptFile, owner, repo, prNumberStr, modelName] = process.argv.slice(2);
+  const [jsonFile, systemPromptFile, userPromptFile, owner, repo, prNumberStr, ...restArgs] = process.argv.slice(2);
 
   // Validate required arguments
   if (!jsonFile || !systemPromptFile || !userPromptFile || !owner || !repo || !prNumberStr) {
     console.error('Error: Missing required arguments\n');
-    console.error('Usage: get-instruction-from-pr-comments <jsonFile> <systemPromptFile> <userPromptFile> <owner> <repo> <prNumber> [modelName]');
+    console.error('Usage: get-instruction-from-pr-comments <jsonFile> <systemPromptFile> <userPromptFile> <owner> <repo> <prNumber> [options]');
     console.error('\nArguments:');
     console.error('  jsonFile         - Path to JSON file containing PR comments');
     console.error('  systemPromptFile - Path to system prompt text file');
     console.error('  userPromptFile   - Path to user prompt text file');
     console.error('  owner            - GitHub organization/owner name');
     console.error('  repo             - GitHub repository name');
-    console.error('  prNumber         - PR number');
-    console.error('  modelName        - (Optional) LLM model name\n');
+    console.error('  prNumber         - PR number\n');
+    console.error('Options:');
+    console.error('  --model <name>     - LLM model (default: OPENAI_MODEL env or gpt-4)');
+    console.error('  --max-comments <n> - Max comments per type (default: 40)');
+    console.error('  --summary-mode     - Truncate comments to 300 chars\n');
     console.error('Environment Variables:');
     console.error('  OPENAI_API_KEY   - Required: Your OpenAI API key');
     console.error('  OPENAI_MODEL     - Optional: Default model name');
     process.exit(1);
+  }
+
+  // Parse optional arguments
+  let modelName: string | undefined;
+  let maxComments = 40;
+  let summaryMode = false;
+
+  for (let i = 0; i < restArgs.length; i++) {
+    if (restArgs[i] === '--model' && restArgs[i + 1]) {
+      modelName = restArgs[i + 1];
+      i++;
+    } else if (restArgs[i] === '--max-comments' && restArgs[i + 1]) {
+      maxComments = parseInt(restArgs[i + 1], 10);
+      i++;
+    } else if (restArgs[i] === '--summary-mode') {
+      summaryMode = true;
+    }
   }
 
   // Validate PR number is numeric
@@ -98,31 +122,21 @@ async function main() {
     console.log(`Using LLM model: ${llmConfig.model}`);
     console.log(`Generating instructions for ${owner}/${repo}#${prNumber}...`);
 
-    // Generate instructions
+    // Generate instructions with token reduction options
     const instructionsMarkdown = await generateInstructions({
       jsonFile,
       systemPrompt,
       userPrompt,
-      llmConfig
+      llmConfig,
+      maxComments,
+      summaryMode
     });
 
-    // Generate output filename: org-repo-pr-prnumber.json
-    const outputFileName = `${owner}-${repo}-pr-${prNumber}.json`;
+    // Generate output filename: org-repo-pr-prnumber.md
+    const outputFileName = `${owner}-${repo}-pr-${prNumber}.md`;
     
-    // Create output object with metadata and instructions
-    const outputData = {
-      metadata: {
-        org: owner,
-        repo: repo,
-        prNumber: prNumber,
-        generatedAt: new Date().toISOString(),
-        model: llmConfig.model
-      },
-      instructions: instructionsMarkdown
-    };
-
-    // Write JSON file
-    await fs.promises.writeFile(outputFileName, JSON.stringify(outputData, null, 2), 'utf8');
+    // Write markdown file with instructions
+    await fs.promises.writeFile(outputFileName, instructionsMarkdown, 'utf8');
     
     const absoluteOutputPath = path.resolve(outputFileName);
     
