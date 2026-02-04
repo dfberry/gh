@@ -11,6 +11,8 @@ export interface GenerateInstructionsOptions {
   systemPrompt: string;
   userPrompt: string;
   llmConfig?: LLMConfig;
+  maxComments?: number; // Maximum comments to include (default: 40)
+  summaryMode?: boolean; // If true, only include comment summaries not full bodies
 }
 
 /**
@@ -61,24 +63,80 @@ function isBot(login: string): boolean {
 
 /**
  * Extract only the relevant fields from a review comment
- * This reduces the JSON size significantly for LLM processing
+ * For LLM processing, we only need the actual comment content (body)
+ * and minimal context (author, timestamp). Everything else is metadata overhead.
  * @param comment - Full review comment object from GitHub API
- * @returns Cleaned comment with only essential fields
+ * @returns Cleaned comment with only fields needed for LLM processing
  */
 function cleanCommentFields(comment: any): any {
   return {
-    id: comment.id,
-    user: {
-      login: comment.user?.login,
-      type: comment.user?.type
-    },
+    author: comment.user?.login,
     body: comment.body,
-    created_at: comment.created_at,
-    author_association: comment.author_association,
-    path: comment.path,
-    diff_hunk: comment.diff_hunk,
-    html_url: comment.html_url
+    created_at: comment.created_at
   };
+}
+
+/**
+ * Calculates importance score for a comment based on heuristics
+ * Higher scores = more important comments to include
+ * @param comment - Cleaned comment object
+ * @param authorFrequency - How many times this author has commented (higher = more weight)
+ * @returns Importance score (0-100)
+ */
+function scoreCommentImportance(comment: any, authorFrequency: number = 1): number {
+  let score = 0;
+
+  // Author frequency: more active reviewers have more weight
+  // Scale frequency to max 30 points
+  score += Math.min(authorFrequency * 5, 30);
+
+  // Length: longer, more detailed comments are usually more important
+  const bodyLength = comment.body?.length || 0;
+  if (bodyLength > 500) score += 20;
+  else if (bodyLength > 200) score += 10;
+  else if (bodyLength > 50) score += 5;
+
+  // Comments with code blocks (```...) are usually more technical/important
+  if (comment.body?.includes('```')) score += 10;
+
+  // Comments with URLs/links are usually referencing important resources
+  if (comment.body?.includes('http')) score += 5;
+
+  return Math.min(score, 100);
+}
+
+/**
+ * Filter comments to keep only the most important ones
+ * Uses importance scoring based on author frequency and content quality
+ * @param comments - Array of cleaned comments
+ * @param maxComments - Maximum number of comments to keep
+ * @returns Top N most important comments
+ */
+function filterMostImportantComments(comments: any[], maxComments: number): any[] {
+  if (comments.length <= maxComments) {
+    return comments;
+  }
+
+  // Calculate how many times each author has commented
+  const authorFrequency = new Map<string, number>();
+  comments.forEach(c => {
+    const author = c.author || 'unknown';
+    authorFrequency.set(author, (authorFrequency.get(author) || 0) + 1);
+  });
+
+  // Score all comments using author frequency
+  const scored = comments.map(c => ({
+    comment: c,
+    score: scoreCommentImportance(c, authorFrequency.get(c.author || 'unknown') || 1)
+  }));
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Keep top N comments, then re-sort by date to maintain chronological order
+  return scored
+    .slice(0, maxComments)
+    .map(s => s.comment)
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 }
 
 /**
@@ -87,25 +145,62 @@ function cleanCommentFields(comment: any): any {
  * This function:
  * 1. Filters out all bot comments
  * 2. Keeps only essential fields from human comments
- * 3. Reduces JSON size for faster LLM processing
+ * 3. Optionally filters to most important comments only
+ * 4. Reduces JSON size for faster LLM processing
  * 
  * @param prComments - Raw PR comments from GitHub API
+ * @param maxComments - Maximum comments to keep per type (default: 40)
+ * @param summaryMode - If true, only include comment summaries
  * @returns Cleaned PR comments with only human feedback and essential fields
  */
-export function cleanPRComments(prComments: PRCommentsInput): PRCommentsInput {
+export function cleanPRComments(
+  prComments: PRCommentsInput,
+  maxComments: number = 40,
+  summaryMode: boolean = false
+): PRCommentsInput {
   // Filter review comments: remove bots, keep only essential fields
-  const cleanedReviewComments = prComments.reviewComments
+  let cleanedReviewComments = prComments.reviewComments
     .filter(comment => !isBot(comment.user?.login))
     .map(cleanCommentFields);
 
   // Issue comments are usually automated, but include them if they exist and aren't from bots
-  const cleanedIssueComments = prComments.issueComments
+  let cleanedIssueComments = prComments.issueComments
     .filter(comment => !isBot(comment.user?.login))
     .map(cleanCommentFields);
 
-  console.log(`Cleaned PR comments: ${cleanedReviewComments.length} review comments, ${cleanedIssueComments.length} issue comments`);
-  console.log(`Filtered out ${prComments.reviewComments.length - cleanedReviewComments.length} bot review comments`);
-  console.log(`Filtered out ${prComments.issueComments.length - cleanedIssueComments.length} bot issue comments`);
+  const originalReviewCount = cleanedReviewComments.length;
+  const originalIssueCount = cleanedIssueComments.length;
+
+  // Filter to most important comments if count exceeds limit
+  if (cleanedReviewComments.length > maxComments) {
+    cleanedReviewComments = filterMostImportantComments(cleanedReviewComments, maxComments);
+  }
+
+  if (cleanedIssueComments.length > maxComments) {
+    cleanedIssueComments = filterMostImportantComments(cleanedIssueComments, maxComments);
+  }
+
+  // In summary mode, truncate comment bodies to first 300 chars
+  if (summaryMode) {
+    cleanedReviewComments = cleanedReviewComments.map(c => ({
+      ...c,
+      body: c.body?.substring(0, 300) + (c.body?.length > 300 ? '...' : '') || ''
+    }));
+    cleanedIssueComments = cleanedIssueComments.map(c => ({
+      ...c,
+      body: c.body?.substring(0, 300) + (c.body?.length > 300 ? '...' : '') || ''
+    }));
+  }
+
+  console.log(`Cleaned PR comments: ${cleanedReviewComments.length} review comments (from ${originalReviewCount}), ${cleanedIssueComments.length} issue comments (from ${originalIssueCount})`);
+  console.log(`Filtered out ${prComments.reviewComments.length - originalReviewCount} bot review comments`);
+  console.log(`Filtered out ${prComments.issueComments.length - originalIssueCount} bot issue comments`);
+  if (cleanedReviewComments.length < originalReviewCount || cleanedIssueComments.length < originalIssueCount) {
+    console.log(`Additionally filtered to most important comments (max ${maxComments} per type)`);
+  }
+  if (summaryMode) {
+    console.log('Summary mode: comment bodies truncated to 300 chars');
+  }
 
   return {
     issueComments: cleanedIssueComments,
@@ -129,7 +224,7 @@ export function cleanPRComments(prComments: PRCommentsInput): PRCommentsInput {
  * @throws Error if the JSON file cannot be read or parsed
  */
 export async function generateInstructions(options: GenerateInstructionsOptions): Promise<string> {
-  const { jsonFile, systemPrompt, userPrompt, llmConfig } = options;
+  const { jsonFile, systemPrompt, userPrompt, llmConfig, maxComments = 40, summaryMode = false } = options;
 
   // Validate all required parameters are provided and non-empty
   if (!jsonFile || typeof jsonFile !== 'string' || jsonFile.trim() === '') {
@@ -157,7 +252,8 @@ export async function generateInstructions(options: GenerateInstructionsOptions)
   const prComments: PRCommentsInput = JSON.parse(jsonContent);
 
   // Clean the PR comments to remove bots and reduce JSON size
-  const cleanedComments = cleanPRComments(prComments);
+  // Also filter to most important comments and optionally use summary mode
+  const cleanedComments = cleanPRComments(prComments, maxComments, summaryMode);
 
   // Construct the complete LLM prompt by combining:
   // 1. System prompt (sets the LLM's role and context)

@@ -12,7 +12,7 @@
     "start": "node --env-file .env dist/cli.js"
   },
   "dependencies": {
-    "github-rest": "file:../packages/github-rest"
+    "github-rest": "file:../../packages/github-rest"
   },
   "devDependencies": {
     "typescript": "^5.0.0"
