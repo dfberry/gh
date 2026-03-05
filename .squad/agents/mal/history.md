@@ -86,3 +86,29 @@
 
 **Files allowed on main:** `team.md`, `routing.md`, `ceremonies.md`, `decisions.md`, `agents/*/charter.md`, `agents/*/history.md`, `casting/`, `skills/`, `templates/`, `identity/`, `config.json`, `plugins/`
 **Files blocked:** `orchestration-log/`, `log/`, `decisions/inbox/`, `sessions/`
+
+### 2026-03-06 — Architecture Design: sample-health-check
+
+**Status:** Architecture decision written to `.squad/decisions/inbox/mal-sample-health-check.md`
+
+**Key architectural decisions:**
+
+1. **7 health dimensions, 100-point additive scoring** — Unlike security-audit (starts at 100, subtracts), health-check starts at 0 and awards points. Positive framing: "what does this repo do well?" vs "what's broken?"
+
+2. **Minimal github-rest additions** — Only 2 new endpoints needed:
+   - `repos.getCommunityProfile()` — single API call returns LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, README presence. Huge efficiency win.
+   - `actions.getLatestWorkflowRun()` — convenience wrapper over existing `listWorkflowRuns` with `per_page=1`.
+
+3. **Separation of concerns** — `checks.ts` (pure functions, no API calls), `scoring.ts` (weight constants + grading), `index.ts` (orchestration). Each testable in isolation.
+
+4. **No overlap with security-audit-repos** — Health-check skips code scanning, secret scanning, security advisories. Shares branch protection + Dependabot (viewed through different lenses: security posture vs maintenance freshness).
+
+5. **Community Profile API** — `GET /repos/{owner}/{repo}/community/profile` is the single most valuable endpoint for health checking. One call replaces 5-6 individual file existence checks. Must be added to `github-rest`.
+
+**Implementation dependencies:**
+- Kaylee: 2 new github-rest endpoints (blocking)
+- Wash: solution implementation (checks.ts → scoring.ts → index.ts → cli.ts)
+- Zoe: test suite (test-first, same pattern as security-audit-repos)
+- Mal: code review gate
+
+**API budget:** ~8-10 calls per repo. No rate limit concern for current repo set.

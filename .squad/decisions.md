@@ -289,9 +289,62 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 
 ---
 
+### 11. Architecture Decision: sample-health-check Solution (Mal — Phase 2, 2026-03-06)
+
+**Status:** Proposed
+
+**Context:** `sample-health-check` (Phase 2) measures **overall repo health** — "is this sample repo well-maintained?" It complements `security-audit-repos` (Phase 1, which measures security posture).
+
+**Solution Overview:**
+- **7 health dimensions** with concrete checks: Documentation Quality, Repository Hygiene, CI/CD Presence, Dependency Freshness, Activity & Maintenance, Branch Protection, Azure Sample-Specific
+- **100-point additive scoring model** (start at 0, award points for healthy signals)
+- **Letter grades:** A (90-100), B (75-89), C (50-74), D (25-49), F (0-24)
+- **Dual output:** JSON (structured) + Markdown (human-readable)
+
+**GitHub REST API Endpoints Needed:**
+- **Existing (ready to use):** `getRepo`, `getRepoReadme`, `getTopics`, `getDefaultBranch`, `listReleases`, `fetchRepoMetadata`, `getRootContents`, `listRepoWorkflows`, `listWorkflowRuns`, `listDependabotAlerts`, `getBranchProtection`, `getAutomatedSecurityFixes`
+- **New endpoints required (Kaylee):**
+  - `repos.getCommunityProfile()` — `GET /repos/{owner}/{repo}/community/profile` — returns LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, README presence in one call
+  - `actions.getLatestWorkflowRun()` — convenience wrapper for most recent run status
+
+**Implementation Order:**
+1. Kaylee: Add 2 new endpoints to `github-rest` with tests
+2. Wash/Zoe: Build `scoring.ts` + `checks.ts` (pure functions, test-first)
+3. Wash: Build `index.ts` orchestration (composes github-rest calls + checks)
+4. Wash: Build `cli.ts` (follows security-audit-repos pattern)
+5. Zoe: Full test suite
+
+**Decision:** Build `sample-health-check` following patterns above. Uses almost entirely existing github-rest endpoints (only 2 additions needed). Approved for implementation.
+
+---
+
+### 12. Health-Check Endpoint Audit Report (Kaylee — 2026-03-05)
+
+**Status:** Completed
+
+**Scope:** Audit `packages/github-rest` for `sample-health-check` solution readiness.
+
+**Findings:**
+- **Repository Metadata:** ✅ READY — all metadata needs covered (README, topics, description, language, default branch, visibility)
+- **Community Health:** ❌ BLOCKED — missing `getCommunityProfile()` endpoint (single API call provides LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, README presence)
+- **CI/CD Presence:** ✅ READY — `listRepoWorkflows`, `listWorkflowRuns`, `listAllRepoActionRuns` available
+- **Dependency Health:** ✅ MOSTLY READY — Dependabot alerts covered; SBOM/dependency-graph is nice-to-have
+- **Activity Signals:** ✅ MOSTLY READY — commits count, PR count, issues, releases available; detailed `listCommits()` is optional
+- **Branch Protection:** ✅ READY — fully covered with no new endpoints needed
+- **File Existence Checks:** ✅ USABLE BUT AWKWARD — `getContents()` works but needs try/catch wrappers; adding convenience helpers improves solution code
+
+**Build Priority for Kaylee:**
+- **P0 (blocking):** `getCommunityProfile()`, `fileExists()`, `getDecodedFileContent()`
+- **P1 (nice-to-have):** `listCommits()`, `getDependencyGraphSBOM()`, `getLicense()`
+- **Already available:** 40+ functions across 10 modules (no work needed)
+
+**Estimated effort:** ~1 hour for P0 functions. Wash can start building health-check solution immediately using existing endpoints; Kaylee adds P0s in parallel.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
-- Decisions merged from inbox monthly (2026-03-05 merge complete)
+- Decisions merged from inbox 2026-03-06 (Mal sample-health-check + Kaylee audit)

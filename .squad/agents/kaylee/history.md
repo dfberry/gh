@@ -94,3 +94,18 @@
 - Vitest infrastructure bootstrapped with mock pattern for GitHubClient
 - Key learnings: branch encoding (`feature/test` → `feature%2Ftest`), namespace exports require `export * as foo from ...` + typeof checks, module graph (permissions → repos + security) requires mock layering
 - Canonical mock shape documented: all GitHubClient methods as `vi.fn()` cast as unknown as GitHubClient
+
+### 2026-03-05 — Health-Check Endpoint Audit
+
+**Scope:** Full audit of `packages/github-rest` endpoint inventory against `sample-health-check` requirements across 7 categories.
+
+**Key findings:**
+- 5 of 7 categories are fully covered by existing endpoints (repo metadata, CI/CD, dependency alerts, activity signals, branch protection)
+- 2 categories need small additions: community health (missing `getCommunityProfile`) and file existence (missing `fileExists` + `getDecodedFileContent`)
+- Only 3 P0 functions needed before Wash can fully compose the health-check: `getCommunityProfile`, `fileExists`, `getDecodedFileContent` — all trivial wrappers
+- `repos.ts` is the largest module (25+ functions); community profile could go there or in a new `community.ts`
+- The `contents.ts` module is minimal (only `getRootContents`) — good candidate for `fileExists` and `getDecodedFileContent`
+- `listReleases()` works for health-check but lacks pagination params — tech debt, not blocking
+- `getRepo()` already returns `license` field — dedicated `getLicense()` endpoint is P2 nice-to-have
+
+**Output:** Wrote `.squad/decisions/inbox/kaylee-health-check-audit.md` with full gap analysis, code samples, priority rankings, and phased recommendation for Wash.
