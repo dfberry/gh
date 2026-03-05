@@ -26,5 +26,7 @@ export { getRepoPermissions, hasAdminPermission } from './endpoints/permissions.
 export { findEmptyRepos, createUserRepo, createOrgRepo, listPullRequests, createPullRequest, getCommunityProfile } from './endpoints/repos.js';
 export type { CommunityProfile, CommunityProfileFiles } from './endpoints/repos.js';
 export { fileExists, getDecodedFileContent } from './endpoints/contents.js';
+export type { ContentItem, ContentFile } from './endpoints/contents.js';
 export { getLatestWorkflowRun } from './endpoints/actions.js';
+export type { WorkflowsResponse, WorkflowRunsResponse, WorkflowRun, Workflow } from './endpoints/actions.js';
 export { getUserPrComments } from './endpoints/user-pr-comments.js';

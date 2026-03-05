@@ -152,3 +152,31 @@
 - All tests use module-level mocking of github-rest, so parallel work unblocked
 - 116/116 tests now pass with Wash's implementation
 - Your 4 endpoints mocked during tests; live runs will work when endpoints merge
+
+### 2026-03-06 — Eliminated All `as any` Casts in sample-health-check
+
+**Context:** Mal's review rejected sample-health-check due to `as any` casts in production code. Zoe had just added proper types to github-rest (`WorkflowsResponse`, `WorkflowRunsResponse`, `WorkflowRun`, `Workflow`, `ContentItem`, `ContentFile`, `CommunityProfile`). Wash (original author) was locked out per lockout rules.
+
+**Changes to `solutions/sample-health-check/src/index.ts`:**
+- Added `import type { CommunityProfile, ContentItem, WorkflowsResponse, WorkflowRun }` from github-rest
+- Created 3 local interfaces for shapes not yet typed in github-rest: `RepoData` (extends Repository fields), `DependabotAlert` (severity counting), `AutomatedSecurityFixesResponse` (enabled flag)
+- Replaced 8 `as any` casts with proper types:
+  - `repoDataResult.value as any` → `as RepoData`
+  - `communityProfileResult.value as any` → `as CommunityProfile`
+  - `metadataResult.value as any` → removed cast (TypeScript infers `RepoMetadata` from Promise.allSettled tuple)
+  - `rootContentsResult.value as any[]` / `(f: any)` → removed casts (TypeScript infers `ContentItem[]`)
+  - `workflowsResult.value as any` → `as WorkflowsResponse`
+  - `dependabotResult.value as any[]` → `as DependabotAlert[]`
+  - `autoFixResult.value as any` → `as AutomatedSecurityFixesResponse`
+  - `(run as any).conclusion` → `run.conclusion` (WorkflowRun already has `conclusion` field)
+
+**Also fixed in github-rest (build-blocking):**
+- `contents.ts:84` — `Buffer.from` encoding param cast to `BufferEncoding` (pre-existing type error)
+- `tsconfig.json` — added `composite: true` (required by project references from sample-health-check)
+
+**Build & Test:** ✅ `npm run build` zero errors, ✅ 116/116 tests pass
+
+**Key files touched:**
+- `solutions/sample-health-check/src/index.ts` (type fixes)
+- `packages/github-rest/src/endpoints/contents.ts` (BufferEncoding cast)
+- `packages/github-rest/tsconfig.json` (composite: true)

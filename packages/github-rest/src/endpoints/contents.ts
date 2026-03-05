@@ -1,28 +1,50 @@
 import type { GitHubClient } from '../core/client.js';
+import type { Repository } from '../types/index.js';
 import { GitHubError } from '../core/errors.js';
+
+export interface ContentItem {
+  name: string;
+  path: string;
+  sha: string;
+  size: number;
+  url: string;
+  html_url: string;
+  type: 'file' | 'dir' | 'symlink' | 'submodule';
+  download_url: string | null;
+}
+
+export interface ContentFile {
+  name: string;
+  path: string;
+  sha: string;
+  size: number;
+  content: string;
+  encoding: string;
+  type: string;
+}
 
 /**
  * List files and folders at the root of the default branch for a repo.
  * Returns the array of contents (files/folders) or throws on error.
  */
-export async function getRootContents(client: GitHubClient, owner: string, repo: string, branch?: string) {
+export async function getRootContents(client: GitHubClient, owner: string, repo: string, branch?: string): Promise<ContentItem[]> {
   // If branch is not provided, fetch default branch
   let branchName: string = branch || '';
   if (!branchName) {
-    const repoData: any = await client.get(`/repos/${owner}/${repo}`);
+    const repoData = await client.get<Repository>(`/repos/${owner}/${repo}`);
     branchName = typeof repoData?.default_branch === 'string' ? repoData.default_branch : 'main';
   }
   // The GitHub API for contents at root: /repos/:owner/:repo/contents?ref=branch
-  return client.get(`/repos/${owner}/${repo}/contents?ref=${encodeURIComponent(branchName)}`);
+  return client.get<ContentItem[]>(`/repos/${owner}/${repo}/contents?ref=${encodeURIComponent(branchName)}`);
 }
 
 /**
  * Get the contents of a file at a given path in a repo.
  * Re-exported from repos.ts for co-location with other content helpers.
  */
-async function getContents(client: GitHubClient, owner: string, repo: string, path: string) {
+async function getContents(client: GitHubClient, owner: string, repo: string, path: string): Promise<ContentFile> {
   const safePath = encodeURIComponent(path).replace(/%2F/g, '/');
-  return client.get(`/repos/${owner}/${repo}/contents/${safePath}`);
+  return client.get<ContentFile>(`/repos/${owner}/${repo}/contents/${safePath}`);
 }
 
 /**
@@ -57,9 +79,9 @@ export async function getDecodedFileContent(
   path: string
 ): Promise<string | null> {
   try {
-    const data = await getContents(client, owner, repo, path) as any;
+    const data = await getContents(client, owner, repo, path);
     if (!data || !data.content) return null;
-    const buff = Buffer.from(data.content, data.encoding ?? 'base64');
+    const buff = Buffer.from(data.content, (data.encoding ?? 'base64') as BufferEncoding);
     return buff.toString('utf8');
   } catch (err: unknown) {
     if (err instanceof GitHubError && err.status === 404) {

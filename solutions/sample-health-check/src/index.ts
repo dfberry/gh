@@ -5,7 +5,7 @@
  * Uses Promise.allSettled for graceful degradation (same as security-audit-repos).
  */
 
-import type { GitHubClient } from 'github-rest';
+import type { GitHubClient, CommunityProfile, ContentItem, WorkflowsResponse, WorkflowRun } from 'github-rest';
 import { repos, actions, alerts, security, contents } from 'github-rest';
 
 import {
@@ -43,6 +43,31 @@ import {
 } from './scoring.js';
 
 import type { CheckResult, DimensionSummary } from './scoring.js';
+
+// ─── Local type extensions ───────────────────────────────────────────────────
+// These cover fields used by health checks but not yet fully typed in github-rest.
+
+/** Extended repo shape — covers fields from getRepo() used by health checks */
+interface RepoData {
+  topics?: string[];
+  description?: string | null;
+  archived?: boolean;
+  default_branch?: string;
+  pushed_at?: string | null;
+  open_issues_count?: number;
+}
+
+/** Minimal Dependabot alert shape for severity counting */
+interface DependabotAlert {
+  security_advisory?: {
+    severity?: string;
+  };
+}
+
+/** Automated security fixes response shape */
+interface AutomatedSecurityFixesResponse {
+  enabled?: boolean;
+}
 
 // ─── Re-exports ──────────────────────────────────────────────────────────────
 
@@ -142,10 +167,10 @@ export async function checkRepoHealth(
 
   // Extract results with safe defaults
   const repoAvailable = repoDataResult.status === 'fulfilled';
-  const repoData = repoAvailable ? repoDataResult.value as any : null;
+  const repoData = repoAvailable ? repoDataResult.value as RepoData : null;
 
   const communityProfile = communityProfileResult.status === 'fulfilled'
-    ? communityProfileResult.value as any
+    ? communityProfileResult.value as CommunityProfile
     : null;
 
   const readme = readmeResult.status === 'fulfilled'
@@ -153,7 +178,7 @@ export async function checkRepoHealth(
     : null;
 
   const metadata = metadataResult.status === 'fulfilled'
-    ? metadataResult.value as any
+    ? metadataResult.value
     : null;
 
   const releases = releasesResult.status === 'fulfilled'
@@ -162,18 +187,18 @@ export async function checkRepoHealth(
 
   const rootContents = rootContentsResult.status === 'fulfilled'
     ? (Array.isArray(rootContentsResult.value)
-      ? (rootContentsResult.value as any[]).map((f: any) => f.name as string)
+      ? rootContentsResult.value.map((f: ContentItem) => f.name)
       : [])
     : [];
 
   const workflowsAvailable = workflowsResult.status === 'fulfilled';
   const workflowsData = workflowsAvailable
-    ? workflowsResult.value as any
+    ? workflowsResult.value as WorkflowsResponse
     : null;
 
   const dependabotAvailable = dependabotResult.status === 'fulfilled';
   const dependabotAlerts = dependabotAvailable
-    ? (Array.isArray(dependabotResult.value) ? dependabotResult.value as any[] : [])
+    ? (Array.isArray(dependabotResult.value) ? dependabotResult.value as DependabotAlert[] : [])
     : [];
 
   const branchProtection = branchProtectionResult.status === 'fulfilled'
@@ -181,7 +206,7 @@ export async function checkRepoHealth(
     : null;
 
   const autoFixData = autoFixResult.status === 'fulfilled'
-    ? autoFixResult.value as any
+    ? autoFixResult.value as AutomatedSecurityFixesResponse
     : null;
 
   // Extract workflow info and fetch latest runs (Kaylee's getLatestWorkflowRun)
@@ -195,7 +220,7 @@ export async function checkRepoHealth(
     try {
       const run = await actions.getLatestWorkflowRun(client, owner, repo, wf.id);
       if (run) {
-        const conclusion = (run as any).conclusion ?? null;
+        const conclusion = run.conclusion ?? null;
         if (conclusion === 'success') bestConclusion = 'success';
         if (conclusion === 'failure') failingCount++;
         if (bestConclusion === null) bestConclusion = conclusion;

@@ -124,3 +124,23 @@
 - Your test mocks during implementation enabled Wash to work in parallel
 - When Kaylee's endpoints merge, live health-check runs will work
 
+### 2026-03-06 — Strict TypeScript types added to github-rest endpoints (lockout fix)
+
+**Status:** ✅ COMPLETE — 52/52 tests passing
+
+**Context:** Mal rejected sample-health-check because github-rest endpoints returned `Promise<any>`. Kaylee (original author) was locked out per protocol. Zoe applied the type fixes.
+
+**Changes made:**
+1. **actions.ts** — Added 4 interfaces (`Workflow`, `WorkflowRun`, `WorkflowsResponse`, `WorkflowRunsResponse`) and replaced all `Promise<any>` / `Promise<any | null>` return types with strict types across all 4 functions.
+2. **contents.ts** — Added 2 interfaces (`ContentItem`, `ContentFile`), replaced `const repoData: any` with `Repository` type (imported from `../types/index.js`), replaced `as any` cast with proper `ContentFile` type, and added return types to `getRootContents`, `getContents`, and `getDecodedFileContent`.
+3. **index.ts** — Exported all new types: `WorkflowsResponse`, `WorkflowRunsResponse`, `WorkflowRun`, `Workflow`, `ContentItem`, `ContentFile`.
+
+**Key observations:**
+- Adding strict return types is a non-breaking change — narrows `any` to specific types
+- Existing tests required zero modifications (they already used properly-shaped mock data)
+- The `import type` + `.js` extension ESM conventions were followed consistently
+- `ContentFile.encoding` typed as `string` to match GitHub API (could be `base64` or others)
+- `WorkflowRun.conclusion` is `string | null` because in-progress runs have null conclusion
+
+**Unblocks:** sample-health-check can proceed without `as any` casts in consumer code
+

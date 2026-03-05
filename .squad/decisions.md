@@ -233,7 +233,7 @@ When building solution packages that compose github-rest endpoints, write tests 
 
 ### 8. github-rest Endpoint Return Types (Mal — 2026-03-05)
 
-**Status:** Proposed
+**Status:** In Progress (actions.ts, contents.ts done; alerts.ts, security.ts next)
 
 **Context:** During code review of `solutions/security-audit-repos/`, found three `as any` casts forced by lack of return types on `github-rest` endpoint functions:
 - `alerts.listDependabotAlerts()` returns `any`
@@ -254,6 +254,48 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 **Priority:** Medium — track alongside Phase 2. Not blocking Phase 1 but accumulating tech debt.
 
 **Impact:** All current solutions benefit immediately; future solutions won't need `as any` casts; tests become more precise.
+
+---
+
+### 13. Enforce Strict Types in github-rest (Mal — 2026-03-06)
+
+**Status:** Accepted
+
+**Context:** During code review of `sample-health-check`, found widespread `as any` casts forced by lack of return types in `github-rest`.
+
+**Decision:**
+1. `github-rest` must export complete types for all entities it returns (`Repository`, `WorkflowRun`, `CommunityProfile`, etc.)
+2. Solutions must not use `as any` for API responses — if a field is missing, the type must be updated
+3. Endpoints must explicitly return typed Promises (e.g., `Promise<Repository>`), not `Promise<any>`
+
+**Consequences:**
+- **Immediate:** sample-health-check rejected until types are fixed
+- **Long-term:** Cleaner, safer code in solutions; less runtime debugging of "undefined" fields
+- **Action:** Zoe assigned to add types to actions.ts + contents.ts; Kaylee removes as-any casts from sample-health-check
+
+**Implementation Status:**
+- ✅ Zoe completed: 6 new interfaces (Workflow, WorkflowRun, WorkflowsResponse, WorkflowRunsResponse, ContentItem, ContentFile)
+- ✅ Kaylee completed: removed 8 `as any` casts from sample-health-check; created 3 local bridge interfaces for still-untyped endpoints
+- ⏳ Next phase: types for alerts.ts, security.ts (per Decision #8 roadmap)
+
+---
+
+### 14. Local Type Bridges for Untyped github-rest Returns (Kaylee — 2026-03-06)
+
+**Status:** Accepted
+
+**Context:** While eliminating `as any` casts, three github-rest endpoints return `unknown`: `listDependabotAlerts`, `getAutomatedSecurityFixes`, `getBranchProtection`. Additionally, `Repository` type is missing fields like `description` and `open_issues_count`.
+
+**Decision:**
+
+**Short term:** Solutions create minimal local interfaces (`DependabotAlert`, `AutomatedSecurityFixesResponse`, `RepoData`) that type only the fields they access. Eliminates `as any` without blocking on github-rest type completeness.
+
+**Medium term (tech debt):** Replace local types once github-rest endpoints get proper return types (Decision #8). When complete, solutions delete local interfaces and import from github-rest directly.
+
+**Implications:**
+- All new solutions should follow this pattern: create local minimal interfaces rather than using `as any` for untyped returns
+- When github-rest adds types for alerts/security endpoints, grep across solutions and replace local bridges
+- Add `description` and `open_issues_count` to `Repository` type (non-breaking) to eliminate RepoData bridges
 
 ---
 
