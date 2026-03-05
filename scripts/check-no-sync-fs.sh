@@ -25,10 +25,10 @@ if command -v git >/dev/null 2>&1; then
   set +e
   if [ "$INCLUDE_SCRIPTS" -eq 1 ]; then
     # scan packages, solutions, and scripts
-    matches=$(git grep -n -E "$PATTERN" -- 'packages/*' 'solutions/*' 'scripts' || true)
+    matches=$(git grep -n -E "$PATTERN" -- 'packages/*' 'solutions/*' 'scripts' ':!.squad/*' || true)
   else
     # scan only packages and solutions
-    matches=$(git grep -n -E "$PATTERN" -- 'packages/*' 'solutions/*' || true)
+    matches=$(git grep -n -E "$PATTERN" -- 'packages/*' 'solutions/*' ':!.squad/*' || true)
   fi
   set -e
 fi
@@ -36,9 +36,9 @@ fi
 if [ -z "$matches" ]; then
   set +e
   if [ "$INCLUDE_SCRIPTS" -eq 1 ]; then
-    matches=$(grep -R -nE --exclude-dir=".git" --exclude-dir=".github" --exclude-dir="node_modules" --exclude-dir="dist" --exclude-dir="generated" "$PATTERN" packages solutions scripts . || true)
+    matches=$(grep -R -nE --exclude-dir=".git" --exclude-dir=".github" --exclude-dir=".squad" --exclude-dir="node_modules" --exclude-dir="dist" --exclude-dir="generated" "$PATTERN" packages solutions scripts . || true)
   else
-    matches=$(grep -R -nE --exclude-dir=".git" --exclude-dir=".github" --exclude-dir="node_modules" --exclude-dir="dist" --exclude-dir="generated" --exclude-dir="scripts" "$PATTERN" packages solutions . || true)
+    matches=$(grep -R -nE --exclude-dir=".git" --exclude-dir=".github" --exclude-dir=".squad" --exclude-dir="node_modules" --exclude-dir="dist" --exclude-dir="generated" --exclude-dir="scripts" "$PATTERN" packages solutions . || true)
   fi
   set -e
 fi
