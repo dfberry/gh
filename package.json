@@ -37,7 +37,8 @@
     "gh-cleanup:evaluate-actions": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- evaluate-actions'",
     "gh-cleanup:gather": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- gather'",
     "gh-cleanup:evaluate": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- evaluate'",
-    "gh-cleanup:change": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- change'"
+    "gh-cleanup:change": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- change'",
+    "security-audit": "node --env-file \"./.env\" solutions/security-audit-repos/dist/cli.js --input ./active-sample-repos.json --out ./generated/security-audit --verbose"
   },
   "devDependencies": {
     "@types/node": "^25.0.9",

@@ -1,4 +1,4 @@
-import { GitHubClient } from 'src/index.js';
+import type { GitHubClient } from '../core/client.js';
 
 /**
  * Returns the list of organizations the authenticated user has access to.

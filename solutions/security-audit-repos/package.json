@@ -1,0 +1,27 @@
+{
+  "name": "security-audit-repos",
+  "version": "0.1.0",
+  "description": "Unified security posture scanner that establishes a measurement baseline for GitHub repositories",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "security-audit-repos": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file .env dist/cli.js",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "github-rest": "file:../../packages/github-rest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

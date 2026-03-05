@@ -5,6 +5,10 @@ export * as prcomments from './endpoints/user-pr-comments.js';
 export * as actions from './endpoints/actions.js';
 export * as user from './endpoints/user.js';
 export * as security from './endpoints/security.js';
+export * as alerts from './endpoints/alerts.js';
+export * as contents from './endpoints/contents.js';
+export * as orgs from './endpoints/orgs.js';
+export * as issues from './endpoints/issues.js';
 
 export { GitHubClient } from './core/client.js';
 export * as errors from './core/errors.js';
