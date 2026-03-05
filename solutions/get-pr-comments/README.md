@@ -38,7 +38,7 @@ export GH_TOKEN=$(gh auth token)
 npm run start -- owner repo 123
 ```
 
-**Note:** If no token is provided and the repository is private, the command will return empty arrays without an error message.
+**Note:** If token authentication fails (expired/revoked/missing access), the CLI now prints GitHub API status and message details.
 
 ## Usage (Library)
 
@@ -54,3 +54,4 @@ console.log(comments);
 Returns an object:
 - `issueComments`: Array of general comments on the PR
 - `reviewComments`: Array of code review comments
+- `reviews`: Array of PR review entries (for example, approve/request-changes comments)
