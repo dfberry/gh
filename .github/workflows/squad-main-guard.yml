@@ -74,10 +74,24 @@ jobs:
               .filter(f => f.status !== 'removed')
               .map(f => f.filename)
               .filter(f => {
-                // .ai-team/** and .squad/** — ALL team state files, zero exceptions
-                if (f === '.ai-team' || f.startsWith('.ai-team/') || f === '.squad' || f.startsWith('.squad/')) return true;
+                // .ai-team/** — legacy team state, block all
+                if (f === '.ai-team' || f.startsWith('.ai-team/')) return true;
                 // .ai-team-templates/** — Squad's own templates, stay on dev
                 if (f === '.ai-team-templates' || f.startsWith('.ai-team-templates/')) return true;
+
+                // .squad/ — ALLOWLIST approach: block only noisy runtime state.
+                // Team knowledge files (charters, history, decisions, skills, etc.)
+                // MUST flow through main so branches can share memory via merge.
+                if (f.startsWith('.squad/')) {
+                  const blockedPrefixes = [
+                    '.squad/orchestration-log/',  // per-spawn routing evidence
+                    '.squad/log/',                // session logs
+                    '.squad/decisions/inbox/',     // temporary drop-box files
+                    '.squad/sessions/',            // session state
+                  ];
+                  return blockedPrefixes.some(prefix => f.startsWith(prefix));
+                }
+
                 // team-docs/** — ALL internal team docs, zero exceptions
                 if (f.startsWith('team-docs/')) return true;
                 // docs/proposals/** — internal design proposals, stay on dev
@@ -95,8 +109,10 @@ jobs:
               '## 🚫 Forbidden files detected in PR to main',
               '',
               'The following files must NOT be merged into `main`.',
-              '`.ai-team/` and `.squad/` are runtime team state — they belong on dev branches only.',
+              '`.ai-team/` is legacy team state — it belongs on dev branches only.',
               '`.ai-team-templates/` is Squad\'s internal planning — it belongs on dev branches only.',
+              '`.squad/orchestration-log/`, `.squad/log/`, `.squad/decisions/inbox/`, `.squad/sessions/` are noisy runtime state — they belong on dev branches only.',
+              '> Note: Other `.squad/` files (charters, history, decisions, skills, templates) ARE allowed on main to enable team knowledge sharing.',
               '`team-docs/` is internal team content — it belongs on dev branches only.',
               '`docs/proposals/` is internal design proposals — it belongs on dev branches only.',
               '',
@@ -110,20 +126,20 @@ jobs:
               '# Remove tracked .ai-team/ files (keeps local copies):',
               'git rm --cached -r .ai-team/',
               '',
-              '# Remove tracked .squad/ files (keeps local copies):',
-              'git rm --cached -r .squad/',
+              '# Remove noisy .squad/ runtime files (keeps local copies):',
+              'git rm --cached -r .squad/orchestration-log/ .squad/log/ .squad/decisions/inbox/ .squad/sessions/',
               '',
               '# Remove tracked team-docs/ files:',
               'git rm --cached -r team-docs/',
               '',
               '# Commit the removal and push:',
-              'git commit -m "chore: remove forbidden paths from PR"',
+              'git commit -m "chore: remove forbidden runtime paths from PR"',
               'git push',
               '```',
               '',
-              '> ⚠️ `.ai-team/` and `.squad/` are committed on `dev` and feature branches by design.',
-              '> The guard workflow is the enforcement mechanism that keeps these files off `main` and `preview`.',
-              '> `git rm --cached` untracks them from this PR without deleting your local copies.',
+              '> ⚠️ `.squad/` knowledge files (charters, history, decisions.md, skills, templates) flow through main by design.',
+              '> Only noisy runtime state (logs, sessions, inbox) is blocked.',
+              '> The guard workflow enforces this boundary. `git rm --cached` untracks files from this PR without deleting local copies.',
             ];
 
             core.setFailed(lines.join('\n'));

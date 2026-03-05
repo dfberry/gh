@@ -56,6 +56,8 @@ generated/
 
 
 **/tsconfig.tsbuildinfo*
-# Squad: ignore generated logs
+# Squad: ignore noisy runtime state (never committed anywhere)
 .squad/orchestration-log/
 .squad/log/
+.squad/decisions/inbox/
+.squad/sessions/
