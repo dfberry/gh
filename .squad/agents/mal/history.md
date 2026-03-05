@@ -19,3 +19,39 @@
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-03-05 — SMART Goal Strategy Analysis
+
+**Architecture gaps found:**
+- `alerts.ts` (dependabot, code-scanning, secret-scanning, security advisories) is **implemented but not exported** from `packages/github-rest/src/index.ts`
+- `contents.ts` (getRootContents) is **implemented but not exported**
+- `orgs.ts` (getUserOrganizations) is **implemented but not exported**
+- No `issues.ts` endpoint exists — need `createIssue`, `listIssues`, `updateIssue`, `addLabelsToIssue` for automated work item creation
+- Solution pattern: each solution has `src/index.ts` (library), `src/cli.ts` (CLI), optional `prompts/` dir, deps on `github-rest` and/or `llm-completion` via `file:` references
+
+**Key decisions:**
+- Proposed 6 new solutions to accelerate SMART goal #1.2 (reduce security/operational issues by 25%)
+- Priority order: security-audit-repos → sample-health-check → create-remediation-issues → pr-feedback-aggregator → azure-best-practices-check → sample-auto-fix
+- First step before any solution: fix `github-rest` exports and add `issues.ts` endpoint
+- Measurement strategy: run security-audit monthly, store baselines in `generated/security-audit/`, track reduction percentage
+
+**User preferences (Dina):**
+- Two explicit focus areas: "PR comments → Instruction file" at scale, and "Analyze state of sample → automate changes"
+- SMART goal emphasizes Azure MCP Best Practices integration as a detection tool
+- Goal timeline: prototype by end of Jan 2025, fully operational Q1 2026
+- Decision doc written to `.squad/decisions/inbox/mal-smart-goal-strategy.md`
+
+### 2026-03-05 — Cross-Agent Context (Wash & Kaylee)
+
+**From Wash (Solutions Dev):**
+- Solution composition pattern: `src/index.ts` (exported function) + `src/cli.ts` (CLI) + optional `prompts/` directory
+- Bot filtering & importance scoring from `get-instruction-from-pr-comments` should be extracted as reusable skill
+- All 5 new solutions blocked by github-rest changes: must add `issues.ts`, extend `alerts.ts`, need `git.ts` for auto-fix
+- File structure convention: output files `{owner}-{repo}-{context}.{ext}`, dependencies via `file:` references
+
+**From Kaylee (Core Dev):**
+- **CRITICAL BUG:** `permissions.ts:16` — `getBranchProtection` calls itself infinitely; must fix to delegate to `security.getBranchProtection`
+- Current inventory: 40+ functions; needed: ~45 additional functions across 4 new modules (issues, commits, trees, environments) + extensions to alerts/security/repos
+- LLM enhancements needed: structured analyzers (code security, remediation generation, prioritization), system prompt support
+- CLI command patterns: 5 new commands following gather/evaluate/change pattern
+- `getContents` in repos.ts doesn't auto-decode base64 — needs `getDecodedFileContent` helper
