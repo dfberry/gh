@@ -89,9 +89,151 @@
 
 ---
 
+### 4. Phase 1 github-rest Fixes (Kaylee — 2026-03-05)
+
+**Status:** Implemented
+
+**Context:** Phase 1 of the SMART goal rollout was blocked by three issues in `packages/github-rest`.
+
+**Changes:**
+1. **Fixed `getBranchProtection` recursive bomb** — Was calling itself infinitely. Now calls GitHub API directly via `client.get(/repos/{owner}/{repo}/branches/{branch}/protection)`. Removed unused `security` import.
+2. **Fixed `orgs.ts` circular import** — Changed `'src/index.js'` to `'../core/client.js'` and used `import type`. Matches established convention across all endpoint modules.
+3. **Created `issues.ts` endpoint module** — 7 functions: `createIssue`, `listIssues`, `getIssue`, `updateIssue`, `addLabelsToIssue`, `createLabel`, `listLabels`. Full TypeScript interfaces: `GitHubIssue`, `GitHubLabel`, `CreateIssueOptions`, `UpdateIssueOptions`, `ListIssuesOptions`. Follows existing patterns (import type from `../core/client.js`, named exports, `.js` ESM extensions).
+4. **Exported missing modules from `index.ts`** — Added: `export * as alerts from ...`, `export * as contents from ...`, `export * as orgs from ...`, `export * as issues from ...`
+
+**Build Verified:** `npm run build` passes with zero errors.
+
+**Impact:** All five planned solutions can now import alerts, contents, orgs, and issues from github-rest. The `getBranchProtection` function is safe to call.
+
+---
+
+### 5. Phase 1 Test Infrastructure for github-rest (Zoe — 2026-03-05)
+
+**Status:** Implemented
+
+**Context:** `packages/github-rest` had zero tests and no test infrastructure. Phase 1 fixes (permissions bug, issues.ts module, index exports) all need test coverage.
+
+**Decisions:**
+1. **Vitest added as devDependency** to `packages/github-rest` with `vitest.config.ts` and updated scripts (`test`, `test:watch`).
+2. **Mock pattern established:** A `createMockClient()` factory returning `vi.fn()` stubs for all `GitHubClient` methods. This is the canonical pattern for all future endpoint tests.
+3. **Test files colocated:** `permissions.test.ts`, `issues.test.ts` next to source; `index.test.ts` at package root `src/`.
+4. **35 tests total** covering success, error propagation, parameter passing, and export validation:
+   - `permissions.test.ts`: 6 tests (getBranchProtection fix, branch encoding, error propagation, module mocking)
+   - `issues.test.ts`: 18 tests (all 7 functions, success paths, error cases)
+   - `index.test.ts`: 11 tests (namespace export validation, function availability)
+
+**Key Learnings:**
+- Branch encoding: `feature/test` → `feature%2Ftest` in URLs (safety measure for branch names with `/`)
+- Namespace exports require `export * as foo from ...` + typeof checks in tests
+- Module graph for permissions: permissions → repos + security (requires mocking)
+- Canonical mock shape: all `GitHubClient` methods as `vi.fn()` with proper cast as `GitHubClient`
+
+**Test Results:** ✅ 35/35 tests pass
+
+**Implications:**
+- All future endpoint modules should follow the same mock pattern
+- `npm run test` in `packages/github-rest` now runs real tests
+- CI should be updated to include this package in test runs
+
+---
+
+### 6. security-audit-repos Implementation Pattern (Wash — 2026-03-05)
+
+**Status:** Implemented
+
+**Context:** Built the P0 solution from SMART goal strategy to establish measurement baseline.
+
+**Architectural Decisions:**
+
+1. **Graceful Degradation Pattern** — Use `Promise.allSettled` for parallel endpoint calls instead of `Promise.all`
+   - Allows capture of "not enabled" status (404s) rather than failing entire audit
+   - Continues processing other signals even if one endpoint fails
+   - Distinguishes "feature disabled" vs "API error"
+
+2. **Weighted Security Scoring** — Start at 100 points, subtract penalties:
+   - Critical Dependabot: -20 (highest impact)
+   - Secret scanning: -15 (immediate risk)
+   - High Dependabot: -10
+   - Code scanning: -10
+   - Branch protection missing: -25 (fundamental control)
+   - Auto-fix disabled: -10
+   - Medium Dependabot: -5
+   - Score floor at 0 (prevents negatives)
+
+3. **Dual Output Formats** — Support JSON (structured data) + Markdown (human-readable) in one run
+   - JSON enables programmatic analysis, trend tracking, CI integration
+   - Markdown provides immediate human review and prioritization
+   - Both generated from same audit data — no duplication
+
+4. **Error Handling Philosophy** — Continue-on-error at repo level, fail-fast at solution level
+   - Invalid repo names: skip with warning, continue batch
+   - Missing permissions: capture what's available, mark as "not enabled"
+   - Network errors: fail entire run (auth likely invalid)
+
+**Outcomes:**
+- Unblocks Phase 1 measurement baseline establishment
+- Monthly audit tracking for "25% reduction" metric
+- Reusable patterns: Promise.allSettled, weighted scoring, dual-format output
+
+**Files Created:**
+- `solutions/security-audit-repos/src/index.ts` (library API)
+- `solutions/security-audit-repos/src/cli.ts` (CLI entry point)
+- `solutions/security-audit-repos/README.md` (docs)
+- `solutions/security-audit-repos/package.json`, `tsconfig.json`, `sample.env`
+
+**Next Steps:**
+1. Run first baseline audit on production repos
+2. Store output in `generated/security-audit/{timestamp}-audit.json`
+3. Add CI job for monthly automated runs
+4. Use baseline to measure Phase 2-4 improvements
+
+---
+
+### 7. Solution Test Patterns — Test-First for security-audit-repos (Zoe — 2026-03-05)
+
+**Status:** Implemented
+
+**Context:** Built comprehensive test suite **before** implementation completed using test-first approach.
+
+**Pattern: Test-First for Solution Packages**
+
+When building solution packages that compose github-rest endpoints, write tests first to:
+1. Define API contract (function signatures, types, return shapes)
+2. Document expected behavior through test cases
+3. Establish scoring/aggregation logic requirements
+4. Identify edge cases early
+
+**Mock Strategy:**
+- **Module-level mocking:** Use `vi.mock('github-rest')` to mock entire imported modules
+- **Different from endpoint tests:** Endpoint tests mock `GitHubClient` methods; solution tests mock endpoint modules
+- **Realistic responses:** Mock return values match actual GitHub API response shapes
+
+**Test Coverage — 25 Tests Total:**
+- **Single repo audit** (6 tests): success, 404 handling, perfect score, error cases, invalid names, metadata failure
+- **Scoring algorithm** (9 tests): each penalty type, cumulative deductions, score floor enforcement
+- **Multi-repo aggregation** (5 tests): multiple repos, averages, empty list, single repo edge case, sort order
+- **Summary generation** (3 tests): string output, key metrics, empty report
+- **Type contracts** (2 tests): interface validation, export checks
+
+**Key Test Patterns:**
+- Defined precise penalty values as test cases (contract documentation)
+- 404 error handling tests for disabled features
+- Score floor tests (excessive alerts)
+- Mixed feature availability across repos
+
+**Result:** 25/25 tests passing
+
+**Implications:**
+- All future solution packages should follow this pattern
+- Test files define contracts before implementation begins
+- Tests serve as documentation of expected behavior
+- Can run tests while implementation in progress
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
-- Decisions merged from inbox monthly
+- Decisions merged from inbox monthly (2026-03-05 merge complete)

@@ -49,3 +49,34 @@
 - All 5 new solutions blocked by github-rest changes: must add issues.ts, extend alerts.ts, add git.ts for auto-fix
 - Clone + branch + PR pattern from move-between-repos is template for sample-auto-fix
 - Output file naming: `{owner}-{repo}-{context}.{ext}`; deps via `file:` references
+
+### 2026-03-05 — Phase 1 Fixes: Unblock security-audit-repos
+
+**Fix 1 — `permissions.ts:16` recursive bomb:**
+- `getBranchProtection` was calling itself → infinite stack overflow. Fixed to call `client.get(/repos/{owner}/{repo}/branches/{branch}/protection)` directly.
+- Removed unused `security` import since the fix makes the direct API call rather than delegating.
+
+**Fix 2 — Missing exports in `index.ts`:**
+- Added namespace exports: `alerts`, `contents`, `orgs` — all three modules were implemented but invisible to consumers.
+- Also fixed `orgs.ts` import path: was `'src/index.js'` (broken circular), changed to `'../core/client.js'`.
+
+**Fix 3 — New `issues.ts` endpoint module:**
+- Created `packages/github-rest/src/endpoints/issues.ts` with 7 functions: `createIssue`, `listIssues`, `getIssue`, `updateIssue`, `addLabelsToIssue`, `createLabel`, `listLabels`.
+- Full TypeScript interfaces: `GitHubIssue`, `GitHubLabel`, `CreateIssueOptions`, `UpdateIssueOptions`, `ListIssuesOptions`.
+- Follows existing patterns: `import type` for client, `client.get/post/patch`, named exports only, `.js` ESM extensions.
+- Added `export * as issues from './endpoints/issues.js'` to `index.ts`.
+
+**Build verified:** `npm run build` passes with zero errors.
+
+**Key files touched:**
+- `packages/github-rest/src/endpoints/permissions.ts` (bug fix)
+- `packages/github-rest/src/endpoints/orgs.ts` (import fix)
+- `packages/github-rest/src/endpoints/issues.ts` (new)
+- `packages/github-rest/src/index.ts` (4 new exports)
+
+**Cross-Agent Update (Zoe — Tester):**
+- Zoe wrote 35 comprehensive tests across 3 test files: `permissions.test.ts` (6 tests), `issues.test.ts` (18 tests), `index.test.ts` (11 tests)
+- **All tests passing: 35/35 ✅**
+- Vitest infrastructure bootstrapped with mock pattern for GitHubClient
+- Key learnings: branch encoding (`feature/test` → `feature%2Ftest`), namespace exports require `export * as foo from ...` + typeof checks, module graph (permissions → repos + security) requires mock layering
+- Canonical mock shape documented: all GitHubClient methods as `vi.fn()` cast as unknown as GitHubClient
