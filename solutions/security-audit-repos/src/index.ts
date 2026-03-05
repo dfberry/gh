@@ -139,11 +139,10 @@ export async function auditRepo(
     console.log(`  Auditing ${owner}/${repo}...`);
   }
 
-  // Get repository metadata for default branch
+  // Get repository default branch using shared helper (DRY)
   let defaultBranch = 'main';
   try {
-    const repoData = await repos.getRepo(client, owner, repo) as any;
-    defaultBranch = repoData.default_branch || 'main';
+    defaultBranch = await repos.getDefaultBranch(client, owner, repo) ?? 'main';
   } catch (error) {
     if (verbose) {
       console.log(`    ⚠ Could not fetch repo metadata: ${(error as Error).message}`);

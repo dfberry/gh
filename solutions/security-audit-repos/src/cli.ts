@@ -16,7 +16,8 @@ import * as path from 'path';
  *   --verbose        - Enable verbose logging
  * 
  * Environment Variables:
- *   GITHUB_TOKEN - Required: GitHub personal access token
+ *   GITHUB_TOKEN - Required: GitHub personal access token (primary)
+ *   GH_TOKEN     - Fallback if GITHUB_TOKEN is not set
  * 
  * Output:
  *   Generates timestamped files in output directory:
@@ -60,10 +61,10 @@ async function main() {
     }
   }
 
-  // Check for GitHub token
-  const token = process.env.GITHUB_TOKEN;
+  // Check for GitHub token (GITHUB_TOKEN primary, GH_TOKEN fallback)
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
   if (!token) {
-    console.error('Error: GITHUB_TOKEN environment variable is required');
+    console.error('Error: GITHUB_TOKEN or GH_TOKEN environment variable is required');
     console.error('Set it in your .env file or export it in your shell');
     process.exit(1);
   }
@@ -187,7 +188,8 @@ Options:
   --help, -h       Show this help message
 
 Environment Variables:
-  GITHUB_TOKEN     Required: GitHub personal access token
+  GITHUB_TOKEN     Required: GitHub personal access token (primary)
+  GH_TOKEN         Fallback if GITHUB_TOKEN is not set
 
 Example:
   security-audit-repos --input repos.json --out reports --format both --verbose
