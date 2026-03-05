@@ -13,7 +13,7 @@ export async function getDefaultBranchProtection(client: GitHubClient, owner: st
   return getBranchProtection(client, owner, repo, branch);
 }
 export async function getBranchProtection(client: GitHubClient, owner: string, repo: string, branch: string) {
-  return getBranchProtection(client, owner, repo, branch);
+  return client.get(`/repos/${owner}/${repo}/branches/${encodeURIComponent(branch)}/protection`);
 }
 
 export async function getCollaborators(client: GitHubClient, owner: string, repo: string) {

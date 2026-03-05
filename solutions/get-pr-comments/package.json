@@ -15,6 +15,7 @@
     "github-rest": "file:../../packages/github-rest"
   },
   "devDependencies": {
+    "@bradygaster/squad-cli": "^0.8.20",
     "typescript": "^5.0.0"
   },
   "type": "module"
