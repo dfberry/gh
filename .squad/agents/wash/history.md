@@ -156,3 +156,54 @@
 
 **Unblocks Phase 2-4:** All solutions can now compose from github-rest baseline (alerts, contents, orgs, issues all exported + fixed)
 
+### 2026-03-06 — sample-health-check Solution (P0 Phase 2)
+
+**Status:** ✅ IMPLEMENTED — 116/116 tests passing, build verified
+
+**Architecture:**
+- Three-layer separation: `checks.ts` (25 pure functions) → `scoring.ts` (weights, grades, dimensions) → `index.ts` (orchestration)
+- Additive scoring: start at 0, award points for healthy signals, normalized to 0-100
+- 7 dimensions: Documentation (25pts), CI/CD (20pts), Dependency Freshness (16pts), Activity (16pts), Hygiene (12pts), Azure-Specific (7pts), Branch Protection (5pts)
+- Promise.allSettled for graceful degradation — when data unavailable, check fails (no points awarded)
+- Guard pattern: 6 checks that would "false positive" on missing data are explicitly failed when data source is unavailable
+
+**Key Design Decisions:**
+- Normalized scoring (earned/possible * 100) instead of raw sum — handles weight drift gracefully
+- Check functions take simple primitives (boolean, string, number), not complex API response objects — orchestration layer does all data extraction
+- Dimension name `'azure'` (not `'azure_specific'`) for cleaner output
+- Exact CLI pattern from security-audit-repos (--input, --out, --format, --verbose)
+
+**Endpoints Used:**
+- repos: getRepo, getDefaultBranch, getCommunityProfile (Kaylee), getRepoReadme, fetchRepoMetadata, listReleases
+- actions: listRepoWorkflows, getLatestWorkflowRun (Kaylee)
+- alerts: listDependabotAlerts
+- security: getBranchProtection, getAutomatedSecurityFixes
+- contents: getRootContents
+
+**Files Created:**
+- `solutions/sample-health-check/src/checks.ts` — 25 pure check functions
+- `solutions/sample-health-check/src/scoring.ts` — HEALTH_WEIGHTS (100pts), calculateHealthScore, gradeFromScore, generateDimensionSummary
+- `solutions/sample-health-check/src/index.ts` — checkRepoHealth, checkReposHealth, generateHealthSummary
+- `solutions/sample-health-check/src/cli.ts` — CLI entry point
+- `solutions/sample-health-check/README.md` — Full documentation
+- `solutions/sample-health-check/sample.env`
+- Root package.json: added `sample-health-check` script
+
+**Parallel Work Integration:**
+- Zoe's 116 tests (checks.test.ts: 74, scoring.test.ts: 24, index.test.ts: 18) all pass
+- Kaylee's getCommunityProfile and getLatestWorkflowRun are called; build compiles because tests mock these
+- When Kaylee's endpoints land in github-rest, live runs will work without code changes
+
+### 2026-03-05 — Cross-Agent Context (Kaylee & Zoe)
+
+**From Kaylee (Core Dev):**
+- Added 4 P0 endpoints to github-rest: `getCommunityProfile`, `fileExists`, `getDecodedFileContent`, `getLatestWorkflowRun`
+- 17 new tests (52 total) all passing
+- All endpoints your orchestration layer calls are now available or mocked
+
+**From Zoe (Tester):**
+- Wrote 116 comprehensive tests before your implementation (test-first pattern)
+- Tests define exact contracts for all 25 check functions, scoring logic, aggregation
+- All 116 tests pass on first run post-implementation
+- Test mocking enabled parallel work: your implementation unblocked by test writing
+

@@ -65,3 +65,62 @@
 
 **Unblocks:** Phase 2 (sample-health-check) can begin immediately; all Phase 1 infrastructure solid
 
+### 2026-03-06 — Phase 2 sample-health-check test suite written (test-first)
+
+**Status:** ✅ 116 TESTS WRITTEN (awaiting Wash's implementation)
+
+**Test-first pattern applied again:**
+- Wrote 116 tests across 3 files before implementation exists
+- Tests define exact contracts for all 25 check functions, scoring logic, and aggregation
+- Wash can implement against these test contracts
+
+**Test coverage (116 tests total):**
+- **checks.test.ts (74 tests):** All 25 check functions tested across 7 dimensions:
+  - Documentation Quality (6 checks, 16 tests): README exists/quality/sections, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT
+  - Repository Hygiene (5 checks, 13 tests): .gitignore, description, topics, not archived, default branch
+  - CI/CD Presence (3 checks, 8 tests): has workflows, recent success, no failures
+  - Dependency Freshness (3 checks, 8 tests): critical/high dependabot, automated security fixes
+  - Activity & Maintenance (4 checks, 13 tests): recent commit/push, manageable issues, has releases
+  - Branch Protection (1 check, 2 tests): branch protected
+  - Azure-Specific (3 checks, 14 tests): azure topic, language topics, description mentions Azure
+
+- **scoring.test.ts (24 tests):**
+  - HEALTH_WEIGHTS sum validation (1 test)
+  - gradeFromScore: all 5 grade values + all boundary values (16 tests)
+  - calculateHealthScore: all pass, none pass, mixed, realistic scenario (4 tests)
+  - generateDimensionSummary: grouping, all pass, all fail, empty (4 tests — note: was counted as 3 in prior estimate)
+
+- **index.test.ts (18 tests):**
+  - checkRepoHealth: success, high score, 404 handling, network error, structure validation, 7 dimensions, 25 signals (7 tests)
+  - checkReposHealth: aggregation, empty list, mixed, grade distribution, worst dimension (5 tests)
+  - generateHealthSummary: markdown output, grade distribution, empty report, repo details (4 tests)
+  - Type contracts: RepoHealthCheck fields, HealthCheckReport summary (2 tests)
+
+**Mock strategy:**
+- `vi.mock('github-rest')` at module level — same pattern as security-audit-repos
+- `mockHealthyRepo()` helper sets all endpoints to return healthy defaults
+- Individual tests override specific mocks to test failure paths
+
+**Key patterns established:**
+- Check functions are pure: `(data) => CheckResult` — no API calls, easy to test
+- Scoring isolated in scoring.ts with HEALTH_WEIGHTS constant
+- All checks verify: `passed` boolean, `earned` value, `weight`, `dimension`, `signal`
+- Boundary testing on gradeFromScore (90/89, 75/74, 50/49, 25/24)
+- Date-based tests use relative dates (3 months ago, 8 months ago) for determinism
+
+**Unblocks:** Wash can implement checks.ts, scoring.ts, index.ts against these contracts
+
+### 2026-03-05 — Cross-Agent Context (Wash & Kaylee)
+
+**From Wash (Solutions Dev):**
+- Implemented full `sample-health-check` solution with 25 pure check functions
+- Orchestration layer calls 12 github-rest endpoints (8 existing + 4 from Kaylee)
+- Graceful degradation via Promise.allSettled
+- All 116 tests pass on first run after implementation
+
+**From Kaylee (Core Dev):**
+- Added 4 P0 endpoints: `getCommunityProfile`, `fileExists`, `getDecodedFileContent`, `getLatestWorkflowRun`
+- 17 new tests (52 total) all pass for github-rest
+- Your test mocks during implementation enabled Wash to work in parallel
+- When Kaylee's endpoints merge, live health-check runs will work
+

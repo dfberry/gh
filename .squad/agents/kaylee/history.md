@@ -109,3 +109,46 @@
 - `getRepo()` already returns `license` field — dedicated `getLicense()` endpoint is P2 nice-to-have
 
 **Output:** Wrote `.squad/decisions/inbox/kaylee-health-check-audit.md` with full gap analysis, code samples, priority rankings, and phased recommendation for Wash.
+
+### 2026-03-05 — P0 Health-Check Endpoints Implemented
+
+**Scope:** Added 4 new endpoint functions to `packages/github-rest` to unblock `sample-health-check` solution.
+
+**New Functions:**
+1. **`getCommunityProfile(client, owner, repo)`** in `repos.ts` — wraps `GET /repos/{owner}/{repo}/community/profile`, returns typed `CommunityProfile` interface with `health_percentage`, `files` (code_of_conduct, contributing, license, readme, etc.)
+2. **`fileExists(client, owner, repo, path)`** in `contents.ts` — convenience wrapper around `getContents()`, returns `boolean` (404 → false, content → true, other errors → throw)
+3. **`getDecodedFileContent(client, owner, repo, path)`** in `contents.ts` — decodes base64 file content to UTF-8 string (404 → null, success → string, errors → throw)
+4. **`getLatestWorkflowRun(client, owner, repo, workflowId)`** in `actions.ts` — uses `listWorkflowRuns` with per_page=1, returns single run or null
+
+**Also fixed:** `actions.ts` was using value import (`import { GitHubClient }`) instead of type import — changed to `import type { GitHubClient }` to match project convention.
+
+**Exports added to `index.ts`:** `getCommunityProfile`, `CommunityProfile`, `CommunityProfileFiles`, `fileExists`, `getDecodedFileContent`, `getLatestWorkflowRun` — all as named exports plus namespace access through existing `repos`, `contents`, `actions` namespaces.
+
+**Tests written (17 new, 52 total):**
+- `repos.test.ts` — 3 tests: community profile success, perfect health score, error propagation
+- `contents.test.ts` — 9 tests: fileExists (true, 404→false, non-404 throw, nested paths) + getDecodedFileContent (decode, 404→null, empty content→null, non-404 throw, default encoding fallback)
+- `actions.test.ts` — 5 tests: latest run success, no runs→null, missing workflow_runs→null, numeric IDs, error propagation
+
+**Build & Test:** ✅ `npm run build` zero errors, ✅ 52/52 tests pass
+
+**Key files touched:**
+- `packages/github-rest/src/endpoints/repos.ts` (added `CommunityProfile` types + `getCommunityProfile`)
+- `packages/github-rest/src/endpoints/contents.ts` (added `fileExists` + `getDecodedFileContent`)
+- `packages/github-rest/src/endpoints/actions.ts` (added `getLatestWorkflowRun`, fixed import type)
+- `packages/github-rest/src/index.ts` (new exports)
+- 3 new test files
+
+### 2026-03-05 — Cross-Agent Context (Wash & Zoe)
+
+**From Wash (Solutions Dev):**
+- Built full `sample-health-check` solution orchestrating your 4 new endpoints + 8 existing endpoints
+- 25 pure check functions across 7 dimensions (Documentation, Hygiene, CI/CD, Dependencies, Activity, Branch Protection, Azure-Specific)
+- Graceful degradation via Promise.allSettled; missing features don't fail checks
+- Follows security-audit-repos pattern (CLI, dual output format, continue-on-error)
+- Ready for production health-check baseline audits
+
+**From Zoe (Tester):**
+- Wrote 116 tests for sample-health-check before implementation (test-first pattern)
+- All tests use module-level mocking of github-rest, so parallel work unblocked
+- 116/116 tests now pass with Wash's implementation
+- Your 4 endpoints mocked during tests; live runs will work when endpoints merge
