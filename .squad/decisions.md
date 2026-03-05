@@ -231,6 +231,32 @@ When building solution packages that compose github-rest endpoints, write tests 
 
 ---
 
+### 8. github-rest Endpoint Return Types (Mal — 2026-03-05)
+
+**Status:** Proposed
+
+**Context:** During code review of `solutions/security-audit-repos/`, found three `as any` casts forced by lack of return types on `github-rest` endpoint functions:
+- `alerts.listDependabotAlerts()` returns `any`
+- `alerts.listCodeScanningAlerts()` returns `any`
+- `alerts.listSecretScanningAlerts()` returns `any`
+- `alerts.listRepositorySecurityAdvisories()` returns `any`
+- `security.getAutomatedSecurityFixes()` returns `any`
+- `security.getBranchProtection()` returns `any`
+
+This forces every consumer to either cast with `as any` or work blind. It accumulates with each new solution.
+
+**Decision:**
+1. All `alerts.ts` functions must define return types: `DependabotAlert[]`, `CodeScanningAlert[]`, `SecretScanningAlert[]`, `SecurityAdvisory[]`
+2. All `security.ts` functions must define return types: `BranchProtectionRule`, `AutomatedSecurityFixes`, etc.
+3. Types defined in `packages/github-rest/src/types/` and re-exported from package index
+4. Non-breaking change — adding return types narrows `any` to specific types
+
+**Priority:** Medium — track alongside Phase 2. Not blocking Phase 1 but accumulating tech debt.
+
+**Impact:** All current solutions benefit immediately; future solutions won't need `as any` casts; tests become more precise.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

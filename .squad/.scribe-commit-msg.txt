@@ -1,0 +1,18 @@
+squad: merge decision inbox + document code review findings
+
+- ORCHESTRATION LOG: Mal's code review of security-audit-repos solution (2026-03-05T22:31:53Z)
+  - APPROVED WITH NITS: M1 (DRY getDefaultBranch extraction), M2 (tech debt: endpoint return types)
+  - Minor: m1 (token env var standardization), m2 (unknown[] type precision)
+
+- SESSION LOG: Brief recap of review outcome and handoff items
+
+- DECISION MERGE: Moved `mal-github-rest-return-types.md` from inbox/ to decisions.md
+  - Proposed: Add TypeScript return types to alerts.ts and security.ts endpoint functions
+  - Priority: Medium (Phase 2+ tracking, non-blocking)
+  - No breaking changes — narrows `any` to specific types
+
+- CROSS-AGENT HISTORY: Updated wash/history.md and kaylee/history.md
+  - Wash: solution APPROVED for production; review nits documented
+  - Kaylee: incoming task to fix M1 (getDefaultBranch) and m1 (token standardization)
+
+Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>

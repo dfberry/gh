@@ -17,6 +17,20 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-05 — Code Review Nits: Extract getDefaultBranch + Token Standardization
+
+**From Mal's code review of security-audit-repos:**
+- **M1 (DRY):** `security-audit-repos/src/index.ts` calls `repos.getRepo()` just to extract `default_branch` — should extract dedicated `getDefaultBranch(client, owner, repo)` helper and move to `packages/github-rest/src/endpoints/repos.ts`, then export from index
+- **m1 (Token env var):** `solutions/security-audit-repos/sample.env` uses `GITHUB_TOKEN`; standardize across all solutions (this is the right choice, already established in gh-cleanup)
+
+**Task Status:** IN_PROGRESS (Kaylee fixing M1 + m1)
+- Extract `getDefaultBranch` from repos.ts pattern and add to index.ts exports
+- Update security-audit-repos to use new helper
+- Verify tests still pass
+
+**Tech Debt Filed:**
+- M2: alerts/security endpoint return types — proposed in `.squad/decisions.md` for Phase 2+ evaluation (Medium priority)
+
 ### 2026-03-05 — Deep Technical Audit for Security SMART Goal
 
 **Audit scope:** Full read of `packages/github-rest/src/` (10 endpoint files, core client, types, pagination), `packages/llm-completion/src/` (1 module), and all `packages/gh-cleanup/src/commands/` (16 commands).

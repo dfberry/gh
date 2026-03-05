@@ -55,3 +55,20 @@
 - LLM enhancements needed: structured analyzers (code security, remediation generation, prioritization), system prompt support
 - CLI command patterns: 5 new commands following gather/evaluate/change pattern
 - `getContents` in repos.ts doesn't auto-decode base64 — needs `getDecodedFileContent` helper
+
+### 2026-03-05 — Code Review: security-audit-repos Solution
+
+**Status:** APPROVE with nits
+
+**Scope:** Full architectural review for DRY compliance, package boundaries, pattern consistency, type hygiene, ESM compliance.
+
+**Key findings:**
+- ✅ Package boundary discipline solid — uses `github-rest` namespace imports correctly
+- ✅ ESM compliance clean — `fs/promises`, `.js` extensions, no sync FS
+- ✅ 25/25 tests passing with proper module-level mocking
+- ⚠️ DRY violation: `repos.getRepo()` + manual `default_branch` extraction when `repos.getDefaultBranch()` already exists
+- ⚠️ Three `as any` casts — one fixable via DRY fix, two from upstream missing return types in github-rest
+- ⚠️ Token env var inconsistency — only `GITHUB_TOKEN`, should also check `GH_TOKEN`
+- Tech debt tracked: github-rest `alerts.ts`/`security.ts` endpoints lack typed returns
+
+**Architecture note:** `repos.getDefaultBranch()` at `packages/github-rest/src/endpoints/repos.ts:6` is the canonical way to fetch default branch. Solutions must not duplicate this logic.

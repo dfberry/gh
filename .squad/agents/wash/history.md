@@ -11,12 +11,31 @@
 - `solutions/get-user-comments` — Extract user comment history across repos
 - `solutions/move-between-repos` — Move content (issues, files) between repositories
 - `solutions/get-instruction-from-pr-comments` — Extract actionable instructions from PR feedback using LLM
+- `solutions/security-audit-repos` — ✅ P0 BASELINE SECURITY SCANNER (APPROVED by Mal, 2026-03-05)
 - All solutions compose from `packages/github-rest` and `packages/llm-completion`
 - Philosophy: DRY — solutions are thin orchestrations, heavy lifting in packages
 
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-03-05 — Code Review: security-audit-repos Solution
+
+**Reviewer:** Mal (Lead)  
+**Outcome:** APPROVED WITH NITS
+
+**Major findings:**
+- **M1 (DRY):** Manual `repos.getRepo()` call to extract only `default_branch` field — should extract `getDefaultBranch(client, owner, repo)` helper to github-rest
+- **M2 (Tech Debt):** `alerts.listDependabotAlerts()`, `alerts.listCodeScanningAlerts()`, `alerts.listSecretScanningAlerts()`, `security.getAutomatedSecurityFixes()` return `any` — forces `as any` casts in solution. Decision filed to add return types to alerts/security modules
+
+**Minor findings:**
+- **m1:** Token env var inconsistency — standardize on `GITHUB_TOKEN` across all solutions (Kaylee fixing)
+- **m2:** `unknown[]` types in interfaces — replace with specific types (DependabotAlert[], CodeScanningAlert[], etc.)
+
+**Handoff:**
+- Kaylee fixing M1 (getDefaultBranch extraction) and m1 (token standardization) — background task
+- Wash's solution ready for production baseline audit runs
+- Scribe merged decision inbox and updated cross-agent history
 
 ### 2026-03-05 — Solution Design Deep Dive
 
