@@ -54,6 +54,7 @@ export async function fetchPRComments(
   owner: string,
   repo: string,
   options: FetchPRCommentsOptions,
+  verbose = false,
 ): Promise<PRComment[]> {
   let url = `/repos/${owner}/${repo}/pulls?state=all&sort=updated&per_page=100`;
   if (options.since) {
@@ -62,10 +63,16 @@ export async function fetchPRComments(
 
   let prs: any[];
   try {
+    if (verbose) {
+      console.log(`    ${owner}/${repo}: fetching PRs...`);
+    }
     prs = await client.get<any[]>(url);
   } catch (err: any) {
     if (err.status === 403) {
       throw new Error('GitHub API rate limit exceeded');
+    }
+    if (err.status === 401) {
+      throw new Error(`GitHub API error 401`);
     }
     throw err;
   }
@@ -214,8 +221,14 @@ export async function generateReport(
   client: GitHubClient,
   options: PRFeedbackOptions,
 ): Promise<AggregatedReport> {
+  const verbose = options.verbose ?? false;
+
   if (options.repos.length === 0) {
     return aggregateResults([]);
+  }
+
+  if (verbose) {
+    console.log(`  Analyzing ${options.repos.length} repositories...`);
   }
 
   const summaries: RepoFeedbackSummary[] = [];
@@ -230,27 +243,49 @@ export async function generateReport(
       comments = await fetchPRComments(client, owner, repo, {
         maxPRs: options.maxPRsPerRepo,
         since: options.since,
-      });
+      }, verbose);
 
       // Estimate PR count from unique prNumbers in comments
       const uniquePRs = new Set(comments.map((c) => c.prNumber));
       prCount = uniquePRs.size;
-    } catch (err: any) {
-      if (err.status === 404 || (err.message && err.message.includes('Not Found'))) {
-        summaries.push({
-          repo: fullRepo,
-          prCount: 0,
-          commentCount: 0,
-          patterns: [],
-        });
-        continue;
+
+      if (verbose) {
+        console.log(`    ✓ ${owner}/${repo}: ${prCount} PRs, ${comments.length} comments`);
       }
-      throw err;
+    } catch (err: any) {
+      const status = err.status ?? 0;
+      const message = err.message ?? String(err);
+      if (status === 404 || message.includes('Not Found')) {
+        if (verbose) {
+          console.log(`    ⚠ ${owner}/${repo}: not found, skipping`);
+        }
+      } else if (status === 401 || message.includes('401')) {
+        if (verbose) {
+          console.log(`    ⚠ ${owner}/${repo}: authentication failed (401), skipping`);
+        }
+      } else if (status === 403 || message.includes('rate limit')) {
+        if (verbose) {
+          console.log(`    ⚠ ${owner}/${repo}: rate limited (403), skipping`);
+        }
+      } else {
+        if (verbose) {
+          console.log(`    ⚠ ${owner}/${repo}: ${message}`);
+        }
+      }
+      summaries.push({
+        repo: fullRepo,
+        prCount: 0,
+        commentCount: 0,
+        patterns: [],
+      });
+      continue;
     }
 
     let patterns: FeedbackPattern[] = [];
     if (!options.dryRun && comments.length > 0) {
       patterns = await extractPatterns(comments);
+    } else if (options.dryRun && verbose) {
+      console.log(`    (dry-run: skipping LLM analysis)`);
     }
 
     summaries.push({
@@ -261,7 +296,13 @@ export async function generateReport(
     });
   }
 
-  return aggregateResults(summaries);
+  const result = aggregateResults(summaries);
+
+  if (verbose) {
+    console.log(`  Aggregated: ${result.totalPRs} PRs, ${result.totalComments} comments, ${result.topPatterns.length} patterns`);
+  }
+
+  return result;
 }
 
 export function generateMarkdownSummary(

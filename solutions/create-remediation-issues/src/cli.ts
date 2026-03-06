@@ -66,15 +66,22 @@ export function parseArgs(argv: string[]): CliArgs {
 export async function runCli(args: CliArgs): Promise<void> {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
   const client = new GitHubClient({ token });
+  const verbose = args.verbose ?? false;
 
   const input: RemediationInput = {};
 
   if (args.securityInput) {
+    if (verbose) {
+      console.log(`Reading security report from: ${args.securityInput}`);
+    }
     const raw = await readFile(args.securityInput, 'utf-8');
     input.securityReport = JSON.parse(raw);
   }
 
   if (args.healthInput) {
+    if (verbose) {
+      console.log(`Reading health report from: ${args.healthInput}`);
+    }
     const raw = await readFile(args.healthInput, 'utf-8');
     input.healthReport = JSON.parse(raw);
   }
@@ -84,16 +91,38 @@ export async function runCli(args: CliArgs): Promise<void> {
     securityScoreThreshold: args.securityScoreThreshold,
     healthGradeThreshold: args.healthGradeThreshold,
     extraLabels: args.extraLabels,
+    verbose,
   };
 
   const result = await createRemediationIssues(client, input, options);
 
-  if (args.verbose) {
-    console.log(JSON.stringify(result.summary, null, 2));
-  }
-
   if (args.out) {
     await mkdir(dirname(args.out), { recursive: true });
     await writeFile(args.out, JSON.stringify(result, null, 2), 'utf-8');
+    if (verbose) {
+      console.log(`\n✓ Output written to: ${args.out}`);
+    }
   }
+
+  // Print summary
+  if (verbose) {
+    console.log('\n' + '='.repeat(60));
+    console.log('REMEDIATION SUMMARY');
+    console.log('='.repeat(60));
+    console.log(`Total Planned:  ${result.summary.totalPlanned}`);
+    console.log(`Total Created:  ${result.summary.totalCreated}`);
+    console.log(`Total Skipped:  ${result.summary.totalSkipped}`);
+    console.log(`Mode:           ${result.dryRun ? 'DRY RUN' : 'LIVE'}`);
+    console.log('='.repeat(60) + '\n');
+  }
+}
+
+// Run the CLI when executed directly (not imported by tests)
+const isMain = process.argv[1] && import.meta.url.includes(process.argv[1].replace(/\\/g, '/'));
+if (isMain) {
+  const args = parseArgs(process.argv.slice(2));
+  runCli(args).catch((err) => {
+    console.error(err.message ?? err);
+    process.exit(1);
+  });
 }

@@ -78,6 +78,11 @@ export async function runCli(args: Partial<CliArgs>): Promise<void> {
 
   const input = args.input ?? '';
   const out = args.out ?? './output';
+  const verbose = args.verbose ?? false;
+
+  if (verbose) {
+    console.log(`Reading repositories from: ${input}`);
+  }
 
   const raw = await readFile(input, 'utf-8');
   const repos: string[] = JSON.parse(raw);
@@ -88,7 +93,7 @@ export async function runCli(args: Partial<CliArgs>): Promise<void> {
     repos,
     outputDir: out,
     dryRun: args.dryRun ?? false,
-    verbose: args.verbose ?? false,
+    verbose,
     maxPRsPerRepo: args.maxPRsPerRepo ?? DEFAULT_MAX_PRS_PER_REPO,
     since: args.since,
     token,
@@ -98,12 +103,33 @@ export async function runCli(args: Partial<CliArgs>): Promise<void> {
   const markdown = generateMarkdownSummary(report);
 
   await mkdir(out, { recursive: true });
-  await writeFile(
-    join(out, 'feedback-aggregation-report.json'),
-    JSON.stringify(report, null, 2),
-  );
-  await writeFile(
-    join(out, 'feedback-aggregation-recommendations.md'),
-    markdown,
-  );
+  const jsonPath = join(out, 'feedback-aggregation-report.json');
+  const mdPath = join(out, 'feedback-aggregation-recommendations.md');
+
+  await writeFile(jsonPath, JSON.stringify(report, null, 2));
+  await writeFile(mdPath, markdown);
+
+  if (verbose) {
+    console.log(`\n✓ JSON report written to: ${jsonPath}`);
+    console.log(`✓ Markdown summary written to: ${mdPath}`);
+
+    console.log('\n' + '='.repeat(60));
+    console.log('PR FEEDBACK AGGREGATION SUMMARY');
+    console.log('='.repeat(60));
+    console.log(`Repositories Analyzed:  ${report.repoCount}`);
+    console.log(`Total PRs:              ${report.totalPRs}`);
+    console.log(`Total Comments:         ${report.totalComments}`);
+    console.log(`Patterns Identified:    ${report.topPatterns.length}`);
+    console.log('='.repeat(60) + '\n');
+  }
+}
+
+// Run the CLI when executed directly (not imported by tests)
+const isMain = process.argv[1] && import.meta.url.includes(process.argv[1].replace(/\\/g, '/'));
+if (isMain) {
+  const args = parseArgs(process.argv.slice(2));
+  runCli(args).catch((err) => {
+    console.error(err.message ?? err);
+    process.exit(1);
+  });
 }

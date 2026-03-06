@@ -133,6 +133,8 @@ export interface RemediationOptions {
   healthGradeThreshold?: string;
   /** Additional labels to apply to all created issues. */
   extraLabels?: string[];
+  /** Enable verbose logging. */
+  verbose?: boolean;
 }
 
 /** Combined input from both report types. */

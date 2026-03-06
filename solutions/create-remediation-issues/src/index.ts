@@ -157,7 +157,12 @@ export function analyzeSecurityFindings(
   options?: RemediationOptions,
 ): RemediationIssue[] {
   const threshold = options?.securityScoreThreshold ?? DEFAULT_SECURITY_SCORE_THRESHOLD;
+  const verbose = options?.verbose ?? false;
   const result: RemediationIssue[] = [];
+
+  if (verbose) {
+    console.log(`  Analyzing security report: ${report.repos.length} repos...`);
+  }
 
   for (const repo of report.repos) {
     const { owner, repo: repoName } = repo;
@@ -233,6 +238,13 @@ export function analyzeSecurityFindings(
           score: repo.score,
         }),
       );
+      hasFindings = true;
+    }
+
+    if (verbose && hasFindings) {
+      const repoFindings = result.filter((iss) => iss.owner === owner && iss.repo === repoName);
+      const findingTypes = repoFindings.map((iss) => iss.findingType).join(', ');
+      console.log(`    ${owner}/${repoName}: ${repoFindings.length} findings (${findingTypes})`);
     }
   }
 
@@ -247,7 +259,12 @@ export function analyzeHealthFindings(
   options?: RemediationOptions,
 ): RemediationIssue[] {
   const thresholdGrade = options?.healthGradeThreshold ?? DEFAULT_HEALTH_GRADE_THRESHOLD;
+  const verbose = options?.verbose ?? false;
   const result: RemediationIssue[] = [];
+
+  if (verbose) {
+    console.log(`  Analyzing health report: ${report.repos.length} repos...`);
+  }
 
   for (const repo of report.repos) {
     const gradeRank = GRADE_ORDER[repo.grade] ?? 0;
@@ -256,6 +273,7 @@ export function analyzeHealthFindings(
     if (gradeRank > thresholdRank) continue;
 
     const { owner, repo: repoName } = repo;
+    let repoIssueCount = 0;
 
     // Overall health grade issue
     result.push(
@@ -264,6 +282,7 @@ export function analyzeHealthFindings(
         grade: repo.grade,
       }),
     );
+    repoIssueCount++;
 
     // Per-dimension issues for failing dimensions
     if (repo.dimensions) {
@@ -285,8 +304,15 @@ export function analyzeHealthFindings(
               },
             ),
           );
+          repoIssueCount++;
         }
       }
+    }
+
+    if (verbose && repoIssueCount > 0) {
+      const repoFindings = result.filter((iss) => iss.owner === owner && iss.repo === repoName);
+      const findingTypes = repoFindings.map((iss) => iss.findingType.replace('failing-dimension-', '')).join(', ');
+      console.log(`    ${owner}/${repoName}: ${repoIssueCount} findings (${findingTypes})`);
     }
   }
 
@@ -302,7 +328,9 @@ export function analyzeHealthFindings(
 export async function deduplicateIssues(
   client: GitHubClient,
   planned: RemediationIssue[],
+  options?: RemediationOptions,
 ): Promise<{ toCreate: RemediationIssue[]; toSkip: SkippedIssue[] }> {
+  const verbose = options?.verbose ?? false;
   const toCreate: RemediationIssue[] = [];
   const toSkip: SkippedIssue[] = [];
 
@@ -346,6 +374,10 @@ export async function deduplicateIssues(
     }
   }
 
+  if (verbose) {
+    console.log(`  Deduplication: ${toCreate.length} to create, ${toSkip.length} duplicates skipped`);
+  }
+
   return { toCreate, toSkip };
 }
 
@@ -359,6 +391,7 @@ export async function createRemediationIssues(
   input: RemediationInput,
   options?: RemediationOptions,
 ): Promise<RemediationResult> {
+  const verbose = options?.verbose ?? false;
   const allPlanned: RemediationIssue[] = [];
 
   if (input.securityReport) {
@@ -376,9 +409,12 @@ export async function createRemediationIssues(
   }
 
   // Deduplicate against existing open issues
-  const { toCreate, toSkip } = await deduplicateIssues(client, allPlanned);
+  const { toCreate, toSkip } = await deduplicateIssues(client, allPlanned, options);
 
   if (options?.dryRun) {
+    if (verbose) {
+      console.log(`  Dry run: ${toCreate.length} issues would be created`);
+    }
     return {
       created: [],
       skipped: toSkip,
@@ -405,6 +441,10 @@ export async function createRemediationIssues(
       issueNumber: (result as { number: number }).number,
       issueUrl: (result as { html_url: string }).html_url,
     });
+  }
+
+  if (verbose) {
+    console.log(`  Created ${created.length} issues, skipped ${toSkip.length} duplicates`);
   }
 
   return {
