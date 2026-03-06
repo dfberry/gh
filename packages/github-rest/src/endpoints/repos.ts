@@ -383,3 +383,36 @@ export async function createPullRequest(
 ): Promise<PullRequest> {
   return client.post<PullRequest>(`/repos/${owner}/${repo}/pulls`, options);
 }
+
+// --- Community Health ---
+
+export interface CommunityProfileFiles {
+  code_of_conduct: { name: string; url: string } | null;
+  code_of_conduct_file: { url: string; html_url: string } | null;
+  contributing: { url: string; html_url: string } | null;
+  issue_template: { url: string; html_url: string } | null;
+  pull_request_template: { url: string; html_url: string } | null;
+  license: { name: string; spdx_id: string; url: string; html_url: string } | null;
+  readme: { url: string; html_url: string } | null;
+}
+
+export interface CommunityProfile {
+  health_percentage: number;
+  description: string | null;
+  documentation: string | null;
+  files: CommunityProfileFiles;
+  updated_at: string | null;
+  content_reports_enabled: boolean;
+}
+
+/**
+ * Get community profile metrics (health percentage, contributing files, etc.)
+ * for a repository. Only works for public, non-fork repos.
+ */
+export async function getCommunityProfile(
+  client: GitHubClient,
+  owner: string,
+  repo: string
+): Promise<CommunityProfile> {
+  return client.get<CommunityProfile>(`/repos/${owner}/${repo}/community/profile`);
+}

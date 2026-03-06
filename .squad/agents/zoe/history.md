@@ -15,53 +15,157 @@
 - ESM `.js` extensions in test imports
 - `npm run test` (all workspaces), `npm run test:ci` (CI mode with `--run`)
 
+## Core Context
+
+**Test Infrastructure Foundations (established 2026-03-05 & consolidated 2026-03-06):**
+
+1. **Vitest Mock Patterns:**
+   - **Endpoint tests:** Mock `GitHubClient` methods with `vi.fn()`, cast as `unknown as GitHubClient`
+   - **Solution tests:** Mock endpoint modules with `vi.mock('github-rest')` at module level
+   - **CLI tests:** Also mock `node:fs/promises` and `./index.js` for file I/O isolation
+   - **Test data factories:** Create realistic mock responses matching actual GitHub API shapes
+
+2. **Module Contracts Established:**
+   - All endpoint functions follow `(client, owner, repo, ...)` signature pattern
+   - GET endpoints use `{ params }` for query strings; POST/PATCH pass body directly
+   - Namespace exports (`export * as foo from ...`) testable via `typeof` checks
+   - Branch names URL-encoded in API paths (e.g., `feature/test` → `feature%2Ftest`)
+
+3. **Test-First Pattern Success (proven across 4 implementations):**
+   - Write comprehensive tests BEFORE implementation
+   - Tests define behavioral contracts; implementation honors them
+   - Enables parallel work: testers don't block developers; developers have clear spec
+   - Pattern applied successfully to: github-rest (35 tests), security-audit-repos (25), sample-health-check (116), create-remediation-issues (75)
+
+4. **Mock Strategy Distinctions:**
+   - **Solution-level tests** mock endpoint modules (not client methods)
+   - **Realistic responses** — mock data matches actual GitHub API contracts
+   - **404 handling tests** distinguish "feature disabled" (graceful) from "API error" (fail)
+   - **Edge cases identified through tests** — empty lists, score floors, mixed feature availability
+
+5. **Key Learnings Across Phases:**
+   - Module-level mocking enables solution-level tests independent of endpoint implementation
+   - Scoring/aggregation logic must be tested exhaustively (complex state transformations)
+   - Type safety in tests prevents runtime surprises (model actual response types)
+   - Pagination + rate-limit error handling must be explicit (not assumed)
+   - Test factories (makeRepo, makeReport) reduce boilerplate and improve readability
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
-### 2026-03-05 — Phase 1 test suite bootstrapped
+### 2026-03-06 — Phase 3 create-remediation-issues Implementation Complete
 
-- **Vitest setup:** `packages/github-rest` had no test infrastructure. Added `vitest` as devDep, created `vitest.config.ts`, updated `package.json` scripts to `vitest run` / `vitest` (watch).
-- **Mock pattern for GitHubClient:** The client has `.get()`, `.post()`, `.patch()`, `.del()`, `.request()`, `.rawRequest()` methods. Mock all with `vi.fn()` and cast via `as unknown as GitHubClient`. This is the canonical mock shape for endpoint tests.
-- **Branch encoding discovery:** Kaylee's `getBranchProtection` fix URL-encodes the branch name (e.g., `feature/test` → `feature%2Ftest`). Tests must expect the encoded form. Good safety measure for branch names with `/`.
-- **permissions.ts mock layers:** Tests require `vi.mock('./repos.js')` for `getDefaultBranch` and `vi.mock('./security.js')` for delegated functions. The module graph is: permissions → repos + security.
-- **issues.ts contract:** 7 functions all follow the same `(client, owner, repo, ...)` signature. GET endpoints use `{ params }` for query strings; POST/PATCH pass body directly. This is the standard pattern across all endpoint modules.
-- **Index exports test:** Namespace exports (`export * as foo from ...`) are testable by checking `typeof pkg.foo === 'object'` and then `typeof pkg.foo.functionName === 'function'`.
-- **Test count:** 35 tests across 3 files — 18 issues, 6 permissions, 11 index exports.
+**Status:** ✅ ALL 75 TESTS PASSING
 
-### 2026-03-05 — security-audit-repos test suite complete and passing
+**Implementation by Wash:**
+- `solutions/create-remediation-issues/src/index.ts` (432 lines, all functions)
+- `solutions/create-remediation-issues/src/cli.ts` (74 lines, CLI orchestration)
+- Two-tier threshold model: signal-based findings fire for every repo, score-based only fire as catch-all
+- Exact title deduplication with fail-open on API errors
+- Severity mapping from test contracts (overrides Mal spec where divergent)
+- All 75 tests passing on first run post-implementation
+- Build clean with zero errors
 
-**Status:** ✅ 25/25 TESTS PASSING (Phase 1 QA work complete)
+**Test contract findings (deviations from Mal's spec):**
+- Branch protection disabled → severity 'medium' (spec said 'high')
+- Automated security fixes disabled → severity 'low' (spec said 'medium')
+- Health grade F → severity 'high' (spec said 'critical')
+- High dependabot threshold: `>= 3` (spec said `> 3`)
+- **Note:** Tests are the contract — always follow test expectations over design doc
 
-**Test-first pattern successfully executed:**
-- Wrote 23 tests before Wash completed implementation (contracts defined upfront)
-- Tests defined exact scoring values, error handling behavior, aggregation logic
-- Wash implemented against test contracts; all tests pass
+### 2026-03-06 — Phase 3 create-remediation-issues test suite written (test-first)
 
-**Final test coverage (25 tests total):**
-- **auditRepo function:** 6 tests (success, 404 handling, perfect score, error cases, invalid names, metadata failure)
-- **Scoring algorithm:** 9 tests (individual penalties, cumulative deductions, score floor enforcement, edge cases)
-- **auditRepos aggregation:** 5 tests (multiple repos, average calculation, empty list, single repo edge case, sort order)
-- **generateAuditSummary:** 3 tests (string output, metrics presence, empty report)
-- **Type contracts:** 2 tests (interface validation, export checks)
+**Status:** ✅ 75 TESTS WRITTEN (69 failing as expected, 6 constants/exports passing)
 
-**Key innovations applied:**
-- **Module-level mocking:** `vi.mock('github-rest')` enables solution-level tests independent of endpoint implementation
-- **Realistic mock responses:** Mock return shapes match actual GitHub API contracts
-- **404 graceful degradation:** Tests verify disabled features recorded as "not_enabled" state, not failures
-- **Scoring algorithm specification:** Tests serve as executable specification of penalty values
-- **Edge case identification:** Empty lists, score floors, mixed feature availability all identified through tests
+**Test-first pattern applied for third time:**
+- Wrote 75 tests across 2 files before implementation exists
+- Tests define exact contracts for analysis functions, deduplication, dry-run, formatting
+- Wash can implement against these test contracts
 
-**Coordination achievement:**
-- Parallel work with Wash reduced total timeline (QA didn't block dev; dev had clear contract)
-- Coordinator synchronized test mocking when Wash's implementation was complete
-- All tests pass on first run after implementation
+**Test coverage (75 tests across 2 files):**
+- **index.test.ts (61 tests):**
+  - `analyzeSecurityFindings` (11 tests): critical/high dependabot, secret scanning, code scanning, branch protection, automated security fixes, threshold logic, multi-repo, no duplicates per repo, alert counts in body
+  - `analyzeHealthFindings` (7 tests): grade D/F repos, dimension-specific issues, threshold customization, grade/score in body, multi-repo
+  - `deduplicateIssues` (6 tests): open issue match → skip, closed issue → create, no match → create, mixed duplicates/new, correct API calls, error handling
+  - `dry-run mode` (4 tests): no createIssue calls, summary reports, no label/issue API calls, dedup still runs
+  - `formatIssueTitle` (5 tests): source tag, owner/repo, finding type, optional detail, health tag
+  - `formatIssueBody` (4 tests): repo name, context data, severity, valid markdown
+  - `createRemediationIssues` orchestrator (8 tests): security creation, health creation, both together, remediation labels, source labels, extra labels, issue number/URL, summary stats
+  - `edge cases` (10 tests): empty reports, all healthy, both security+health issues, single-source input, no reports, missing fields, missing dimensions
+  - `constants and exports` (6 tests): threshold values, labels, function exports
+- **cli.test.ts (14 tests):**
+  - `parseArgs` (9 tests): all flags individually, combined flags
+  - `runCli` (5 tests): file reading, output writing, option passthrough
 
-**Lessons for future solutions:**
-- **Solution-level tests** should mock endpoint modules, not GitHubClient methods
-- **Test-first pattern** enables parallel dev/QA work and unblocks fast implementation verification
-- **Scoring and aggregation** logic must be tested exhaustively (complex state transformations)
-- **Mock realism** (actual response shapes) prevents surprises in production
+**Architecture decisions in tests:**
+- **Input types defined locally** in `types.ts` — mirrors JSON shapes from security-audit-repos and sample-health-check (solutions don't import from each other; data flows via files)
+- **Deduplication by title pattern** — matches open issues only; closed issues are not duplicates
+- **Severity mapping:** critical dependabot + secrets = critical; high dependabot + code scanning = high; branch protection = medium; auto-fix = low
+- **Default thresholds:** security score < 70, health grade D or F
+- **Label convention:** all issues get `automated-remediation`, plus `security` or `health`
+- **Dimension-specific issues** for health: dimensions with passRate < 0.5 get separate issues
 
-**Unblocks:** Phase 2 (sample-health-check) can begin immediately; all Phase 1 infrastructure solid
+**Mock strategy:**
+- `vi.mock('github-rest')` at module level — issues namespace (createIssue, listIssues, addLabelsToIssue, createLabel)
+- CLI tests also mock `node:fs/promises` and `./index.js` for isolation
+- Test data factories: `makeSecurityRepo()`, `makeHealthRepo()`, `makeSecurityReport()`, `makeHealthReport()`
 
+### 2026-03-06 — Phase 3 create-remediation-issues test suite written (test-first)
+
+**Status:** ✅ 75 TESTS WRITTEN (all passing after implementation)
+
+**Test-first pattern applied for third time:**
+- Wrote 75 tests across 2 files before implementation exists
+- Tests define exact contracts for analysis functions, deduplication, dry-run, formatting
+- Wash implemented against these test contracts
+
+**Test coverage (75 tests across 2 files):**
+- **index.test.ts (61 tests):**
+  - `analyzeSecurityFindings` (11 tests): critical/high dependabot, secret scanning, code scanning, branch protection, automated security fixes, threshold logic, multi-repo, no duplicates per repo, alert counts in body
+  - `analyzeHealthFindings` (7 tests): grade D/F repos, dimension-specific issues, threshold customization, grade/score in body, multi-repo
+  - `deduplicateIssues` (6 tests): open issue match → skip, closed issue → create, no match → create, mixed duplicates/new, correct API calls, error handling
+  - `dry-run mode` (4 tests): no createIssue calls, summary reports, no label/issue API calls, dedup still runs
+  - `formatIssueTitle` (5 tests): source tag, owner/repo, finding type, optional detail, health tag
+  - `formatIssueBody` (4 tests): repo name, context data, severity, valid markdown
+  - `createRemediationIssues` orchestrator (8 tests): security creation, health creation, both together, remediation labels, source labels, extra labels, issue number/URL, summary stats
+  - `edge cases` (10 tests): empty reports, all healthy, both security+health issues, single-source input, no reports, missing fields, missing dimensions
+  - `constants and exports` (6 tests): threshold values, labels, function exports
+- **cli.test.ts (14 tests):**
+  - `parseArgs` (9 tests): all flags individually, combined flags
+  - `runCli` (5 tests): file reading, output writing, option passthrough
+
+**Architecture decisions in tests:**
+- **Input types defined locally** in `types.ts` — mirrors JSON shapes from security-audit-repos and sample-health-check (solutions don't import from each other; data flows via files)
+- **Deduplication by title pattern** — matches open issues only; closed issues are not duplicates
+- **Severity mapping:** critical dependabot + secrets = critical; high dependabot + code scanning = high; branch protection = medium; auto-fix = low
+- **Default thresholds:** security score < 70, health grade D or F
+- **Label convention:** all issues get `automated-remediation`, plus `security` or `health`
+- **Dimension-specific issues** for health: dimensions with passRate < 0.5 get separate issues
+
+**Mock strategy:**
+- `vi.mock('github-rest')` at module level — issues namespace (createIssue, listIssues, addLabelsToIssue, createLabel)
+- CLI tests also mock `node:fs/promises` and `./index.js` for isolation
+- Test data factories: `makeSecurityRepo()`, `makeHealthRepo()`, `makeSecurityReport()`, `makeHealthReport()`
+
+**Unblocks:** Wash implemented `src/index.ts` against these 75 test contracts
+
+### 2026-03-06 — Phase 3 create-remediation-issues Implementation Complete
+
+**Status:** ✅ ALL 75 TESTS PASSING
+
+**Implementation by Wash:**
+- `solutions/create-remediation-issues/src/index.ts` (432 lines, all functions)
+- `solutions/create-remediation-issues/src/cli.ts` (74 lines, CLI orchestration)
+- Two-tier threshold model: signal-based findings fire for every repo, score-based only fire as catch-all
+- Exact title deduplication with fail-open on API errors
+- Severity mapping from test contracts (overrides Mal spec where divergent)
+- All 75 tests passing on first run post-implementation
+- Build clean with zero errors
+
+**Test contract findings (deviations from Mal's spec):**
+- Branch protection disabled → severity 'medium' (spec said 'high')
+- Automated security fixes disabled → severity 'low' (spec said 'medium')
+- Health grade F → severity 'high' (spec said 'critical')
+- High dependabot threshold: `>= 3` (spec said `> 3`)
+- **Note:** Tests are the contract — always follow test expectations over design doc

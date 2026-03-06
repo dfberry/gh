@@ -25,6 +25,76 @@ Docs and artifacts
 
 If you want, I can also add short links from `packages/gh-cleanup/README.md` to the `.github/LLM_DESCRIBE_REPO_PROMPT.md` and the `scripts/run-all.sh` examples so users discover them faster.
 
+## Solutions Pipeline
+
+The three solutions — **security-audit-repos**, **sample-health-check**, and **create-remediation-issues** — form a detect → score → remediate pipeline for repository health and security. They work together to identify issues, quantify repo health, and generate actionable work items.
+
+### Prerequisites
+
+- Node.js >= 22
+- A `.env` file at the repository root with `GITHUB_TOKEN` or `GH_TOKEN` set
+- Run `npm ci && npm run build` to install dependencies and compile TypeScript
+
+### The three solutions
+
+**Security Audit** (`solutions/security-audit-repos/`)
+
+Scans repositories for security posture: Dependabot alerts, code scanning, secret scanning, branch protection status, and automated security fixes. Scores each repository 0-100 using a deductive model (starts at 100, deductions for findings).
+
+```bash
+npm run security-audit
+```
+
+Outputs:
+- `generated/security-audit/{timestamp}-audit.json` — structured results
+- `generated/security-audit/{timestamp}-audit.md` — human-readable summary
+
+**Sample Health Check** (`solutions/sample-health-check/`)
+
+Comprehensive health analyzer scoring repositories across seven dimensions: Documentation (25 pts), CI/CD (20 pts), Dependencies (16 pts), Activity (16 pts), Hygiene (12 pts), Azure (7 pts), Branch Protection (5 pts). Returns letter grades A–F.
+
+```bash
+npm run sample-health-check
+```
+
+Outputs:
+- `generated/sample-health-check/{timestamp}-health.json` — structured results
+- `generated/sample-health-check/{timestamp}-health.md` — human-readable summary
+
+**Create Remediation Issues** (`solutions/create-remediation-issues/`)
+
+Reads security-audit and/or health-check reports, extracts actionable findings, and creates GitHub Issues with labels and structured bodies. Includes deduplication logic to prevent duplicate issues for existing open findings.
+
+```bash
+# Dry-run (preview — no issues created):
+npm run create-remediation-issues -- --input ./generated/security-audit/<report>.json --dry-run --verbose
+
+# Create issues from a health-check report:
+npm run create-remediation-issues -- --input ./generated/sample-health-check/<report>.json --verbose
+
+# Multiple inputs:
+npm run create-remediation-issues -- --input ./generated/security-audit/<report>.json --input ./generated/sample-health-check/<report>.json --dry-run
+```
+
+### Full pipeline example
+
+```bash
+# 1. Build everything
+npm ci && npm run build
+
+# 2. Run security and health audits
+npm run security-audit
+npm run sample-health-check
+
+# 3. Preview remediation issues (dry-run)
+npm run create-remediation-issues -- --input ./generated/security-audit/<latest>.json --input ./generated/sample-health-check/<latest>.json --dry-run --verbose
+
+# 4. Create issues (remove --dry-run when ready)
+npm run create-remediation-issues -- --input ./generated/security-audit/<latest>.json --input ./generated/sample-health-check/<latest>.json --verbose
+```
+
+The three solutions include 226+ tests ensuring reliable operation across varied repository configurations.
+
 ## Functional specification
 
 This section describes the key functionality for the repository-cleanup tooling and the expected behaviors for each tool. It's a concise spec to guide implementation, testing, and safe operation.

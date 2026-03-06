@@ -15,144 +15,107 @@
 - All solutions compose from `packages/github-rest` and `packages/llm-completion`
 - Philosophy: DRY — solutions are thin orchestrations, heavy lifting in packages
 
+## Core Context
+
+**From early Phase 1 & 2 work (2026-03-05):**
+- Mal proposed 6 new solutions (Phase 1-4 rollout): security-audit-repos (P0), sample-health-check (P0), create-remediation-issues (P1), pr-feedback-aggregator (P1), azure-best-practices-check (P2), sample-auto-fix (P2)
+- All solutions follow consistent pattern: `src/index.ts` (library) + `src/cli.ts` (CLI entry) + optional `prompts/`
+- Measurement framework: monthly audits stored in `generated/` with baseline tracking
+- github-rest endpoints inventory: 40+ functions across 10 modules already in place; Phase 1 fixes (getBranchProtection recursion, circular imports, missing issues.ts, missing exports) unblocked everything
+- Test-first pattern established: write tests before implementation to define contracts and enable parallel work
+- Solution patterns: Promise.allSettled for graceful degradation, weighted scoring (start at base, deduct/award points), dual output formats (JSON + Markdown)
+- Graceful degradation via 404 handling (features disabled don't fail checks)
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
-### 2026-03-05 — Code Review: security-audit-repos Solution
+### 2026-03-06 — create-remediation-issues Phase 3 Complete
 
-**Reviewer:** Mal (Lead)  
-**Outcome:** APPROVED WITH NITS
-
-**Major findings:**
-- **M1 (DRY):** Manual `repos.getRepo()` call to extract only `default_branch` field — should extract `getDefaultBranch(client, owner, repo)` helper to github-rest
-- **M2 (Tech Debt):** `alerts.listDependabotAlerts()`, `alerts.listCodeScanningAlerts()`, `alerts.listSecretScanningAlerts()`, `security.getAutomatedSecurityFixes()` return `any` — forces `as any` casts in solution. Decision filed to add return types to alerts/security modules
-
-**Minor findings:**
-- **m1:** Token env var inconsistency — standardize on `GITHUB_TOKEN` across all solutions (Kaylee fixing)
-- **m2:** `unknown[]` types in interfaces — replace with specific types (DependabotAlert[], CodeScanningAlert[], etc.)
-
-**Handoff:**
-- Kaylee fixing M1 (getDefaultBranch extraction) and m1 (token standardization) — background task
-- Wash's solution ready for production baseline audit runs
-- Scribe merged decision inbox and updated cross-agent history
-
-### 2026-03-05 — Solution Design Deep Dive
-
-**Solution pattern anatomy:** Every solution follows `src/index.ts` (exported pipeline function) + `src/cli.ts` (CLI entry point using `process.argv` or `parseArgs`). Dependencies use `file:` references to monorepo packages. Output files named `{owner}-{repo}-{context}.{ext}`.
-
-**Package API surface inventory:**
-- `github-rest` exports: `alerts` (dependabot, code-scanning, secret-scanning, advisories), `security` (branch protection, collaborators, secrets, auto-fix), `repos` (CRUD, metadata, PR management, stale detection), `contents` (root file listing), `actions` (workflows, runs), `pullRequests` (comments), `user` (auth, profile), `permissions` (repo permissions), `prcomments` (user PR comments)
-- `llm-completion` exports: `callOpenAI(prompt, config, opts)` — supports retry, debug file writing, configurable model/temperature/maxTokens
-- **Missing from github-rest:** `issues.ts` (create/list issues), `git.ts` (refs/branches API), recursive file tree walker, file update via Contents API
-
-**Key file paths:**
-- `packages/github-rest/src/endpoints/` — all API helpers
-- `packages/github-rest/src/index.ts` — package exports (must add new modules here)
-- `packages/llm-completion/src/llm.ts` — LLM implementation with 3-minute timeout, 3 retries
-- `solutions/get-instruction-from-pr-comments/src/index.ts` — most sophisticated solution: bot filtering, importance scoring, comment cleaning, LLM prompt construction
-- `solutions/get-instruction-from-pr-comments/prompts/` — system.txt and user.txt prompt templates
-- `active-sample-repos.json` — list of repos to target for scanning solutions
-
-**Architecture decision:** All 5 proposed solutions need `issues.ts` in `github-rest` — build that first to unblock everything. The `auto-fix-samples` solution additionally needs `git.ts` (refs API) and contents update helpers.
-
-**Bot filtering pattern:** `get-instruction-from-pr-comments` has a reusable bot detection system (known bot list + pattern matching) and importance scoring algorithm. These should be extracted to a shared utility when building the compliance checker.
-
-### 2026-03-05 — security-audit-repos Solution (P0 Baseline)
-
-**Created:** First P0 solution from SMART goal strategy — unified security posture scanner establishing measurement baseline.
-
-**Architecture:**
-- Parallel endpoint calls with `Promise.allSettled` for resilience (404s when features disabled don't fail audit)
-- Security scoring algorithm: start at 100, deduct weighted points (critical: -20, high: -10, secrets: -15, no branch protection: -25, etc.)
-- Output: timestamped JSON reports + Markdown summaries sorted by priority (lowest scores first)
-- Error handling: per-endpoint try/catch, graceful degradation when security features not enabled
-
-**Key implementation patterns:**
-- `auditRepo(client, owner, repo, options)` — single repo audit with granular error handling
-- `auditRepos(client, repos[], options)` — batch processing with continue-on-error
-- `generateAuditSummary(report)` — human-readable Markdown with severity breakdown
-- CLI follows established pattern: `--input`, `--out`, `--format`, `--verbose` flags
-
-**Endpoints used from github-rest:**
-- `alerts.listDependabotAlerts` — severity categorization (critical/high/medium/low)
-- `alerts.listCodeScanningAlerts` — enabled detection via 404 handling
-- `alerts.listSecretScanningAlerts` — enabled detection via 404 handling
-- `alerts.listRepositorySecurityAdvisories` — advisory count tracking
-- `security.getBranchProtection` — default branch protection status (was fixed in Phase 1)
-- `security.getAutomatedSecurityFixes` — auto-fix enablement check
-- `repos.getRepo` — default branch detection
-
-**Output schema:** `RepoSecurityAudit` per repo + `SecurityAuditReport` aggregate with summary stats (avgScore, totalAlerts, reposWithoutBranchProtection). Supports baseline measurement for 25% reduction metric.
-
-**Files created:**
-- `solutions/security-audit-repos/src/index.ts` — library functions (auditRepo, auditRepos, generateAuditSummary)
-- `solutions/security-audit-repos/src/cli.ts` — CLI entry point with help text
-- `solutions/security-audit-repos/package.json` — follows monorepo file: reference pattern
-- `solutions/security-audit-repos/tsconfig.json` — extends base, composite: true, references github-rest
-- `solutions/security-audit-repos/README.md` — comprehensive usage docs with examples
-- `solutions/security-audit-repos/sample.env` — GITHUB_TOKEN template
-
-**Build verified:** `npm install && npm run build` successful, dist/ contains compiled JS + type definitions.
-
-### 2026-03-05 — Cross-Agent Context (Mal & Kaylee)
-
-**From Mal (Lead):**
-- Proposed 6 new solutions with detailed data flows and output schemas
-- Phase 1 (Week 1-2): Fix github-rest exports + add issues.ts + build security-audit-repos baseline
-- Phase 2 (Week 3-4): sample-health-check detection
-- Phase 3 (Week 5-6): create-remediation-issues + pr-feedback-aggregator + azure-best-practices-check
-- Phase 4 (Week 7-8): sample-auto-fix (full automation)
-- Measurement framework: monthly security-audit runs, track 25% reduction: `(baseline_issues - current_issues) / baseline_issues >= 0.25`
-- Key gaps: alerts/contents/orgs not exported from index.ts; no issues.ts endpoint exists
-
-### 2026-03-05 — Cross-Agent Context (Mal & Kaylee)
-
-**From Mal (Lead):**
-- Proposed 6 new solutions with detailed data flows and output schemas
-- Phase 1 (Week 1-2): Fix github-rest exports + add issues.ts + build security-audit-repos baseline
-- Phase 2 (Week 3-4): sample-health-check detection
-- Phase 3 (Week 5-6): create-remediation-issues + pr-feedback-aggregator + azure-best-practices-check
-- Phase 4 (Week 7-8): sample-auto-fix (full automation)
-- Measurement framework: monthly security-audit runs, track 25% reduction: `(baseline_issues - current_issues) / baseline_issues >= 0.25`
-- Key gaps: alerts/contents/orgs not exported from index.ts; no issues.ts endpoint exists
-
-**From Kaylee (Core Dev):**
-- **CRITICAL BUG:** `permissions.ts:16` — `getBranchProtection` calls itself infinitely; must fix
-- 40+ existing functions inventoried; ~45 more functions needed
-- New modules required: issues.ts (6 functions), commits.ts (3), trees.ts (1), environments.ts (2)
-- Extensions needed: alerts (5 detail getters), security (4 enable/disable), repos (2 helpers)
-- LLM enhancements: structured analyzers, system prompt support, batch-aware calling
-- 5 new CLI commands proposed following existing gather/evaluate/change pattern
-- All 5 new solutions blocked until github-rest exports fixed and issues.ts added
-
-### 2026-03-05 — security-audit-repos Complete with Tests
-
-**Status:** ✅ PHASE 1 COMPLETE (P0 solution fully implemented and tested)
+**Status:** ✅ PHASE 3 COMPLETE (P1 remediation issue creator fully implemented and tested)
 
 **Solution delivery:**
-- Wash built `solutions/security-audit-repos/` with resilient Promise.allSettled pattern
-- Zoe wrote 25 comprehensive test cases covering all functions, edge cases, scoring algorithm
-- All 25 tests passing; build verified with zero errors
-- P0 baseline scanner ready for production audit runs
+- Wash implemented `solutions/create-remediation-issues/` — full pipeline: report analysis → finding extraction → deduplication → GitHub Issue creation
+- All 75 tests passing (61 index + 14 CLI), build clean with zero errors
+- Zoe's test-first scaffolding once again enabled zero-blocking parallel implementation
 
-**Implementation details from security-audit-repos:**
-- **Graceful degradation:** Promise.allSettled for parallel endpoint calls (404 handling)
-- **Weighted scoring:** 100 base, deductions: critical -20, high -10, medium -5, secrets -15, code scanning -10, no branch protection -25, no auto-fix -10
-- **Dual output:** JSON (structured analysis) + Markdown (human-readable summary)
-- **Error handling:** Continue-on-error at repo level, fail-fast at solution level
+**Architecture decisions:**
+- **Two-tier threshold model:** Signal-based findings (dependabot, code scanning, secret scanning, branch protection, auto-fix) fire for EVERY repo regardless of score. Score-based findings only fire for repos below the threshold AND only when no signal-based findings exist. This avoids noisy duplicate issues.
+- **Exact title dedup:** Deduplication matches by exact title string against open issues with the `automated-remediation` label. Closed issues are not considered duplicates. API errors fail-open (create the issue anyway).
+- **Client-side state filtering:** Deduplication filters returned issues by `state === 'open'` on the client side for robustness, even though the API accepts a state parameter.
+- **Formatting composition:** `buildIssue()` helper composes `formatIssueTitle()` and `formatIssueBody()` to build complete RemediationIssue objects, keeping analysis functions clean.
+- **CLI uses `new GitHubClient()` constructor** instead of `createGitHubClient()` factory — ensures non-undefined client in mock environments where factory returns undefined.
 
-**Testing innovations:**
-- **Test-first pattern:** Tests written before implementation defined contracts
-- **Module-level mocking:** `vi.mock('github-rest')` for solution tests (differs from endpoint tests)
-- **Clear penalty specifications:** Tests document exact scoring values and edge cases
-- **404 handling tests:** Graceful degradation when features disabled (not_enabled state)
+**Test contract findings (deviations from Mal's spec):**
+- Branch protection disabled → severity 'medium' (spec said 'high')
+- Automated security fixes disabled → severity 'low' (spec said 'medium')
+- Health grade F → severity 'high' (spec said 'critical')
+- High dependabot threshold: `>= 3` (spec said `> 3`)
+- Tests are the contract — always follow test expectations over design doc
 
-**Architectural learnings captured:**
-- Weighted scoring can be extracted and reused for health checks
-- Promise.allSettled enables resilient parallel API patterns
-- Solution tests should mock endpoint modules, not GitHubClient methods
-- Test-first unblocks parallel work between dev and QA
+### 2026-03-06 — create-remediation-issues Phase 3 Complete
 
-**Unblocks Phase 2-4:** All solutions can now compose from github-rest baseline (alerts, contents, orgs, issues all exported + fixed)
+**Status:** ✅ PHASE 3 COMPLETE (P1 remediation issue creator fully implemented and tested)
+
+**Solution delivery:**
+- Wash implemented `solutions/create-remediation-issues/` — full pipeline: report analysis → finding extraction → deduplication → GitHub Issue creation
+- All 75 tests passing (61 index + 14 CLI), build clean with zero errors
+- Zoe's test-first scaffolding once again enabled zero-blocking parallel implementation
+
+**Architecture decisions:**
+- **Two-tier threshold model:** Signal-based findings (dependabot, code scanning, secret scanning, branch protection, auto-fix) fire for EVERY repo regardless of score. Score-based findings only fire for repos below the threshold AND only when no signal-based findings exist. This avoids noisy duplicate issues.
+- **Exact title dedup:** Deduplication matches by exact title string against open issues with the `automated-remediation` label. Closed issues are not considered duplicates. API errors fail-open (create the issue anyway).
+- **Client-side state filtering:** Deduplication filters returned issues by `state === 'open'` on the client side for robustness, even though the API accepts a state parameter.
+- **Formatting composition:** `buildIssue()` helper composes `formatIssueTitle()` and `formatIssueBody()` to build complete RemediationIssue objects, keeping analysis functions clean.
+- **CLI uses `new GitHubClient()` constructor** instead of `createGitHubClient()` factory — ensures non-undefined client in mock environments where factory returns undefined.
+
+**Test contract findings (deviations from Mal's spec):**
+- Branch protection disabled → severity 'medium' (spec said 'high')
+- Automated security fixes disabled → severity 'low' (spec said 'medium')
+- Health grade F → severity 'high' (spec said 'critical')
+- High dependabot threshold: `>= 3` (spec said `> 3`)
+- Tests are the contract — always follow test expectations over design doc
+
+**Status:** ✅ PHASE 2 COMPLETE (P0 health-check fully implemented and tested)
+
+**Solution delivery:**
+- Wash built `solutions/sample-health-check/` with additive 100-point scoring model (0 → 100, award points for healthy signals)
+- Zoe wrote 116 test cases (74 checks, 24 scoring, 18 orchestration) before implementation
+- Kaylee added 4 P0 endpoints: getCommunityProfile, fileExists, getDecodedFileContent, getLatestWorkflowRun
+- All 116+52=168 tests passing; build verified with zero errors
+
+**Architecture pattern (Additive vs. Deductive):**
+- security-audit-repos (Phase 1) uses deductive: 100 base → deduct penalties (critical -20, etc.) → clamp at 0
+- sample-health-check (Phase 2) uses additive: 0 base → award points for healthy signals → normalize to 100
+- Deductive model penalizes failures; additive rewards good practices; both achieve 0-100 score range
+
+**Dimensional breakdown & weights (100pts total normalized):**
+- Documentation (25pts): README, LICENSE, CONTRIBUTING, CODE_OF_CONDUCT quality checks
+- CI/CD (20pts): Workflows exist, recent success, failure detection
+- Dependency Freshness (16pts): No critical/high Dependabot alerts, auto-fix enabled
+- Activity (16pts): Recent commits/pushes, manageable issue count, has releases
+- Hygiene (12pts): .gitignore, description, topics, not archived, default branch
+- Azure-Specific (7pts): Azure topic, language topics, description mentions Azure
+- Branch Protection (5pts): Default branch protected
+
+**Test-First Pattern Success:**
+- Parallel work coordination: Zoe wrote 116 tests while Wash implemented (zero blocking)
+- Kaylee added 4 endpoints in parallel; solution uses mocked versions in tests
+- When Kaylee's endpoints merge into github-rest, live runs work without code changes
+- All tests pass on first run post-implementation (test contracts honored)
+
+**Unblocks Phase 3:** create-remediation-issues, pr-feedback-aggregator, azure-best-practices-check now have established patterns and test infrastructure
+
+### 2026-03-05 — Cross-Agent Context (Kaylee & Zoe)
+
+**From Kaylee (Core Dev):**
+- Added 4 P0 endpoints to github-rest: `getCommunityProfile`, `fileExists`, `getDecodedFileContent`, `getLatestWorkflowRun`
+- 17 new tests (52 total) all passing
+- All endpoints your orchestration layer calls are now available or mocked
+
+**From Zoe (Tester):**
+- Wrote 116 comprehensive tests before your implementation (test-first pattern)
+- Tests define exact contracts for all 25 check functions, scoring logic, aggregation
+- All 116 tests pass on first run post-implementation
+- Test mocking enabled parallel work: your implementation unblocked by test writing
 

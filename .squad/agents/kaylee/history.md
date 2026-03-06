@@ -13,6 +13,16 @@
 - Command convention: CLI → `runCommand(name, argv, client?)` → module wrapper `(argv, client?)` → implementation `(client?, args)`
 - DRY: code built once in packages, composed in solutions
 
+---
+
+## 2026-03-06 — NPM Script Registration (create-remediation-issues)
+
+**Task:** Added `create-remediation-issues` script to root package.json  
+**Pattern:** `"create-remediation-issues": "node --env-file \"./.env\" solutions/create-remediation-issues/dist/cli.js"`  
+**Line:** 43  
+**Status:** ✅ Complete  
+**Notes:** Follows --env-file convention established by security-audit and sample-health-check scripts. Enables root CLI invocation.
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
@@ -94,3 +104,89 @@
 - Vitest infrastructure bootstrapped with mock pattern for GitHubClient
 - Key learnings: branch encoding (`feature/test` → `feature%2Ftest`), namespace exports require `export * as foo from ...` + typeof checks, module graph (permissions → repos + security) requires mock layering
 - Canonical mock shape documented: all GitHubClient methods as `vi.fn()` cast as unknown as GitHubClient
+
+### 2026-03-05 — Health-Check Endpoint Audit
+
+**Scope:** Full audit of `packages/github-rest` endpoint inventory against `sample-health-check` requirements across 7 categories.
+
+**Key findings:**
+- 5 of 7 categories are fully covered by existing endpoints (repo metadata, CI/CD, dependency alerts, activity signals, branch protection)
+- 2 categories need small additions: community health (missing `getCommunityProfile`) and file existence (missing `fileExists` + `getDecodedFileContent`)
+- Only 3 P0 functions needed before Wash can fully compose the health-check: `getCommunityProfile`, `fileExists`, `getDecodedFileContent` — all trivial wrappers
+- `repos.ts` is the largest module (25+ functions); community profile could go there or in a new `community.ts`
+- The `contents.ts` module is minimal (only `getRootContents`) — good candidate for `fileExists` and `getDecodedFileContent`
+- `listReleases()` works for health-check but lacks pagination params — tech debt, not blocking
+- `getRepo()` already returns `license` field — dedicated `getLicense()` endpoint is P2 nice-to-have
+
+**Output:** Wrote `.squad/decisions/inbox/kaylee-health-check-audit.md` with full gap analysis, code samples, priority rankings, and phased recommendation for Wash.
+
+### 2026-03-05 — P0 Health-Check Endpoints Implemented
+
+**Scope:** Added 4 new endpoint functions to `packages/github-rest` to unblock `sample-health-check` solution.
+
+**New Functions:**
+1. **`getCommunityProfile(client, owner, repo)`** in `repos.ts` — wraps `GET /repos/{owner}/{repo}/community/profile`, returns typed `CommunityProfile` interface with `health_percentage`, `files` (code_of_conduct, contributing, license, readme, etc.)
+2. **`fileExists(client, owner, repo, path)`** in `contents.ts` — convenience wrapper around `getContents()`, returns `boolean` (404 → false, content → true, other errors → throw)
+3. **`getDecodedFileContent(client, owner, repo, path)`** in `contents.ts` — decodes base64 file content to UTF-8 string (404 → null, success → string, errors → throw)
+4. **`getLatestWorkflowRun(client, owner, repo, workflowId)`** in `actions.ts` — uses `listWorkflowRuns` with per_page=1, returns single run or null
+
+**Also fixed:** `actions.ts` was using value import (`import { GitHubClient }`) instead of type import — changed to `import type { GitHubClient }` to match project convention.
+
+**Exports added to `index.ts`:** `getCommunityProfile`, `CommunityProfile`, `CommunityProfileFiles`, `fileExists`, `getDecodedFileContent`, `getLatestWorkflowRun` — all as named exports plus namespace access through existing `repos`, `contents`, `actions` namespaces.
+
+**Tests written (17 new, 52 total):**
+- `repos.test.ts` — 3 tests: community profile success, perfect health score, error propagation
+- `contents.test.ts` — 9 tests: fileExists (true, 404→false, non-404 throw, nested paths) + getDecodedFileContent (decode, 404→null, empty content→null, non-404 throw, default encoding fallback)
+- `actions.test.ts` — 5 tests: latest run success, no runs→null, missing workflow_runs→null, numeric IDs, error propagation
+
+**Build & Test:** ✅ `npm run build` zero errors, ✅ 52/52 tests pass
+
+**Key files touched:**
+- `packages/github-rest/src/endpoints/repos.ts` (added `CommunityProfile` types + `getCommunityProfile`)
+- `packages/github-rest/src/endpoints/contents.ts` (added `fileExists` + `getDecodedFileContent`)
+- `packages/github-rest/src/endpoints/actions.ts` (added `getLatestWorkflowRun`, fixed import type)
+- `packages/github-rest/src/index.ts` (new exports)
+- 3 new test files
+
+### 2026-03-05 — Cross-Agent Context (Wash & Zoe)
+
+**From Wash (Solutions Dev):**
+- Built full `sample-health-check` solution orchestrating your 4 new endpoints + 8 existing endpoints
+- 25 pure check functions across 7 dimensions (Documentation, Hygiene, CI/CD, Dependencies, Activity, Branch Protection, Azure-Specific)
+- Graceful degradation via Promise.allSettled; missing features don't fail checks
+- Follows security-audit-repos pattern (CLI, dual output format, continue-on-error)
+- Ready for production health-check baseline audits
+
+**From Zoe (Tester):**
+- Wrote 116 tests for sample-health-check before implementation (test-first pattern)
+- All tests use module-level mocking of github-rest, so parallel work unblocked
+- 116/116 tests now pass with Wash's implementation
+- Your 4 endpoints mocked during tests; live runs will work when endpoints merge
+
+### 2026-03-06 — Eliminated All `as any` Casts in sample-health-check
+
+**Context:** Mal's review rejected sample-health-check due to `as any` casts in production code. Zoe had just added proper types to github-rest (`WorkflowsResponse`, `WorkflowRunsResponse`, `WorkflowRun`, `Workflow`, `ContentItem`, `ContentFile`, `CommunityProfile`). Wash (original author) was locked out per lockout rules.
+
+**Changes to `solutions/sample-health-check/src/index.ts`:**
+- Added `import type { CommunityProfile, ContentItem, WorkflowsResponse, WorkflowRun }` from github-rest
+- Created 3 local interfaces for shapes not yet typed in github-rest: `RepoData` (extends Repository fields), `DependabotAlert` (severity counting), `AutomatedSecurityFixesResponse` (enabled flag)
+- Replaced 8 `as any` casts with proper types:
+  - `repoDataResult.value as any` → `as RepoData`
+  - `communityProfileResult.value as any` → `as CommunityProfile`
+  - `metadataResult.value as any` → removed cast (TypeScript infers `RepoMetadata` from Promise.allSettled tuple)
+  - `rootContentsResult.value as any[]` / `(f: any)` → removed casts (TypeScript infers `ContentItem[]`)
+  - `workflowsResult.value as any` → `as WorkflowsResponse`
+  - `dependabotResult.value as any[]` → `as DependabotAlert[]`
+  - `autoFixResult.value as any` → `as AutomatedSecurityFixesResponse`
+  - `(run as any).conclusion` → `run.conclusion` (WorkflowRun already has `conclusion` field)
+
+**Also fixed in github-rest (build-blocking):**
+- `contents.ts:84` — `Buffer.from` encoding param cast to `BufferEncoding` (pre-existing type error)
+- `tsconfig.json` — added `composite: true` (required by project references from sample-health-check)
+
+**Build & Test:** ✅ `npm run build` zero errors, ✅ 116/116 tests pass
+
+**Key files touched:**
+- `solutions/sample-health-check/src/index.ts` (type fixes)
+- `packages/github-rest/src/endpoints/contents.ts` (BufferEncoding cast)
+- `packages/github-rest/tsconfig.json` (composite: true)

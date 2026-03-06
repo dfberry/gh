@@ -86,3 +86,74 @@
 
 **Files allowed on main:** `team.md`, `routing.md`, `ceremonies.md`, `decisions.md`, `agents/*/charter.md`, `agents/*/history.md`, `casting/`, `skills/`, `templates/`, `identity/`, `config.json`, `plugins/`
 **Files blocked:** `orchestration-log/`, `log/`, `decisions/inbox/`, `sessions/`
+
+### 2026-03-06 — Architecture Design: sample-health-check
+
+**Status:** Architecture decision written to `.squad/decisions/inbox/mal-sample-health-check.md`
+
+**Key architectural decisions:**
+
+1. **7 health dimensions, 100-point additive scoring** — Unlike security-audit (starts at 100, subtracts), health-check starts at 0 and awards points. Positive framing: "what does this repo do well?" vs "what's broken?"
+
+2. **Minimal github-rest additions** — Only 2 new endpoints needed:
+   - `repos.getCommunityProfile()` — single API call returns LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, README presence. Huge efficiency win.
+   - `actions.getLatestWorkflowRun()` — convenience wrapper over existing `listWorkflowRuns` with `per_page=1`.
+
+3. **Separation of concerns** — `checks.ts` (pure functions, no API calls), `scoring.ts` (weight constants + grading), `index.ts` (orchestration). Each testable in isolation.
+
+4. **No overlap with security-audit-repos** — Health-check skips code scanning, secret scanning, security advisories. Shares branch protection + Dependabot (viewed through different lenses: security posture vs maintenance freshness).
+
+5. **Community Profile API** — `GET /repos/{owner}/{repo}/community/profile` is the single most valuable endpoint for health checking. One call replaces 5-6 individual file existence checks. Must be added to `github-rest`.
+
+**Implementation dependencies:**
+- Kaylee: 2 new github-rest endpoints (blocking)
+- Wash: solution implementation (checks.ts → scoring.ts → index.ts → cli.ts)
+- Zoe: test suite (test-first, same pattern as security-audit-repos)
+- Mal: code review gate
+
+**API budget:** ~8-10 calls per repo. No rate limit concern for current repo set.
+
+### 2026-03-06 — Code Review: sample-health-check Fixes
+
+**Status:** APPROVE
+
+**Scope:** Re-review of type safety fixes in `github-rest` and `sample-health-check`.
+
+**Findings:**
+- ✅ `sample-health-check` now has 0 `as any` casts.
+- ✅ `actions.ts` and `contents.ts` in `github-rest` are fully typed.
+- ✅ Tests pass (52 in github-rest, 116 in sample-health-check).
+- ⚠️ `repos.ts` still contains 6 `as any` casts and `Repository` type is missing standard fields (`description`, `open_issues_count`). This tech debt is tracked for future cleanup but does not block this release.
+
+### 2026-03-06 — Architecture Design: create-remediation-issues (P1)
+
+**Status:** Architecture decision written to `.squad/decisions/inbox/mal-create-remediation-issues.md`
+
+**Key architectural decisions:**
+
+1. **Solutions must not depend on sibling solutions** — Input report types are defined locally in `src/types.ts` as structural copies of upstream shapes. No `file:` references between `solutions/*` directories. Solutions depend on packages, not on each other.
+
+2. **Deterministic title-based deduplication** — Title format `[remediation] {source}: {owner}/{repo} — {signal_title}` is the dedup anchor. Before creating, list open issues with `remediation` label and match title prefix + `finding.signal` key. Simple, no external state needed.
+
+3. **Per-repo issue creation by default** — Issues land in the repo they describe. `--target-repo` flag enables central tracking repo for orgs that prefer a single board. Per-repo keeps issues close to the code that needs fixing.
+
+4. **8-label strategy** — `remediation` (all), `security`/`health` (source), `severity:{critical,high,medium,low}` (priority), `automated` (provenance). Labels are provisioned idempotently via `ensureLabels()`.
+
+5. **Three-file separation** — `findings.ts` (pure extraction, no API), `templates.ts` (pure string formatting), `labels.ts` (constants + provisioning). Orchestration in `index.ts`. Same pattern as health-check's checks/scoring split.
+
+6. **Two-mode operation** — `--dry-run` outputs a JSON preview of what would be created (including dedup skip reasons). Live run outputs same structure with `issueUrl`/`issueNumber` for created issues.
+
+7. **1 issue per unique signal per repo** — No mega-issues. A repo with 3 distinct problems gets 3 focused, actionable issues. Keeps triage clean.
+
+**Upstream dependencies:**
+- `github-rest/issues.ts` — fully implemented: `createIssue`, `listIssues`, `createLabel`, `listLabels`, `updateIssue`, `addLabelsToIssue`
+- `security-audit-repos` — `SecurityAuditReport` shape with per-repo `RepoSecurityAudit` (score, alert counts, branch protection)
+- `sample-health-check` — `HealthCheckReport` shape with per-repo `RepoHealthCheck` (score, grade, checks[], dimensions)
+
+**Scope boundaries (v1 does NOT):**
+- Close issues when findings resolve (v2)
+- Assign issues (v2 — `--assignee` flag)
+- Update existing issues with comments on re-run (v2)
+- Create PRs — that's `sample-auto-fix` (P2)
+
+**API budget:** ~4 calls per finding (dedup + create + label ops). For 10 repos × 3 findings = ~40 calls. No rate limit concern.

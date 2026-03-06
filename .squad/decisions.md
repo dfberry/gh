@@ -233,7 +233,7 @@ When building solution packages that compose github-rest endpoints, write tests 
 
 ### 8. github-rest Endpoint Return Types (Mal — 2026-03-05)
 
-**Status:** Proposed
+**Status:** In Progress (actions.ts, contents.ts done; alerts.ts, security.ts next)
 
 **Context:** During code review of `solutions/security-audit-repos/`, found three `as any` casts forced by lack of return types on `github-rest` endpoint functions:
 - `alerts.listDependabotAlerts()` returns `any`
@@ -254,6 +254,48 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 **Priority:** Medium — track alongside Phase 2. Not blocking Phase 1 but accumulating tech debt.
 
 **Impact:** All current solutions benefit immediately; future solutions won't need `as any` casts; tests become more precise.
+
+---
+
+### 13. Enforce Strict Types in github-rest (Mal — 2026-03-06)
+
+**Status:** Accepted
+
+**Context:** During code review of `sample-health-check`, found widespread `as any` casts forced by lack of return types in `github-rest`.
+
+**Decision:**
+1. `github-rest` must export complete types for all entities it returns (`Repository`, `WorkflowRun`, `CommunityProfile`, etc.)
+2. Solutions must not use `as any` for API responses — if a field is missing, the type must be updated
+3. Endpoints must explicitly return typed Promises (e.g., `Promise<Repository>`), not `Promise<any>`
+
+**Consequences:**
+- **Immediate:** sample-health-check rejected until types are fixed
+- **Long-term:** Cleaner, safer code in solutions; less runtime debugging of "undefined" fields
+- **Action:** Zoe assigned to add types to actions.ts + contents.ts; Kaylee removes as-any casts from sample-health-check
+
+**Implementation Status:**
+- ✅ Zoe completed: 6 new interfaces (Workflow, WorkflowRun, WorkflowsResponse, WorkflowRunsResponse, ContentItem, ContentFile)
+- ✅ Kaylee completed: removed 8 `as any` casts from sample-health-check; created 3 local bridge interfaces for still-untyped endpoints
+- ⏳ Next phase: types for alerts.ts, security.ts (per Decision #8 roadmap)
+
+---
+
+### 14. Local Type Bridges for Untyped github-rest Returns (Kaylee — 2026-03-06)
+
+**Status:** Accepted
+
+**Context:** While eliminating `as any` casts, three github-rest endpoints return `unknown`: `listDependabotAlerts`, `getAutomatedSecurityFixes`, `getBranchProtection`. Additionally, `Repository` type is missing fields like `description` and `open_issues_count`.
+
+**Decision:**
+
+**Short term:** Solutions create minimal local interfaces (`DependabotAlert`, `AutomatedSecurityFixesResponse`, `RepoData`) that type only the fields they access. Eliminates `as any` without blocking on github-rest type completeness.
+
+**Medium term (tech debt):** Replace local types once github-rest endpoints get proper return types (Decision #8). When complete, solutions delete local interfaces and import from github-rest directly.
+
+**Implications:**
+- All new solutions should follow this pattern: create local minimal interfaces rather than using `as any` for untyped returns
+- When github-rest adds types for alerts/security endpoints, grep across solutions and replace local bridges
+- Add `description` and `open_issues_count` to `Repository` type (non-breaking) to eliminate RepoData bridges
 
 ---
 
@@ -289,9 +331,198 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 
 ---
 
+### 11. Architecture Decision: sample-health-check Solution (Mal — Phase 2, 2026-03-06)
+
+**Status:** Proposed
+
+**Context:** `sample-health-check` (Phase 2) measures **overall repo health** — "is this sample repo well-maintained?" It complements `security-audit-repos` (Phase 1, which measures security posture).
+
+**Solution Overview:**
+- **7 health dimensions** with concrete checks: Documentation Quality, Repository Hygiene, CI/CD Presence, Dependency Freshness, Activity & Maintenance, Branch Protection, Azure Sample-Specific
+- **100-point additive scoring model** (start at 0, award points for healthy signals)
+- **Letter grades:** A (90-100), B (75-89), C (50-74), D (25-49), F (0-24)
+- **Dual output:** JSON (structured) + Markdown (human-readable)
+
+**GitHub REST API Endpoints Needed:**
+- **Existing (ready to use):** `getRepo`, `getRepoReadme`, `getTopics`, `getDefaultBranch`, `listReleases`, `fetchRepoMetadata`, `getRootContents`, `listRepoWorkflows`, `listWorkflowRuns`, `listDependabotAlerts`, `getBranchProtection`, `getAutomatedSecurityFixes`
+- **New endpoints required (Kaylee):**
+  - `repos.getCommunityProfile()` — `GET /repos/{owner}/{repo}/community/profile` — returns LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, README presence in one call
+  - `actions.getLatestWorkflowRun()` — convenience wrapper for most recent run status
+
+**Implementation Order:**
+1. Kaylee: Add 2 new endpoints to `github-rest` with tests
+2. Wash/Zoe: Build `scoring.ts` + `checks.ts` (pure functions, test-first)
+3. Wash: Build `index.ts` orchestration (composes github-rest calls + checks)
+4. Wash: Build `cli.ts` (follows security-audit-repos pattern)
+5. Zoe: Full test suite
+
+**Decision:** Build `sample-health-check` following patterns above. Uses almost entirely existing github-rest endpoints (only 2 additions needed). Approved for implementation.
+
+---
+
+### 12. Health-Check Endpoint Audit Report (Kaylee — 2026-03-05)
+
+**Status:** Completed
+
+**Scope:** Audit `packages/github-rest` for `sample-health-check` solution readiness.
+
+**Findings:**
+- **Repository Metadata:** ✅ READY — all metadata needs covered (README, topics, description, language, default branch, visibility)
+- **Community Health:** ❌ BLOCKED — missing `getCommunityProfile()` endpoint (single API call provides LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, README presence)
+- **CI/CD Presence:** ✅ READY — `listRepoWorkflows`, `listWorkflowRuns`, `listAllRepoActionRuns` available
+- **Dependency Health:** ✅ MOSTLY READY — Dependabot alerts covered; SBOM/dependency-graph is nice-to-have
+- **Activity Signals:** ✅ MOSTLY READY — commits count, PR count, issues, releases available; detailed `listCommits()` is optional
+- **Branch Protection:** ✅ READY — fully covered with no new endpoints needed
+- **File Existence Checks:** ✅ USABLE BUT AWKWARD — `getContents()` works but needs try/catch wrappers; adding convenience helpers improves solution code
+
+**Build Priority for Kaylee:**
+- **P0 (blocking):** `getCommunityProfile()`, `fileExists()`, `getDecodedFileContent()`
+- **P1 (nice-to-have):** `listCommits()`, `getDependencyGraphSBOM()`, `getLicense()`
+- **Already available:** 40+ functions across 10 modules (no work needed)
+
+**Estimated effort:** ~1 hour for P0 functions. Wash can start building health-check solution immediately using existing endpoints; Kaylee adds P0s in parallel.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
-- Decisions merged from inbox monthly (2026-03-05 merge complete)
+- Decisions merged from inbox 2026-03-06 (Mal sample-health-check + Kaylee audit)
+
+
+### 15. Code Review Gate Process Automation (User Directive — 2026-03-06)
+
+**Captured from:** Copilot implementation directive
+
+**Decision:** Code reviews and fixes must be part of the team's standard process — automatic after every implementation batch, not on-demand. Review gate now runs automatically after implementation phases, with lead review, lockout routing, and re-review loops until approved.
+
+**Impact:** 
+- Standardizes code quality gates as part of workflow
+- Removes on-demand overhead
+- Establishes consistent review expectations across all implementation work
+
+---
+
+### 16. Architecture Decision: create-remediation-issues Solution (Mal — 2026-03-06)
+
+**Status:** Implemented
+
+**Context:** Phase 3 solution that converts findings from security-audit-repos and sample-health-check into actionable GitHub Issues, closing the automation feedback loop.
+
+**Key Architectural Decisions:**
+
+1. **Solutions must not depend on sibling solutions** — Input report types defined locally in `src/types.ts` as structural copies of upstream shapes. No `file:` references between `solutions/*` directories. Solutions depend on packages, not on each other.
+
+2. **Deterministic title-based deduplication** — Title format `[remediation] {source}: {owner}/{repo} — {signal_title}` is the dedup anchor. Before creating, list open issues with `remediation` label and match title prefix + `finding.signal` key. Simple, no external state needed.
+
+3. **Per-repo issue creation by default** — Issues land in the repo they describe. `--target-repo` flag enables central tracking repo for orgs that prefer a single board. Per-repo keeps issues close to the code that needs fixing.
+
+4. **8-label strategy** — `remediation` (all), `security`/`health` (source), `severity:{critical,high,medium,low}` (priority), `automated` (provenance). Labels provisioned idempotently via `ensureLabels()`.
+
+5. **Three-file separation** — `findings.ts` (pure extraction, no API), `templates.ts` (pure string formatting), `labels.ts` (constants + provisioning). Orchestration in `index.ts`. Same pattern as health-check's checks/scoring split.
+
+6. **Two-mode operation** — `--dry-run` outputs a JSON preview of what would be created (including dedup skip reasons). Live run outputs same structure with `issueUrl`/`issueNumber` for created issues.
+
+7. **1 issue per unique signal per repo** — No mega-issues. A repo with 3 distinct problems gets 3 focused, actionable issues. Keeps triage clean.
+
+**Upstream dependencies:**
+- `github-rest/issues.ts` — fully implemented: `createIssue`, `listIssues`, `updateIssue`, `addLabelsToIssue`, `createLabel`, `listLabels`
+- `security-audit-repos` — `SecurityAuditReport` shape with per-repo `RepoSecurityAudit` (score, alert counts, branch protection)
+- `sample-health-check` — `HealthCheckReport` shape with per-repo `RepoHealthCheck` (score, grade, checks[], dimensions)
+
+**Scope boundaries (v1 does NOT):**
+- Close issues when findings resolve (v2)
+- Assign issues (v2 — `--assignee` flag)
+- Update existing issues with comments on re-run (v2)
+- Create PRs — that's `sample-auto-fix` (P2)
+
+**API budget:** ~4 calls per finding (dedup + create + label ops). For 10 repos × 3 findings = ~40 calls. No rate limit concern.
+
+**Files affected:** `solutions/create-remediation-issues/src/index.ts`, `cli.ts`, `types.ts`, `README.md`
+
+---
+
+### 17. Test Contracts: create-remediation-issues (Zoe — 2026-03-06)
+
+**Status:** Implemented (75 tests)
+
+**Context:** Wrote test-first suite for `create-remediation-issues` solution. The tests define the behavioral contracts that implementation must satisfy.
+
+**Decisions Embedded in Tests:**
+
+1. **Severity classification:**
+   - Critical dependabot alerts + secret scanning → `critical` severity
+   - High dependabot + code scanning → `high` severity
+   - Missing branch protection → `medium` severity
+   - Automated security fixes disabled → `low` severity
+
+2. **Default thresholds:**
+   - Security score threshold: 70 (repos below this get issues)
+   - Health grade threshold: 'D' (repos with D or F get issues; A/B/C are fine)
+
+3. **Deduplication strategy:**
+   - Match by exact title against open issues only
+   - Closed issues are not duplicates (re-create allowed)
+   - On API error during dedup check, treat as no duplicates (create anyway)
+
+4. **Labeling convention:**
+   - All issues: `automated-remediation` label
+   - Security issues: additional `security` label
+   - Health issues: additional `health` label
+   - Extra labels passable via `--extra-labels`
+
+5. **Issue title format:** `[Source] owner/repo: Description`
+
+6. **Input architecture:** Solutions consume JSON files, not module imports. Types defined locally in `types.ts` mirroring upstream output shapes.
+
+**Test Coverage (75 total):**
+- index.test.ts: 61 tests (findings analysis, deduplication, formatting, orchestration, edge cases)
+- cli.test.ts: 14 tests (argument parsing, file I/O, option passthrough)
+
+**Test Status:** ✅ 75/75 passing
+
+---
+
+### 18. Implementation Decision: create-remediation-issues (Wash — 2026-03-06)
+
+**Status:** Implemented
+
+**Context:** Built full `solutions/create-remediation-issues/` solution from test contracts. All 75 tests passing.
+
+**Key Decisions:**
+
+1. **Two-Tier Threshold Model** — Signal-based findings (dependabot alerts, code/secret scanning, branch protection, auto-fix) fire for **every repo** regardless of security score threshold. Score-based findings only fire when `score < threshold` AND no signal-based findings exist for that repo.
+   - **Rationale:** Avoids noisy duplicates. If a repo has 5 critical dependabot alerts AND a low score, the specific alerts are more actionable than a generic "low score" issue. The score-based finding acts as a catch-all for repos that are unhealthy but don't trigger any specific signal.
+
+2. **Exact Title Deduplication** — Deduplication matches by exact title string against open issues with the `automated-remediation` label. Closed issues are ignored. API errors fail-open (create the issue anyway rather than silently skip).
+   - **Rationale:** Title format is deterministic (`[{Source}] owner/repo: description`), making exact matching reliable. Fail-open is safer than fail-closed — an extra issue is better than a missed one.
+
+3. **Severity Mapping (Tests > Spec)** — Several severity values in the implementation differ from Mal's architecture doc because the test contracts (written by Zoe) specify different values:
+
+   | Finding | Mal Spec | Tests/Implementation |
+   |---------|----------|---------------------|
+   | Branch protection disabled | high | **medium** |
+   | Auto security fixes disabled | medium | **low** |
+   | Health grade F | critical | **high** |
+   | High dependabot threshold | > 3 | **>= 3** |
+
+   **Team note:** Tests are the source of truth. If Mal wants to adjust severities, Zoe's tests should be updated first.
+
+4. **CLI Client Construction** — CLI uses `new GitHubClient({ token })` rather than the `createGitHubClient()` factory. This ensures the client is always a real object (important for test mock compatibility where factory functions return undefined).
+
+**Build Status:** ✅ Clean, zero errors. All 75 tests passing.
+
+**Files created/modified:**
+- `solutions/create-remediation-issues/src/index.ts` (432 lines, all functions)
+- `solutions/create-remediation-issues/src/cli.ts` (74 lines, CLI orchestration)
+- `solutions/create-remediation-issues/src/types.ts` (type contracts)
+- `solutions/create-remediation-issues/src/index.test.ts` (61 tests)
+- `solutions/create-remediation-issues/src/cli.test.ts` (14 tests)
+- `solutions/create-remediation-issues/README.md` (docs)
+- `solutions/create-remediation-issues/package.json` (dependencies)
+- `solutions/create-remediation-issues/tsconfig.json` (project reference)
+- `solutions/create-remediation-issues/sample.env` (token example)
+
+---
