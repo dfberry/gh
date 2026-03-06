@@ -30,7 +30,51 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
-### 2026-03-06 — sample-health-check Phase 2 Complete
+### 2026-03-06 — create-remediation-issues Phase 3 Complete
+
+**Status:** ✅ PHASE 3 COMPLETE (P1 remediation issue creator fully implemented and tested)
+
+**Solution delivery:**
+- Wash implemented `solutions/create-remediation-issues/` — full pipeline: report analysis → finding extraction → deduplication → GitHub Issue creation
+- All 75 tests passing (61 index + 14 CLI), build clean with zero errors
+- Zoe's test-first scaffolding once again enabled zero-blocking parallel implementation
+
+**Architecture decisions:**
+- **Two-tier threshold model:** Signal-based findings (dependabot, code scanning, secret scanning, branch protection, auto-fix) fire for EVERY repo regardless of score. Score-based findings only fire for repos below the threshold AND only when no signal-based findings exist. This avoids noisy duplicate issues.
+- **Exact title dedup:** Deduplication matches by exact title string against open issues with the `automated-remediation` label. Closed issues are not considered duplicates. API errors fail-open (create the issue anyway).
+- **Client-side state filtering:** Deduplication filters returned issues by `state === 'open'` on the client side for robustness, even though the API accepts a state parameter.
+- **Formatting composition:** `buildIssue()` helper composes `formatIssueTitle()` and `formatIssueBody()` to build complete RemediationIssue objects, keeping analysis functions clean.
+- **CLI uses `new GitHubClient()` constructor** instead of `createGitHubClient()` factory — ensures non-undefined client in mock environments where factory returns undefined.
+
+**Test contract findings (deviations from Mal's spec):**
+- Branch protection disabled → severity 'medium' (spec said 'high')
+- Automated security fixes disabled → severity 'low' (spec said 'medium')
+- Health grade F → severity 'high' (spec said 'critical')
+- High dependabot threshold: `>= 3` (spec said `> 3`)
+- Tests are the contract — always follow test expectations over design doc
+
+### 2026-03-06 — create-remediation-issues Phase 3 Complete
+
+**Status:** ✅ PHASE 3 COMPLETE (P1 remediation issue creator fully implemented and tested)
+
+**Solution delivery:**
+- Wash implemented `solutions/create-remediation-issues/` — full pipeline: report analysis → finding extraction → deduplication → GitHub Issue creation
+- All 75 tests passing (61 index + 14 CLI), build clean with zero errors
+- Zoe's test-first scaffolding once again enabled zero-blocking parallel implementation
+
+**Architecture decisions:**
+- **Two-tier threshold model:** Signal-based findings (dependabot, code scanning, secret scanning, branch protection, auto-fix) fire for EVERY repo regardless of score. Score-based findings only fire for repos below the threshold AND only when no signal-based findings exist. This avoids noisy duplicate issues.
+- **Exact title dedup:** Deduplication matches by exact title string against open issues with the `automated-remediation` label. Closed issues are not considered duplicates. API errors fail-open (create the issue anyway).
+- **Client-side state filtering:** Deduplication filters returned issues by `state === 'open'` on the client side for robustness, even though the API accepts a state parameter.
+- **Formatting composition:** `buildIssue()` helper composes `formatIssueTitle()` and `formatIssueBody()` to build complete RemediationIssue objects, keeping analysis functions clean.
+- **CLI uses `new GitHubClient()` constructor** instead of `createGitHubClient()` factory — ensures non-undefined client in mock environments where factory returns undefined.
+
+**Test contract findings (deviations from Mal's spec):**
+- Branch protection disabled → severity 'medium' (spec said 'high')
+- Automated security fixes disabled → severity 'low' (spec said 'medium')
+- Health grade F → severity 'high' (spec said 'critical')
+- High dependabot threshold: `>= 3` (spec said `> 3`)
+- Tests are the contract — always follow test expectations over design doc
 
 **Status:** ✅ PHASE 2 COMPLETE (P0 health-check fully implemented and tested)
 

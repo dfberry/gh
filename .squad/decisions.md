@@ -404,3 +404,125 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 - Establishes consistent review expectations across all implementation work
 
 ---
+
+### 16. Architecture Decision: create-remediation-issues Solution (Mal — 2026-03-06)
+
+**Status:** Implemented
+
+**Context:** Phase 3 solution that converts findings from security-audit-repos and sample-health-check into actionable GitHub Issues, closing the automation feedback loop.
+
+**Key Architectural Decisions:**
+
+1. **Solutions must not depend on sibling solutions** — Input report types defined locally in `src/types.ts` as structural copies of upstream shapes. No `file:` references between `solutions/*` directories. Solutions depend on packages, not on each other.
+
+2. **Deterministic title-based deduplication** — Title format `[remediation] {source}: {owner}/{repo} — {signal_title}` is the dedup anchor. Before creating, list open issues with `remediation` label and match title prefix + `finding.signal` key. Simple, no external state needed.
+
+3. **Per-repo issue creation by default** — Issues land in the repo they describe. `--target-repo` flag enables central tracking repo for orgs that prefer a single board. Per-repo keeps issues close to the code that needs fixing.
+
+4. **8-label strategy** — `remediation` (all), `security`/`health` (source), `severity:{critical,high,medium,low}` (priority), `automated` (provenance). Labels provisioned idempotently via `ensureLabels()`.
+
+5. **Three-file separation** — `findings.ts` (pure extraction, no API), `templates.ts` (pure string formatting), `labels.ts` (constants + provisioning). Orchestration in `index.ts`. Same pattern as health-check's checks/scoring split.
+
+6. **Two-mode operation** — `--dry-run` outputs a JSON preview of what would be created (including dedup skip reasons). Live run outputs same structure with `issueUrl`/`issueNumber` for created issues.
+
+7. **1 issue per unique signal per repo** — No mega-issues. A repo with 3 distinct problems gets 3 focused, actionable issues. Keeps triage clean.
+
+**Upstream dependencies:**
+- `github-rest/issues.ts` — fully implemented: `createIssue`, `listIssues`, `updateIssue`, `addLabelsToIssue`, `createLabel`, `listLabels`
+- `security-audit-repos` — `SecurityAuditReport` shape with per-repo `RepoSecurityAudit` (score, alert counts, branch protection)
+- `sample-health-check` — `HealthCheckReport` shape with per-repo `RepoHealthCheck` (score, grade, checks[], dimensions)
+
+**Scope boundaries (v1 does NOT):**
+- Close issues when findings resolve (v2)
+- Assign issues (v2 — `--assignee` flag)
+- Update existing issues with comments on re-run (v2)
+- Create PRs — that's `sample-auto-fix` (P2)
+
+**API budget:** ~4 calls per finding (dedup + create + label ops). For 10 repos × 3 findings = ~40 calls. No rate limit concern.
+
+**Files affected:** `solutions/create-remediation-issues/src/index.ts`, `cli.ts`, `types.ts`, `README.md`
+
+---
+
+### 17. Test Contracts: create-remediation-issues (Zoe — 2026-03-06)
+
+**Status:** Implemented (75 tests)
+
+**Context:** Wrote test-first suite for `create-remediation-issues` solution. The tests define the behavioral contracts that implementation must satisfy.
+
+**Decisions Embedded in Tests:**
+
+1. **Severity classification:**
+   - Critical dependabot alerts + secret scanning → `critical` severity
+   - High dependabot + code scanning → `high` severity
+   - Missing branch protection → `medium` severity
+   - Automated security fixes disabled → `low` severity
+
+2. **Default thresholds:**
+   - Security score threshold: 70 (repos below this get issues)
+   - Health grade threshold: 'D' (repos with D or F get issues; A/B/C are fine)
+
+3. **Deduplication strategy:**
+   - Match by exact title against open issues only
+   - Closed issues are not duplicates (re-create allowed)
+   - On API error during dedup check, treat as no duplicates (create anyway)
+
+4. **Labeling convention:**
+   - All issues: `automated-remediation` label
+   - Security issues: additional `security` label
+   - Health issues: additional `health` label
+   - Extra labels passable via `--extra-labels`
+
+5. **Issue title format:** `[Source] owner/repo: Description`
+
+6. **Input architecture:** Solutions consume JSON files, not module imports. Types defined locally in `types.ts` mirroring upstream output shapes.
+
+**Test Coverage (75 total):**
+- index.test.ts: 61 tests (findings analysis, deduplication, formatting, orchestration, edge cases)
+- cli.test.ts: 14 tests (argument parsing, file I/O, option passthrough)
+
+**Test Status:** ✅ 75/75 passing
+
+---
+
+### 18. Implementation Decision: create-remediation-issues (Wash — 2026-03-06)
+
+**Status:** Implemented
+
+**Context:** Built full `solutions/create-remediation-issues/` solution from test contracts. All 75 tests passing.
+
+**Key Decisions:**
+
+1. **Two-Tier Threshold Model** — Signal-based findings (dependabot alerts, code/secret scanning, branch protection, auto-fix) fire for **every repo** regardless of security score threshold. Score-based findings only fire when `score < threshold` AND no signal-based findings exist for that repo.
+   - **Rationale:** Avoids noisy duplicates. If a repo has 5 critical dependabot alerts AND a low score, the specific alerts are more actionable than a generic "low score" issue. The score-based finding acts as a catch-all for repos that are unhealthy but don't trigger any specific signal.
+
+2. **Exact Title Deduplication** — Deduplication matches by exact title string against open issues with the `automated-remediation` label. Closed issues are ignored. API errors fail-open (create the issue anyway rather than silently skip).
+   - **Rationale:** Title format is deterministic (`[{Source}] owner/repo: description`), making exact matching reliable. Fail-open is safer than fail-closed — an extra issue is better than a missed one.
+
+3. **Severity Mapping (Tests > Spec)** — Several severity values in the implementation differ from Mal's architecture doc because the test contracts (written by Zoe) specify different values:
+
+   | Finding | Mal Spec | Tests/Implementation |
+   |---------|----------|---------------------|
+   | Branch protection disabled | high | **medium** |
+   | Auto security fixes disabled | medium | **low** |
+   | Health grade F | critical | **high** |
+   | High dependabot threshold | > 3 | **>= 3** |
+
+   **Team note:** Tests are the source of truth. If Mal wants to adjust severities, Zoe's tests should be updated first.
+
+4. **CLI Client Construction** — CLI uses `new GitHubClient({ token })` rather than the `createGitHubClient()` factory. This ensures the client is always a real object (important for test mock compatibility where factory functions return undefined).
+
+**Build Status:** ✅ Clean, zero errors. All 75 tests passing.
+
+**Files created/modified:**
+- `solutions/create-remediation-issues/src/index.ts` (432 lines, all functions)
+- `solutions/create-remediation-issues/src/cli.ts` (74 lines, CLI orchestration)
+- `solutions/create-remediation-issues/src/types.ts` (type contracts)
+- `solutions/create-remediation-issues/src/index.test.ts` (61 tests)
+- `solutions/create-remediation-issues/src/cli.test.ts` (14 tests)
+- `solutions/create-remediation-issues/README.md` (docs)
+- `solutions/create-remediation-issues/package.json` (dependencies)
+- `solutions/create-remediation-issues/tsconfig.json` (project reference)
+- `solutions/create-remediation-issues/sample.env` (token example)
+
+---

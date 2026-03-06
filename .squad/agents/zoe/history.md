@@ -144,3 +144,98 @@
 
 **Unblocks:** sample-health-check can proceed without `as any` casts in consumer code
 
+### 2026-03-06 — Phase 3 create-remediation-issues test suite written (test-first)
+
+**Status:** ✅ 75 TESTS WRITTEN (69 failing as expected, 6 constants/exports passing)
+
+**Test-first pattern applied for third time:**
+- Wrote 75 tests across 2 files before implementation exists
+- Tests define exact contracts for analysis functions, deduplication, dry-run, formatting
+- Wash can implement against these test contracts
+
+**Test coverage (75 tests across 2 files):**
+- **index.test.ts (61 tests):**
+  - `analyzeSecurityFindings` (11 tests): critical/high dependabot, secret scanning, code scanning, branch protection, automated security fixes, threshold logic, multi-repo, no duplicates per repo, alert counts in body
+  - `analyzeHealthFindings` (7 tests): grade D/F repos, dimension-specific issues, threshold customization, grade/score in body, multi-repo
+  - `deduplicateIssues` (6 tests): open issue match → skip, closed issue → create, no match → create, mixed duplicates/new, correct API calls, error handling
+  - `dry-run mode` (4 tests): no createIssue calls, summary reports, no label/issue API calls, dedup still runs
+  - `formatIssueTitle` (5 tests): source tag, owner/repo, finding type, optional detail, health tag
+  - `formatIssueBody` (4 tests): repo name, context data, severity, valid markdown
+  - `createRemediationIssues` orchestrator (8 tests): security creation, health creation, both together, remediation labels, source labels, extra labels, issue number/URL, summary stats
+  - `edge cases` (10 tests): empty reports, all healthy, both security+health issues, single-source input, no reports, missing fields, missing dimensions
+  - `constants and exports` (6 tests): threshold values, labels, function exports
+- **cli.test.ts (14 tests):**
+  - `parseArgs` (9 tests): all flags individually, combined flags
+  - `runCli` (5 tests): file reading, output writing, option passthrough
+
+**Architecture decisions in tests:**
+- **Input types defined locally** in `types.ts` — mirrors JSON shapes from security-audit-repos and sample-health-check (solutions don't import from each other; data flows via files)
+- **Deduplication by title pattern** — matches open issues only; closed issues are not duplicates
+- **Severity mapping:** critical dependabot + secrets = critical; high dependabot + code scanning = high; branch protection = medium; auto-fix = low
+- **Default thresholds:** security score < 70, health grade D or F
+- **Label convention:** all issues get `automated-remediation`, plus `security` or `health`
+- **Dimension-specific issues** for health: dimensions with passRate < 0.5 get separate issues
+
+**Mock strategy:**
+- `vi.mock('github-rest')` at module level — issues namespace (createIssue, listIssues, addLabelsToIssue, createLabel)
+- CLI tests also mock `node:fs/promises` and `./index.js` for isolation
+- Test data factories: `makeSecurityRepo()`, `makeHealthRepo()`, `makeSecurityReport()`, `makeHealthReport()`
+
+### 2026-03-06 — Phase 3 create-remediation-issues test suite written (test-first)
+
+**Status:** ✅ 75 TESTS WRITTEN (all passing after implementation)
+
+**Test-first pattern applied for third time:**
+- Wrote 75 tests across 2 files before implementation exists
+- Tests define exact contracts for analysis functions, deduplication, dry-run, formatting
+- Wash implemented against these test contracts
+
+**Test coverage (75 tests across 2 files):**
+- **index.test.ts (61 tests):**
+  - `analyzeSecurityFindings` (11 tests): critical/high dependabot, secret scanning, code scanning, branch protection, automated security fixes, threshold logic, multi-repo, no duplicates per repo, alert counts in body
+  - `analyzeHealthFindings` (7 tests): grade D/F repos, dimension-specific issues, threshold customization, grade/score in body, multi-repo
+  - `deduplicateIssues` (6 tests): open issue match → skip, closed issue → create, no match → create, mixed duplicates/new, correct API calls, error handling
+  - `dry-run mode` (4 tests): no createIssue calls, summary reports, no label/issue API calls, dedup still runs
+  - `formatIssueTitle` (5 tests): source tag, owner/repo, finding type, optional detail, health tag
+  - `formatIssueBody` (4 tests): repo name, context data, severity, valid markdown
+  - `createRemediationIssues` orchestrator (8 tests): security creation, health creation, both together, remediation labels, source labels, extra labels, issue number/URL, summary stats
+  - `edge cases` (10 tests): empty reports, all healthy, both security+health issues, single-source input, no reports, missing fields, missing dimensions
+  - `constants and exports` (6 tests): threshold values, labels, function exports
+- **cli.test.ts (14 tests):**
+  - `parseArgs` (9 tests): all flags individually, combined flags
+  - `runCli` (5 tests): file reading, output writing, option passthrough
+
+**Architecture decisions in tests:**
+- **Input types defined locally** in `types.ts` — mirrors JSON shapes from security-audit-repos and sample-health-check (solutions don't import from each other; data flows via files)
+- **Deduplication by title pattern** — matches open issues only; closed issues are not duplicates
+- **Severity mapping:** critical dependabot + secrets = critical; high dependabot + code scanning = high; branch protection = medium; auto-fix = low
+- **Default thresholds:** security score < 70, health grade D or F
+- **Label convention:** all issues get `automated-remediation`, plus `security` or `health`
+- **Dimension-specific issues** for health: dimensions with passRate < 0.5 get separate issues
+
+**Mock strategy:**
+- `vi.mock('github-rest')` at module level — issues namespace (createIssue, listIssues, addLabelsToIssue, createLabel)
+- CLI tests also mock `node:fs/promises` and `./index.js` for isolation
+- Test data factories: `makeSecurityRepo()`, `makeHealthRepo()`, `makeSecurityReport()`, `makeHealthReport()`
+
+**Unblocks:** Wash implemented `src/index.ts` against these 75 test contracts
+
+### 2026-03-06 — Phase 3 create-remediation-issues Implementation Complete
+
+**Status:** ✅ ALL 75 TESTS PASSING
+
+**Implementation by Wash:**
+- `solutions/create-remediation-issues/src/index.ts` (432 lines, all functions)
+- `solutions/create-remediation-issues/src/cli.ts` (74 lines, CLI orchestration)
+- Two-tier threshold model: signal-based findings fire for every repo, score-based only fire as catch-all
+- Exact title deduplication with fail-open on API errors
+- Severity mapping from test contracts (overrides Mal spec where divergent)
+- All 75 tests passing on first run post-implementation
+- Build clean with zero errors
+
+**Test contract findings (deviations from Mal's spec):**
+- Branch protection disabled → severity 'medium' (spec said 'high')
+- Automated security fixes disabled → severity 'low' (spec said 'medium')
+- Health grade F → severity 'high' (spec said 'critical')
+- High dependabot threshold: `>= 3` (spec said `> 3`)
+- **Note:** Tests are the contract — always follow test expectations over design doc
