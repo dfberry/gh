@@ -40,7 +40,9 @@
     "gh-cleanup:change": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- change'",
     "security-audit": "node --env-file \"./.env\" solutions/security-audit-repos/dist/cli.js --input ./active-sample-repos.json --out ./generated/security-audit --verbose",
     "sample-health-check": "node --env-file \"./.env\" solutions/sample-health-check/dist/cli.js --input=\"./active-sample-repos.json\" --out=\"./generated/sample-health-check\" --verbose",
-    "create-remediation-issues": "node --env-file \"./.env\" solutions/create-remediation-issues/dist/cli.js"
+    "create-remediation-issues": "node --env-file \"./.env\" solutions/create-remediation-issues/dist/cli.js",
+    "pipeline": "node --env-file \"./.env\" scripts/run-pipeline.mjs",
+    "pipeline:apply": "node --env-file \"./.env\" scripts/run-pipeline.mjs --apply"
   },
   "devDependencies": {
     "@types/node": "^25.0.9",

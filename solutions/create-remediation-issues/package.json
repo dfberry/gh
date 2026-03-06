@@ -1,0 +1,28 @@
+{
+  "name": "create-remediation-issues",
+  "version": "0.1.0",
+  "description": "Automated GitHub issue creator from security audit and health check reports — closes the remediation automation loop",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "create-remediation-issues": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file .env dist/cli.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:run": "vitest run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "github-rest": "file:../../packages/github-rest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}
