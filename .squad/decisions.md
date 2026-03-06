@@ -390,3 +390,17 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
 - Decisions merged from inbox 2026-03-06 (Mal sample-health-check + Kaylee audit)
+
+
+### 15. Code Review Gate Process Automation (User Directive — 2026-03-06)
+
+**Captured from:** Copilot implementation directive
+
+**Decision:** Code reviews and fixes must be part of the team's standard process — automatic after every implementation batch, not on-demand. Review gate now runs automatically after implementation phases, with lead review, lockout routing, and re-review loops until approved.
+
+**Impact:** 
+- Standardizes code quality gates as part of workflow
+- Removes on-demand overhead
+- Establishes consistent review expectations across all implementation work
+
+---
