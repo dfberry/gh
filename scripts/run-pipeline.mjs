@@ -98,4 +98,33 @@ const feedbackCmd = [
 run('pr-feedback-aggregator', feedbackCmd);
 console.log('\n✅ PR feedback aggregation complete!\n');
 
+// ── Check for error logs ────────────────────────────────────────────────
+const errorDirs = [
+  securityDir,
+  healthDir,
+  './generated/remediation-issues',
+  './generated/pr-feedback-aggregator',
+];
+const errorLogFiles = [];
+for (const dir of errorDirs) {
+  try {
+    const entries = await readdir(dir);
+    for (const f of entries) {
+      if (f.endsWith('-errors.log')) {
+        errorLogFiles.push(join(dir, f));
+      }
+    }
+  } catch {
+    // Directory may not exist — skip
+  }
+}
+
+if (errorLogFiles.length > 0) {
+  console.log(`⚠️  ${errorLogFiles.length} error log(s) found — some repos had failures:`);
+  for (const f of errorLogFiles) {
+    console.log(`   ${f}`);
+  }
+  console.log('');
+}
+
 console.log('✅ Pipeline complete!\n');

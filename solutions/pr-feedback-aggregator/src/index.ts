@@ -14,6 +14,7 @@ import type {
   RepoFeedbackSummary,
   AggregatedReport,
   PRFeedbackOptions,
+  PipelineError,
 } from './types.js';
 
 // Re-export types for convenience
@@ -23,6 +24,7 @@ export type {
   RepoFeedbackSummary,
   AggregatedReport,
   PRFeedbackOptions,
+  PipelineError,
 } from './types.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -40,6 +42,21 @@ export const BOT_SUFFIXES: string[] = ['[bot]'];
 
 function isBot(login: string): boolean {
   return BOT_SUFFIXES.some((suffix) => login.endsWith(suffix));
+}
+
+/** Categorize a caught error into a structured PipelineError. */
+function categorizePipelineError(repo: string, error: unknown): PipelineError {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message.includes('401')) {
+    return { repo, category: 'auth', message: 'GitHub API error 401', suggestion: 'Check your GITHUB_TOKEN in .env — it may be expired or missing.' };
+  }
+  if (message.includes('403') || message.toLowerCase().includes('rate limit')) {
+    return { repo, category: 'rate_limit', message: message.toLowerCase().includes('rate limit') ? 'GitHub API rate limit exceeded' : 'GitHub API error 403', suggestion: 'GitHub API rate limit exceeded. Wait a few minutes or use a token with higher limits.' };
+  }
+  if (message.includes('404') || message.includes('Not Found')) {
+    return { repo, category: 'not_found', message: 'Repository not found (404)', suggestion: 'Verify the repo exists and you have access.' };
+  }
+  return { repo, category: 'api_error', message, suggestion: 'Check the error message for details and verify your GitHub token has the required permissions.' };
 }
 
 // ─── Core Functions ──────────────────────────────────────────────────────────
@@ -232,6 +249,7 @@ export async function generateReport(
   }
 
   const summaries: RepoFeedbackSummary[] = [];
+  const errors: PipelineError[] = [];
 
   for (const fullRepo of options.repos) {
     const [owner, repo] = fullRepo.split('/');
@@ -272,6 +290,7 @@ export async function generateReport(
           console.log(`    ⚠ ${owner}/${repo}: ${message}`);
         }
       }
+      errors.push(categorizePipelineError(fullRepo, err));
       summaries.push({
         repo: fullRepo,
         prCount: 0,
@@ -297,6 +316,9 @@ export async function generateReport(
   }
 
   const result = aggregateResults(summaries);
+  if (errors.length > 0) {
+    result.errors = errors;
+  }
 
   if (verbose) {
     console.log(`  Aggregated: ${result.totalPRs} PRs, ${result.totalComments} comments, ${result.topPatterns.length} patterns`);

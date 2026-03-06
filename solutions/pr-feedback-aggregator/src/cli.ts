@@ -13,7 +13,7 @@ import {
   generateMarkdownSummary,
   DEFAULT_MAX_PRS_PER_REPO,
 } from './index.js';
-import type { PRFeedbackOptions } from './types.js';
+import type { PRFeedbackOptions, PipelineError } from './types.js';
 
 export interface CliArgs {
   input: string;
@@ -22,6 +22,18 @@ export interface CliArgs {
   verbose: boolean;
   maxPRsPerRepo: number;
   since?: string;
+}
+
+function formatErrorLog(solutionName: string, errors: PipelineError[]): string {
+  let output = `Pipeline Error Log — ${solutionName}\n`;
+  output += `Generated: ${new Date().toISOString()}\n\n`;
+  for (const err of errors) {
+    const tag = err.category.toUpperCase();
+    output += `[${tag}] ${err.repo}\n`;
+    output += `  Error: ${err.message}\n`;
+    output += `  Fix: ${err.suggestion}\n\n`;
+  }
+  return output;
 }
 
 export function parseArgs(argv: string[]): CliArgs {
@@ -121,6 +133,13 @@ export async function runCli(args: Partial<CliArgs>): Promise<void> {
     console.log(`Total Comments:         ${report.totalComments}`);
     console.log(`Patterns Identified:    ${report.topPatterns.length}`);
     console.log('='.repeat(60) + '\n');
+  }
+
+  // Write error log if any repos failed
+  if (report.errors && report.errors.length > 0) {
+    const errorLogPath = join(out, 'pr-feedback-errors.log');
+    await writeFile(errorLogPath, formatErrorLog('pr-feedback-aggregator', report.errors), 'utf-8');
+    console.log(`⚠️ ${report.errors.length} error(s) logged — see ${errorLogPath}`);
   }
 }
 

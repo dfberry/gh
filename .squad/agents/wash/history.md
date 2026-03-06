@@ -119,3 +119,86 @@
 - All 116 tests pass on first run post-implementation
 - Test mocking enabled parallel work: your implementation unblocked by test writing
 
+### 2026-03-08 — Verbose Logging for Pipeline Transparency
+
+**Status:** ✅ VERBOSE LOGGING COMPLETE (both create-remediation-issues and pr-feedback-aggregator now show progress)
+
+**Problem:** Steps 3 & 4 of `npm run pipeline` showed no output between step header and completion. Users running `--verbose` saw almost nothing. Compare to steps 1 & 2 (security-audit, health-check) which show detailed per-repo progress.
+
+**Solution delivery:**
+- Added `verbose?: boolean` to RemediationOptions and PRFeedbackOptions types
+- Added gated console.log progress to core functions (analyzeSecurityFindings, analyzeHealthFindings, deduplicateIssues, createRemediationIssues, fetchPRComments, generateReport)
+- Updated CLI modules to show input paths, output paths, and formatted summaries
+- Pattern: `const verbose = options?.verbose ?? false;` + gated `if (verbose) console.log(...)`
+
+**Verbose output patterns added:**
+- **create-remediation-issues:**
+  - "Analyzing security report: N repos..."
+  - "  {owner}/{repo}: N findings (finding-types)"
+  - "Deduplication: N to create, M duplicates skipped"
+  - "Dry run: N issues would be created" OR "Created N issues, skipped M duplicates"
+  - Formatted summary table with totals
+- **pr-feedback-aggregator:**
+  - "Analyzing N repositories..."
+  - "  {owner}/{repo}: fetching PRs..."
+  - "  ✓ {owner}/{repo}: N PRs, M comments"
+  - "  ⚠ {owner}/{repo}: not found, skipping"
+  - "  (dry-run: skipping LLM analysis)"
+  - "Aggregated: N PRs, M comments, X patterns"
+  - Formatted summary table
+
+**Design choices:**
+- No logging library — just `console.log` gated by verbose flag (keep it simple)
+- Pass verbose through options objects (not a separate parameter)
+- Follow security-audit/health-check pattern for per-repo progress (repo name + bullet + data)
+- Use ✓/⚠ symbols for success/warning (matches existing solutions)
+- Summary tables use 60-char separator lines and left-aligned labels
+
+**All tests still pass:** 75 tests (create-remediation-issues), 70 tests (pr-feedback-aggregator), build clean with zero errors
+
+**Key files modified:**
+- `solutions/create-remediation-issues/src/types.ts` (+1 field: verbose)
+- `solutions/create-remediation-issues/src/index.ts` (5 functions + verbose output)
+- `solutions/create-remediation-issues/src/cli.ts` (input paths + summary table)
+- `solutions/pr-feedback-aggregator/src/index.ts` (2 functions + verbose output)
+- `solutions/pr-feedback-aggregator/src/cli.ts` (input path + output paths + summary table)
+
+### 2026-03-09 — Pipeline Error Logging for All Solutions
+
+**Status:** ✅ COMPLETE (all 4 solutions + pipeline script now collect and log errors)
+
+**Problem:** Per-repo API errors (401 auth, 404 not-found, 403 rate-limit) were silently swallowed. Dina couldn't tell which repos failed or why without running with --verbose and reading console output.
+
+**Solution delivery:**
+- Added `PipelineError` interface to all 4 solutions (defined per-solution since packages are independent)
+- Core functions (`auditRepos`, `checkReposHealth`, `createRemediationIssues`, `generateReport`) now collect errors into `errors?: PipelineError[]` on their return types
+- CLI layers write `{step}-errors.log` files in the output directory when errors are present
+- `scripts/run-pipeline.mjs` checks all output directories for `*-errors.log` files and prints a summary
+- All 286 tests pass, build clean with zero errors
+
+**Architecture decisions:**
+- **Optional errors field:** `errors?: PipelineError[]` is optional on all result types so existing consumers (including tests) are unaffected
+- **Error categorization helper:** Each solution has a `categorizePipelineError()` that maps caught errors to structured `PipelineError` objects with human-readable messages and fix suggestions
+- **Fail-open preserved:** create-remediation-issues deduplication still creates issues on API error (fail-open), but now also logs the error
+- **Error log format:** Simple human-readable text with `[CATEGORY] repo` + error + fix suggestion — not JSON, designed for Dina to scan quickly
+- **Pipeline doesn't fail on errors:** Error logs are informational. Pipeline continues and reports error log locations at the end.
+
+**Error categories:**
+- `auth` — 401 errors → "Check your GITHUB_TOKEN in .env"
+- `not_found` — 404 errors → "Verify the repo exists and you have access"
+- `rate_limit` — 403/rate limit → "Wait a few minutes or use a token with higher limits"
+- `api_error` — other API errors → "Check the error message for details"
+
+**Key files modified:**
+- `solutions/security-audit-repos/src/index.ts` (PipelineError + error collection in auditRepos)
+- `solutions/security-audit-repos/src/cli.ts` (formatErrorLog + security-audit-errors.log writer)
+- `solutions/sample-health-check/src/index.ts` (PipelineError + error collection in checkReposHealth)
+- `solutions/sample-health-check/src/cli.ts` (formatErrorLog + health-check-errors.log writer)
+- `solutions/create-remediation-issues/src/types.ts` (PipelineError + errors field on RemediationResult)
+- `solutions/create-remediation-issues/src/index.ts` (error collection in dedup + create loops)
+- `solutions/create-remediation-issues/src/cli.ts` (formatErrorLog + remediation-issues-errors.log writer)
+- `solutions/pr-feedback-aggregator/src/types.ts` (PipelineError + errors field on AggregatedReport)
+- `solutions/pr-feedback-aggregator/src/index.ts` (error collection in generateReport)
+- `solutions/pr-feedback-aggregator/src/cli.ts` (formatErrorLog + pr-feedback-errors.log writer)
+- `scripts/run-pipeline.mjs` (error log summary after all steps)
+

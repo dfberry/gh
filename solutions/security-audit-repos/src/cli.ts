@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { auditRepos, generateAuditSummary } from './index.js';
+import { auditRepos, generateAuditSummary, type PipelineError } from './index.js';
 import { GitHubClient } from 'github-rest';
 import * as fs from 'fs/promises';
 import * as path from 'path';
@@ -145,6 +145,13 @@ async function main() {
       console.log('');
     }
 
+    // Write error log if any repos failed
+    if (report.errors && report.errors.length > 0) {
+      const errorLogPath = path.join(outputDir, 'security-audit-errors.log');
+      await fs.writeFile(errorLogPath, formatErrorLog('security-audit-repos', report.errors), 'utf8');
+      console.log(`⚠️ ${report.errors.length} error(s) logged — see ${errorLogPath}`);
+    }
+
   } catch (error) {
     if (error instanceof Error) {
       console.error(`\nError: ${error.message}`);
@@ -172,6 +179,18 @@ async function main() {
     
     process.exit(2);
   }
+}
+
+function formatErrorLog(solutionName: string, errors: PipelineError[]): string {
+  let output = `Pipeline Error Log — ${solutionName}\n`;
+  output += `Generated: ${new Date().toISOString()}\n\n`;
+  for (const err of errors) {
+    const tag = err.category.toUpperCase();
+    output += `[${tag}] ${err.repo}\n`;
+    output += `  Error: ${err.message}\n`;
+    output += `  Fix: ${err.suggestion}\n\n`;
+  }
+  return output;
 }
 
 function printUsage() {

@@ -109,6 +109,16 @@ export interface HealthCheckReport {
   };
 }
 
+// ─── Pipeline Error ──────────────────────────────────────────────────────────
+
+/** An error encountered during pipeline execution. */
+export interface PipelineError {
+  repo: string;
+  category: 'auth' | 'not_found' | 'rate_limit' | 'api_error' | 'unknown';
+  message: string;
+  suggestion: string;
+}
+
 // ─── Remediation Types ───────────────────────────────────────────────────────
 
 /** A planned GitHub issue to create for a finding. */
@@ -161,6 +171,7 @@ export interface RemediationResult {
   skipped: SkippedIssue[];
   planned: RemediationIssue[];
   dryRun: boolean;
+  errors?: PipelineError[];
   summary: {
     totalPlanned: number;
     totalCreated: number;

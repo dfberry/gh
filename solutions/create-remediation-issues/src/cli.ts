@@ -6,9 +6,9 @@
 
 import { GitHubClient } from 'github-rest';
 import { createRemediationIssues } from './index.js';
-import type { RemediationInput, RemediationOptions } from './types.js';
+import type { RemediationInput, RemediationOptions, PipelineError } from './types.js';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { dirname, join } from 'node:path';
 
 export interface CliArgs {
   securityInput?: string;
@@ -19,6 +19,18 @@ export interface CliArgs {
   healthGradeThreshold?: string;
   extraLabels?: string[];
   verbose?: boolean;
+}
+
+function formatErrorLog(solutionName: string, errors: PipelineError[]): string {
+  let output = `Pipeline Error Log — ${solutionName}\n`;
+  output += `Generated: ${new Date().toISOString()}\n\n`;
+  for (const err of errors) {
+    const tag = err.category.toUpperCase();
+    output += `[${tag}] ${err.repo}\n`;
+    output += `  Error: ${err.message}\n`;
+    output += `  Fix: ${err.suggestion}\n\n`;
+  }
+  return output;
 }
 
 /**
@@ -114,6 +126,15 @@ export async function runCli(args: CliArgs): Promise<void> {
     console.log(`Total Skipped:  ${result.summary.totalSkipped}`);
     console.log(`Mode:           ${result.dryRun ? 'DRY RUN' : 'LIVE'}`);
     console.log('='.repeat(60) + '\n');
+  }
+
+  // Write error log if any errors were collected
+  if (result.errors && result.errors.length > 0) {
+    const errorDir = args.out ? dirname(args.out) : 'generated/remediation-issues';
+    await mkdir(errorDir, { recursive: true });
+    const errorLogPath = join(errorDir, 'remediation-issues-errors.log');
+    await writeFile(errorLogPath, formatErrorLog('create-remediation-issues', result.errors), 'utf-8');
+    console.log(`⚠️ ${result.errors.length} error(s) logged — see ${errorLogPath}`);
   }
 }
 

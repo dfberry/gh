@@ -6,6 +6,16 @@
  * These are local definitions — data flows via JSON files, not module imports.
  */
 
+// ─── Pipeline Error ──────────────────────────────────────────────────────────
+
+/** An error encountered during pipeline execution. */
+export interface PipelineError {
+  repo: string;
+  category: 'auth' | 'not_found' | 'rate_limit' | 'api_error' | 'unknown';
+  message: string;
+  suggestion: string;
+}
+
 // ─── GitHub PR Comment (normalized from REST API) ────────────────────────────
 
 /** A single PR comment normalized from GitHub REST API response. */
@@ -48,6 +58,7 @@ export interface AggregatedReport {
   topPatterns: FeedbackPattern[];
   perRepo: RepoFeedbackSummary[];
   recommendations: string[];
+  errors?: PipelineError[];
 }
 
 // ─── Options ─────────────────────────────────────────────────────────────────
