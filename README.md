@@ -27,13 +27,14 @@ If you want, I can also add short links from `packages/gh-cleanup/README.md` to 
 
 ## Solutions Pipeline
 
-The three solutions — **security-audit-repos**, **sample-health-check**, and **create-remediation-issues** — form a detect → score → remediate pipeline for repository health and security. They work together to identify issues, quantify repo health, and generate actionable work items.
+The four solutions — **security-audit-repos**, **sample-health-check**, **create-remediation-issues**, and **pr-feedback-aggregator** — form a detect → score → remediate → learn pipeline for repository health and security. They work together to identify issues, quantify repo health, generate actionable work items, and surface recurring reviewer feedback patterns.
 
 ### Prerequisites
 
 - Node.js >= 22
 - A `.env` file at the repository root with `GITHUB_TOKEN` or `GH_TOKEN` set
 - Run `npm ci && npm run build` to install dependencies and compile TypeScript
+- For pr-feedback-aggregator: also requires `OPENAI_API_KEY` or compatible LLM endpoint in `.env`
 
 ### The three solutions
 
@@ -76,6 +77,22 @@ npm run create-remediation-issues -- --input ./generated/sample-health-check/<re
 npm run create-remediation-issues -- --input ./generated/security-audit/<report>.json --input ./generated/sample-health-check/<report>.json --dry-run
 ```
 
+**PR Feedback Aggregator** (`solutions/pr-feedback-aggregator/`)
+
+Cross-PR feedback pattern analyzer that identifies recurring themes in reviewer comments across repos using LLM analysis. Fetches PR comments, filters bots, extracts patterns via LLM, deduplicates across repos, and generates an aggregated report with actionable recommendations.
+
+```bash
+# Run with default repo list:
+npm run pr-feedback-aggregator
+
+# Custom options:
+npm run pr-feedback-aggregator -- --max-prs 10 --since 2025-01-01 --dry-run
+```
+
+Outputs:
+- `generated/pr-feedback-aggregator/feedback-aggregation-report.json` — structured report
+- `generated/pr-feedback-aggregator/feedback-aggregation-recommendations.md` — markdown summary
+
 ### Full pipeline example
 
 ```bash
@@ -93,7 +110,7 @@ npm run create-remediation-issues -- --input ./generated/security-audit/<latest>
 npm run create-remediation-issues -- --input ./generated/security-audit/<latest>.json --input ./generated/sample-health-check/<latest>.json --verbose
 ```
 
-The three solutions include 226+ tests ensuring reliable operation across varied repository configurations.
+The four solutions include 296+ tests ensuring reliable operation across varied repository configurations.
 
 ## Functional specification
 

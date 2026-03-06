@@ -1,0 +1,29 @@
+{
+  "name": "pr-feedback-aggregator",
+  "version": "0.1.0",
+  "description": "Cross-PR feedback pattern analyzer — identifies recurring themes in reviewer comments across repos using LLM analysis",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "pr-feedback-aggregator": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file .env dist/cli.js",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:run": "vitest run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "github-rest": "file:../../packages/github-rest",
+    "llm-completion": "file:../../packages/llm-completion"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}
