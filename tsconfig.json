@@ -16,6 +16,10 @@
     { "path": "./solutions/get-pr-comments" },
     { "path": "./solutions/get-user-comments" },
     { "path": "./solutions/move-between-repos" },
-    { "path": "./solutions/get-instruction-from-pr-comments" }
+    { "path": "./solutions/get-instruction-from-pr-comments" },
+    { "path": "./solutions/security-audit-repos" },
+    { "path": "./solutions/sample-health-check" },
+    { "path": "./solutions/create-remediation-issues" },
+    { "path": "./solutions/pr-feedback-aggregator" }
   ]
 }
