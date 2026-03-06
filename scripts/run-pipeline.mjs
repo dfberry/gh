@@ -1,8 +1,9 @@
 /**
- * Pipeline script: security-audit → sample-health-check → create-remediation-issues
+ * Pipeline script: security-audit → sample-health-check → create-remediation-issues → pr-feedback-aggregator
  *
- * Runs the first two solutions, auto-discovers their latest JSON output files,
- * then feeds them into create-remediation-issues.
+ * Runs all four solutions in sequence. The first two produce reports,
+ * create-remediation-issues consumes them, and pr-feedback-aggregator
+ * analyzes PR reviewer comments for recurring patterns.
  *
  * Usage:
  *   node scripts/run-pipeline.mjs            # dry-run (default)
@@ -84,4 +85,17 @@ const remediationCmd = [
 ].filter(Boolean).join(' ');
 
 run('create-remediation-issues', remediationCmd);
-console.log('\n✅ Pipeline complete!\n');
+console.log('\n✅ Remediation issues complete!\n');
+
+// ── Step 4: PR Feedback Aggregator ──────────────────────────────────────
+console.log('💬 Running PR feedback aggregator...');
+const feedbackDryRunFlag = applyMode ? '' : ' --dry-run';
+const feedbackCmd = [
+  'npm run pr-feedback-aggregator --',
+  feedbackDryRunFlag,
+].filter(Boolean).join(' ');
+
+run('pr-feedback-aggregator', feedbackCmd);
+console.log('\n✅ PR feedback aggregation complete!\n');
+
+console.log('✅ Pipeline complete!\n');
