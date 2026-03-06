@@ -13,6 +13,16 @@
 - Command convention: CLI → `runCommand(name, argv, client?)` → module wrapper `(argv, client?)` → implementation `(client?, args)`
 - DRY: code built once in packages, composed in solutions
 
+---
+
+## 2026-03-06 — NPM Script Registration (create-remediation-issues)
+
+**Task:** Added `create-remediation-issues` script to root package.json  
+**Pattern:** `"create-remediation-issues": "node --env-file \"./.env\" solutions/create-remediation-issues/dist/cli.js"`  
+**Line:** 43  
+**Status:** ✅ Complete  
+**Notes:** Follows --env-file convention established by security-audit and sample-health-check scripts. Enables root CLI invocation.
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
