@@ -112,3 +112,15 @@
 - Mal: code review gate
 
 **API budget:** ~8-10 calls per repo. No rate limit concern for current repo set.
+
+### 2026-03-06 — Code Review: sample-health-check Fixes
+
+**Status:** APPROVE
+
+**Scope:** Re-review of type safety fixes in `github-rest` and `sample-health-check`.
+
+**Findings:**
+- ✅ `sample-health-check` now has 0 `as any` casts.
+- ✅ `actions.ts` and `contents.ts` in `github-rest` are fully typed.
+- ✅ Tests pass (52 in github-rest, 116 in sample-health-check).
+- ⚠️ `repos.ts` still contains 6 `as any` casts and `Repository` type is missing standard fields (`description`, `open_issues_count`). This tech debt is tracked for future cleanup but does not block this release.
