@@ -151,3 +151,61 @@ export async function autoFixFindings(
 
   return result;
 }
+
+/**
+ * Generate markdown report from AutoFixResult.
+ */
+export function generateMarkdownReport(result: AutoFixResult): string {
+  let output = '# Auto-Fix Report\n\n';
+  output += `**Generated:** ${new Date().toLocaleString()}\n\n`;
+  output += '============================================================\n\n';
+  
+  output += '## Mode\n\n';
+  output += result.dryRun ? '⚠️ **DRY RUN** (no changes made)\n\n' : '✅ **APPLY** (changes committed)\n\n';
+  
+  output += '## Summary\n\n';
+  output += `- **Planned:** ${result.summary.totalPlanned}\n`;
+  output += `- **Created:** ${result.summary.totalCreated} ✅\n`;
+  output += `- **Skipped:** ${result.summary.totalSkipped} ⏭️\n`;
+  output += `- **Errors:** ${result.summary.totalErrors} ❌\n\n`;
+  
+  // Created fixes
+  if (result.created.length > 0) {
+    output += '## Created Fixes\n\n';
+    for (const fix of result.created) {
+      output += `### ${fix.repo}\n\n`;
+      output += `- **Category:** ${fix.category}\n`;
+      output += `- **Branch:** ${fix.branch}\n`;
+      output += `- **PR:** [#${fix.prNumber}](${fix.prUrl})\n`;
+      output += `- **Files Modified:** ${fix.filesModified.join(', ')}\n\n`;
+    }
+  }
+  
+  // Skipped fixes
+  if (result.skipped.length > 0) {
+    output += '## Skipped Fixes\n\n';
+    for (const skip of result.skipped) {
+      output += `### ${skip.repo}\n\n`;
+      output += `- **Category:** ${skip.category}\n`;
+      output += `- **Reason:** ${skip.reason}\n\n`;
+    }
+  }
+  
+  // Errors
+  if (result.errors.length > 0) {
+    output += '## Errors\n\n';
+    for (const err of result.errors) {
+      output += `### ${err.repo}\n\n`;
+      output += `- **Category:** ${err.category}\n`;
+      output += `- **Error:** ${err.message}\n`;
+      if (err.suggestion) {
+        output += `- **Suggestion:** ${err.suggestion}\n`;
+      }
+      output += '\n';
+    }
+  }
+  
+  output += '============================================================\n';
+  
+  return output;
+}

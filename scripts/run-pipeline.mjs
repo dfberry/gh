@@ -140,16 +140,109 @@ function buildReport({ status, login, scopes, rateLimit, error, suggestion }) {
   };
 }
 
+function generatePreflightMarkdown(report) {
+  const { status, login, scopes, rateLimit, error, suggestion, timestamp } = report;
+  
+  let output = '# GitHub Token Preflight Check\n\n';
+  output += `**Generated:** ${new Date(timestamp).toLocaleString()}\n\n`;
+  output += '============================================================\n\n';
+  
+  if (status === 'PASSED') {
+    output += '## Status\n\n';
+    output += '✅ **PASSED**\n\n';
+    
+    output += '## Authentication\n\n';
+    output += `- **User:** @${login}\n`;
+    output += `- **Scopes:** ${scopes?.length ? scopes.join(', ') : '(fine-grained token — no classic scopes)'}\n\n`;
+    
+    if (rateLimit) {
+      output += '## Rate Limit\n\n';
+      const resetTime = rateLimit.resetAt
+        ? new Date(rateLimit.resetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        : 'unknown';
+      
+      if (rateLimit.remaining === 0) {
+        output += `❌ **0/${rateLimit.limit}** remaining (resets at ${resetTime})\n\n`;
+        output += '> **Warning:** GitHub API rate limit is exhausted. Pipeline cannot run.\n\n';
+      } else if (rateLimit.remaining < 100) {
+        output += `⚠️ **${rateLimit.remaining}/${rateLimit.limit}** remaining (resets at ${resetTime})\n\n`;
+        output += '> **Warning:** Low rate limit remaining — pipeline may hit limits!\n\n';
+      } else {
+        output += `**${rateLimit.remaining}/${rateLimit.limit}** remaining (resets at ${resetTime})\n\n`;
+      }
+    }
+  } else {
+    output += '## Status\n\n';
+    output += '❌ **FAILED**\n\n';
+    output += `**Error:** ${error}\n\n`;
+    output += `**Fix:** ${suggestion}\n\n`;
+    output += '> The pipeline requires a valid GitHub token to run.\n';
+  }
+  
+  output += '============================================================\n';
+  
+  return output;
+}
+
 async function writePreflightLog(timestamp, report) {
   const logPath = join(PREFLIGHT_DIR, `${timestamp}-preflight.json`);
   await writeFile(logPath, JSON.stringify(report.json, null, 2));
   console.log(`📄 Preflight log: ${logPath}\n`);
+  
+  // Write markdown output
+  const mdPath = join(PREFLIGHT_DIR, `${timestamp}-preflight.md`);
+  const markdown = generatePreflightMarkdown(report.json);
+  await writeFile(mdPath, markdown);
+  console.log(`📄 Preflight markdown: ${mdPath}\n`);
 }
 
 const client = await preflight();
 
 // ── Preflight Step 2: Check repo accessibility ──────────────────────────
 const INPUT_FILE = './active-sample-repos.json';
+
+function generateRepoAccessMarkdown(report) {
+  const { repos, timestamp } = report;
+  const accessible = repos.filter(r => r.accessible);
+  const blocked = repos.filter(r => !r.accessible);
+  
+  let output = '# Repository Access Check\n\n';
+  output += `**Generated:** ${new Date(timestamp).toLocaleString()}\n\n`;
+  output += '============================================================\n\n';
+  
+  output += '## Summary\n\n';
+  output += `- **Total Repositories:** ${repos.length}\n`;
+  output += `- **Accessible:** ${accessible.length} ✅\n`;
+  output += `- **Blocked:** ${blocked.length} ❌\n\n`;
+  
+  output += '## Repository Details\n\n';
+  output += '| Repository | Status | Error/Notes |\n';
+  output += '|------------|--------|-------------|\n';
+  
+  for (const repo of repos) {
+    const repoName = `${repo.owner}/${repo.repo}`;
+    const status = repo.accessible ? '✅' : '❌';
+    const notes = repo.accessible ? 'Access granted' : repo.error || 'Access denied';
+    output += `| ${repoName} | ${status} | ${notes} |\n`;
+  }
+  
+  output += '\n';
+  
+  if (blocked.length > 0) {
+    output += '## Blocked Repositories\n\n';
+    for (const repo of blocked) {
+      output += `### ${repo.owner}/${repo.repo}\n\n`;
+      output += `**Error:** ${repo.error}\n\n`;
+      if (repo.suggestion) {
+        output += `**Fix:** ${repo.suggestion}\n\n`;
+      }
+    }
+  }
+  
+  output += '============================================================\n';
+  
+  return output;
+}
 
 async function checkRepoAccess(ghClient, inputFile) {
   // Guard: skip if checkRepoAccess isn't available yet (Kaylee is adding it)
@@ -180,8 +273,15 @@ async function checkRepoAccess(ghClient, inputFile) {
   // Write access log
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const logPath = join(PREFLIGHT_DIR, `${timestamp}-repo-access.json`);
-  await writeFile(logPath, JSON.stringify({ repos: results, timestamp: new Date().toISOString() }, null, 2));
+  const reportData = { repos: results, timestamp: new Date().toISOString() };
+  await writeFile(logPath, JSON.stringify(reportData, null, 2));
   console.log(`\n📄 Repo access log: ${logPath}`);
+  
+  // Write markdown report
+  const mdPath = join(PREFLIGHT_DIR, `${timestamp}-repo-access.md`);
+  const markdown = generateRepoAccessMarkdown(reportData);
+  await writeFile(mdPath, markdown);
+  console.log(`📄 Repo access markdown: ${mdPath}`);
 
   const accessible = results.filter(r => r.accessible);
   const blocked = results.filter(r => !r.accessible);

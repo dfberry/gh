@@ -22,7 +22,7 @@
  *   GH_TOKEN     - Fallback if GITHUB_TOKEN not set
  */
 
-import { autoFixFindings } from './index.js';
+import { autoFixFindings, generateMarkdownReport } from './index.js';
 import type {
   RemediationIssuesReport,
   SecurityAuditReport,
@@ -227,6 +227,12 @@ export async function main(argv: string[]): Promise<void> {
   await writeFile(outFile, JSON.stringify(result, null, 2));
 
   console.log(`\n✅ Results written to: ${outFile}`);
+  
+  // Write markdown report
+  const mdFile = join(outDir, `auto-fix-${timestamp}.md`);
+  const markdown = generateMarkdownReport(result);
+  await writeFile(mdFile, markdown);
+  console.log(`✅ Markdown report: ${mdFile}`);
 
   if (result.dryRun) {
     console.log('\n⚠️  DRY-RUN mode: No changes were made. Use --apply to create PRs.');
