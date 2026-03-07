@@ -429,3 +429,44 @@
 **Files touched:**
 - scripts/run-pipeline.mjs (65 insertions, 16 deletions)
 - solutions/sample-auto-fix/src/cli.ts (Windows path fix)
+
+### 2026-12-24 — Markdown Output for Preflight and Auto-Fix Stages
+
+**Task:** Added human-readable markdown output for the two pipeline stages that were missing it: Preflight and Sample Auto-Fix (Stage 6). All other stages already produce both JSON + markdown.
+
+**Changes made:**
+1. **Preflight (scripts/run-pipeline.mjs):**
+   - Added generatePreflightMarkdown(report) function — generates markdown from token validation data
+   - Added generateRepoAccessMarkdown(report) function — generates markdown from repo access check results
+   - Modified writePreflightLog() to write both JSON and markdown files
+   - Modified repo access check to write both JSON and markdown files
+   - Output files: {timestamp}-preflight.md and {timestamp}-repo-access.md
+
+2. **Sample Auto-Fix (solutions/sample-auto-fix/):**
+   - Added generateMarkdownReport(result: AutoFixResult) function in src/index.ts (exported)
+   - Modified src/cli.ts to import and call generateMarkdownReport() alongside JSON write
+   - Output file: uto-fix-{timestamp}.md
+
+**Style consistency:**
+- Followed existing markdown generator patterns from security-audit-repos, sample-health-check, and zure-best-practices-check
+- Used # Title header, ============ separator lines, summary stats at top, per-repo breakdown sections
+- Clean table formatting for repo access check
+
+**Verification:**
+- Build: ✅ 
+pm --prefix solutions/sample-auto-fix run build — compiles cleanly
+- Tests: ✅ All 47 tests pass (6 test files)
+- Preflight markdown generation is inline in un-pipeline.mjs (no separate package)
+- Auto-fix markdown generation is exported from index.ts for reuse/testing
+
+**Key patterns:**
+- TypeScript strict mode with template literals for markdown generation
+- Async file writes using s/promises
+- Additive-only change — existing JSON output preserved exactly as-is
+- Named exports only (generateMarkdownReport exported from auto-fix)
+
+**Files:**
+- scripts/run-pipeline.mjs (+90 lines) — two markdown generators for preflight stages
+- solutions/sample-auto-fix/src/index.ts (+59 lines) — markdown generator function
+- solutions/sample-auto-fix/src/cli.ts (+5 lines) — import and invoke markdown generator
+

@@ -1151,3 +1151,52 @@ Two enhancements to the pipeline runner:
 - Output properly tee'd to log file
 - Windows path bugs resolved in auto-fix CLI entry point
 
+---
+
+### 37. Markdown Output Convention for Pipeline Stages (Kaylee — 2026-03-07)
+
+**Status:** ✅ Implemented
+
+**Context:** The pipeline stages had inconsistent output formats. Stages like security-audit, sample-health-check, azure-best-practices-check, and create-remediation-issues produced both JSON (machine-readable) and Markdown (human-readable) reports. However, Preflight and Sample Auto-Fix (Stage 6) only produced JSON output.
+
+**Decision:** All pipeline stages should produce both JSON and Markdown output.
+- JSON for machine parsing and pipeline integration
+- Markdown for human review and documentation
+
+**Implementation Pattern:**
+
+For solution packages (like `sample-auto-fix`):
+1. Add exported `generateMarkdownReport(result)` function in `index.ts`
+2. Call from `cli.ts` alongside JSON write
+3. Write to `{stage-name}-{timestamp}.md` in same output directory
+
+For inline stages (like preflight in `run-pipeline.mjs`):
+1. Add helper function `generate{Stage}Markdown(report)` in same file
+2. Call alongside JSON write
+3. Write to `{timestamp}-{stage-name}.md` in preflight directory
+
+**Style Guidelines:**
+- `# Title` header with `============` separator
+- **Generated:** timestamp at top
+- Summary section with key metrics
+- Per-repo breakdown sections
+- Clean table formatting where appropriate
+- Status emojis: ✅ (success), ❌ (failure), ⚠️ (warning)
+
+**Files Changed:**
+- `scripts/run-pipeline.mjs` — Added markdown generation for preflight and repo-access checks
+- `solutions/sample-auto-fix/src/index.ts` — Added `generateMarkdownReport()` function
+- `solutions/sample-auto-fix/src/cli.ts` — Import and invoke markdown generator
+
+**Benefits:**
+1. **Consistency** — All stages now follow the same output format pattern
+2. **Human-readable** — Easy to review results without parsing JSON
+3. **Documentation** — Markdown files serve as self-documenting pipeline artifacts
+4. **Additive** — No breaking changes to existing JSON output
+
+**Test Status:** 47/47 auto-fix tests passing; full pipeline verified clean (exit 0).
+
+**Commit:** b031b3d
+
+**Future:** When adding new pipeline stages, always include markdown generation from the start.
+
