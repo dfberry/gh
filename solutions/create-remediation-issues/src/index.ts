@@ -326,6 +326,24 @@ export function analyzeHealthFindings(
 /** Categorize a caught error into a structured PipelineError. */
 function categorizePipelineError(repo: string, error: unknown): PipelineError {
   const message = error instanceof Error ? error.message : String(error);
+
+  // RateLimitError has parsed resetAt/remaining/limit from response headers
+  if (error instanceof Error && error.name === 'RateLimitError') {
+    const err = error as Error & { resetAt?: number; remaining?: number; limit?: number };
+    const errorMsg = (err.remaining !== undefined && err.limit !== undefined)
+      ? `GitHub API rate limit exceeded (${err.remaining}/${err.limit} calls remaining)`
+      : 'GitHub API rate limit exceeded';
+    let suggestion: string;
+    if (err.resetAt) {
+      const resetTime = new Date(err.resetAt).toLocaleTimeString();
+      const minutesLeft = Math.max(1, Math.ceil((err.resetAt - Date.now()) / 60000));
+      suggestion = `Rate limit resets at ${resetTime} (in ~${minutesLeft} minutes). Wait for reset or use a different token.`;
+    } else {
+      suggestion = 'GitHub API rate limit exceeded. Wait a few minutes or use a token with higher limits.';
+    }
+    return { repo, category: 'rate_limit', message: errorMsg, suggestion };
+  }
+
   if (message.includes('401')) {
     return { repo, category: 'auth', message: 'GitHub API error 401', suggestion: 'Check your GITHUB_TOKEN in .env — it may be expired or missing.' };
   }

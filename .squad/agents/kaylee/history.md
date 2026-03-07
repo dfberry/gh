@@ -190,3 +190,83 @@
 - `solutions/sample-health-check/src/index.ts` (type fixes)
 - `packages/github-rest/src/endpoints/contents.ts` (BufferEncoding cast)
 - `packages/github-rest/tsconfig.json` (composite: true)
+
+### 2026-03-06 — Added `validateToken()` Preflight Check to GitHubClient
+
+**Scope:** New method on `GitHubClient` for pipeline preflight token validation.
+
+**What was added:**
+1. **`TokenValidationResult` interface** in `client.ts` — `{ valid, login?, scopes?, error?, suggestion? }`
+2. **`validateToken()` method** on `GitHubClient` — never throws, returns structured result:
+   - No token → `{ valid: false, error: 'No token provided', suggestion: '...' }`
+   - 401 → `{ valid: false, error: 'Token is invalid or expired', suggestion: '...' }`
+   - 403 → `{ valid: false, error: 'Token is rate-limited or blocked', suggestion: '...' }`
+   - Success → `{ valid: true, login, scopes }`
+   - Unexpected error → `{ valid: false, error: message, suggestion: '...' }`
+3. **`TokenValidationResult` exported** from `index.ts` via `export type`
+
+**Design decisions:**
+- Checks for empty/missing token BEFORE making any API call (fast fail, no wasted request)
+- Uses existing `getAuthenticatedUser()` + `getTokenScopes()` internally — no new endpoints
+- Catches `GitHubError` specifically to map status codes to friendly messages
+- Returns scopes so pipeline can optionally warn about missing permissions
+
+**Build & Test:** ✅ `npm run build` zero errors, ✅ 52/52 existing tests pass (no new tests — Zoe's domain)
+
+**Key files touched:**
+- `packages/github-rest/src/core/client.ts` (interface + method)
+- `packages/github-rest/src/index.ts` (type export)
+
+### 2026-03-06 — Added `getRateLimit()` + Enriched `validateToken()` with Rate Limit Info
+
+**Scope:** New `getRateLimit()` method on `GitHubClient` and enriched `TokenValidationResult` to include rate limit data for actionable preflight messages.
+
+**What was added:**
+1. **`RateLimitInfo` interface** in `client.ts` — `{ limit, remaining, resetAt: Date, used }`
+2. **`getRateLimit()` method** on `GitHubClient` — calls `GET /rate_limit` (doesn't count against limits), parses `resources.core`, converts unix timestamp to `Date`. Never throws — returns `undefined` on failure.
+3. **`TokenValidationResult.rateLimit?`** — optional `RateLimitInfo` field added to the existing interface.
+4. **`validateToken()` updated** — after successful user + scopes fetch, also calls `getRateLimit()` and includes result. If `getRateLimit()` fails, validation still returns valid (rate limit is optional enrichment).
+5. **`RateLimitInfo` exported** from `index.ts` via `export type` alongside `TokenValidationResult`.
+
+**Design decisions:**
+- `getRateLimit()` returns `Promise<RateLimitInfo | undefined>` (not `Promise<RateLimitInfo>`) — never throws, swallows errors gracefully
+- `GET /rate_limit` is special: it does NOT count against the rate limit, safe for preflight
+- `resetAt` is a `Date` object (not unix timestamp) for easy formatting like "Resets at 10:45 PM (in 12 min)"
+- Rate limit failure in `validateToken()` does not invalidate the token — it's enrichment only
+
+**Build & Test:** ✅ `npm run build` zero errors, ✅ 52/52 existing tests pass (no new tests per task instructions)
+
+**Key files touched:**
+- `packages/github-rest/src/core/client.ts` (new interface + method + enriched validateToken)
+- `packages/github-rest/src/index.ts` (added `RateLimitInfo` type export)
+
+### 2026-03-06 — Retry-with-Backoff & 403 Rate Limit Detection in GitHubClient
+
+**Scope:** Three changes to `packages/github-rest/src/core/client.ts` to properly detect GitHub 403 rate limits and add automatic retry with backoff.
+
+**Change 1 — Fix 403 rate limit detection:**
+- GitHub's primary rate limit returns 403 with `x-ratelimit-remaining: 0`, not 429. These were thrown as generic `GitHubError`, bypassing all rate-limit handling in solutions.
+- Also detects secondary rate limits: 403 responses with `"rate limit"` in the JSON body message field.
+- Both now correctly throw `RateLimitError` instead of `GitHubError`.
+
+**Change 2 — Retry-with-backoff in rawRequest:**
+- Extracted single-attempt fetch logic into private `_singleRequest()` method.
+- `rawRequest()` is now a retry wrapper that calls `_singleRequest` in a loop.
+- Rate limit errors (429/403): waits for `resetAt` from headers, capped at `maxTimeoutMs` (default 60s).
+- Server errors (5xx): exponential backoff with ±20% jitter.
+- Non-retryable errors (401, 404, etc.): thrown immediately, no retry.
+- Console logs retry attempts with emoji prefix for visibility.
+
+**Change 3 — Default retry options:**
+- Constructor now defaults `retry` to `{ attempts: 3, factor: 2, minTimeoutMs: 1000, maxTimeoutMs: 60000 }`.
+- Users can disable by passing `retry: { attempts: 1 }`.
+
+**Design decisions:**
+- `_singleRequest` is private — public API surface unchanged.
+- `get()`, `post()`, `patch()`, `del()` all benefit via `request()` → `rawRequest()` chain.
+- Existing tests unaffected: all 52 github-rest tests and all 399 repo-wide tests pass.
+
+**Build & Test:** ✅ `npm run build` zero errors, ✅ 399/399 tests pass
+
+**Key files touched:**
+- `packages/github-rest/src/core/client.ts` (all 3 changes)

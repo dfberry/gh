@@ -157,3 +157,53 @@
 - Create PRs — that's `sample-auto-fix` (P2)
 
 **API budget:** ~4 calls per finding (dedup + create + label ops). For 10 repos × 3 findings = ~40 calls. No rate limit concern.
+
+### 2026-03-06 — Architecture Design: pr-feedback-aggregator (P1)
+
+**Status:** Architecture decision written to `.squad/decisions/inbox/mal-pr-feedback-aggregator.md`
+
+**Key architectural decisions:**
+
+1. **Data flow:** GitHub API → fetch PR comments → extract themes (LLM) → aggregate across repos → output report + markdown
+
+2. **Three-function core design** (`src/index.ts`):
+   - `fetchPRFeedback()` — Per-PR comment gather + bot filtering (pure, testable)
+   - `extractPatternsFromComments()` — LLM theme extraction (per repo)
+   - `aggregatePatterns()` — Cross-repo deduplication + ranking
+   - Main entry point: `aggregatePRFeedback()` orchestrates all three
+
+3. **LLM Integration Strategy:**
+   - Per-repo extraction: 1 LLM call per repo (batch all comments for that repo)
+   - System prompt: "Identify recurring themes in reviewer feedback"
+   - User prompt: Template with {N} comments from {M} PRs; return JSON patterns with theme, category, confidence, examples, recommendation
+   - Optional cross-repo deduplication call (can be template-based string matching instead)
+
+4. **CLI flags:** `--input`, `--out`, `--max-prs` (default 50), `--since`, `--dry-run`, `--verbose`, `--no-markdown`, `--model`
+
+5. **Type hierarchy:**
+   - `FeedbackComment` — Cleaned PR comment (author, body, created_at, pr_number, repo)
+   - `FeedbackPattern` — Identified theme (theme, category, confidence 0-100, examples, recommendation)
+   - `RepoFeedbackSummary` — Per-repo breakdown (total_prs_analyzed, patterns[])
+   - `FeedbackAggregationReport` — Global report (global_patterns, per_repo[], recommendations_summary as markdown)
+
+6. **Bot filtering:** Inherit pattern from `get-instruction-from-pr-comments` (known bot list + heuristics like [bot], -bot suffix)
+
+7. **GitHub REST endpoints used:**
+   - `pullRequests.listPullRequests(client, owner, repo, options)` — fetch recent PRs with limit + date filter
+   - `pullRequests.getPullRequestComments(client, owner, repo, prNumber)` — returns `{ issueComments, reviewComments }`
+
+8. **No upstream solution dependencies** — Input types (repo shape) defined locally in `src/types.ts`. This solution will NOT consume security-audit or health-check reports; it builds from raw PR comments.
+
+**Scope boundaries (v1):**
+- ✅ Comment fetch + LLM theme extraction + cross-repo aggregation
+- ✅ Per-repo breakdown + global patterns + recommendations markdown
+- ✅ Confidence scoring (0-100 from LLM)
+- ✅ Date filtering (--since)
+- ✅ Dry-run mode
+- ❌ Historical trend tracking (v2)
+- ❌ Per-author profiles (v2)
+- ❌ Integration with create-remediation-issues (v3 — separate concern)
+
+**API budget:** ~52 GitHub API calls per repo (1 list + 50 comment fetches) + 1 LLM call per repo. For 10 repos = ~520 GitHub calls + 10 LLM calls. Well within limits.
+
+**Next steps:** Wash (Solutions Dev) will implement. Blocking on nothing — all github-rest endpoints already exist and exported.

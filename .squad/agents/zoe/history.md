@@ -169,3 +169,32 @@
 - Health grade F → severity 'high' (spec said 'critical')
 - High dependabot threshold: `>= 3` (spec said `> 3`)
 - **Note:** Tests are the contract — always follow test expectations over design doc
+### 2026-03-06 — Phase 3 pr-feedback-aggregator test suite written (test-first)
+
+**Status:** ✅ 70 TESTS WRITTEN (58 failing as expected, 12 passing — constants/exports/mock checks)
+
+**Test-first pattern applied for fourth time:**
+- Wrote 70 tests across 2 files before implementation exists
+- Tests define exact contracts for PR comment fetching, LLM pattern extraction, cross-repo aggregation, report generation, markdown formatting
+- Stub files (`index.ts`, `cli.ts`) export function signatures so tests fail at assertion level, not import level
+
+**Test coverage (70 tests across 2 files):**
+- **index.test.ts (50 tests):**
+  - `fetchPRComments` (7): success, empty PRs, maxPRs limit, pagination, rate limit error, since filter, field normalization
+  - `extractPatterns` (7): valid LLM extraction, empty comments, LLM error fallback, malformed JSON, theme grouping, repo info, prompt contents
+  - `aggregateResults` (7): single repo, multi-repo totals, dedup/merge by theme, frequency sort, timestamp, recommendations, empty input
+  - `generateReport` (6): full pipeline, metadata, maxPRsPerRepo, multi-repo, dry-run, since passthrough
+  - `generateMarkdownSummary` (6): themes, repo breakdown, stats, recommendations, severity, empty report
+  - `edge cases` (9): empty repos, no PRs, bot filtering, truncation, empty bodies, 404, null user, no-LLM-when-filtered
+  - `constants and exports` (8): constants + 5 function exports
+- **cli.test.ts (20 tests):**
+  - `parseArgs` (13): all flags, validation, defaults
+  - `runCli` (7): file I/O, option passthrough, GITHUB_TOKEN, mkdir, invalid JSON
+
+**Mock strategy:**
+- `vi.mock('github-rest')` — pullRequests namespace
+- `vi.mock('llm-completion')` — callOpenAI
+- CLI tests mock `node:fs/promises` and `./index.js`
+- Test data factories: makePRComment(), makeFeedbackPattern(), makeGitHubPRListItem(), etc.
+
+**Unblocks:** Wash can implement `src/index.ts` and `src/cli.ts` against these 70 test contracts

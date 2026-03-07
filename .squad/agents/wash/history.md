@@ -202,3 +202,54 @@
 - `solutions/pr-feedback-aggregator/src/cli.ts` (formatErrorLog + pr-feedback-errors.log writer)
 - `scripts/run-pipeline.mjs` (error log summary after all steps)
 
+### 2026-03-09 — Pipeline Preflight Token Validation
+
+**Status:** ✅ COMPLETE (preflight check runs before all 4 pipeline steps)
+
+**Problem:** When GITHUB_TOKEN is invalid/expired, all 4 pipeline steps run and fail with 401s. Users have to dig through error logs to figure out it was a token issue all along.
+
+**Solution delivery:**
+- Added `preflight()` async function to `scripts/run-pipeline.mjs` that uses Kaylee's new `GitHubClient.validateToken()` method
+- Runs immediately after `applyMode` declaration, before Step 1
+- On success: prints `✅ GitHub token valid (authenticated as @{login})`
+- On failure: prints the error, fix suggestion, and continues (informational, not blocking)
+- Reads both `GITHUB_TOKEN` and `GH_TOKEN` env vars (covers both conventions in the project)
+
+**Design choices:**
+- **Non-blocking:** Preflight warns but does NOT exit. Pipeline continues so error logs are still generated for each step (existing behavior preserved)
+- **Import path:** `../packages/github-rest/dist/index.js` — relative to `scripts/` directory, not repo root. ESM resolution is relative to the importing file.
+- **Token precedence:** `GITHUB_TOKEN || GH_TOKEN` — checks GITHUB_TOKEN first (more common), falls back to GH_TOKEN (which is what GitHubClient constructor uses by default)
+- **Depends on Kaylee's work:** Uses `validateToken()` which returns structured `{ valid, login, scopes, error, suggestion }` — clean contract, no try/catch needed in pipeline
+
+**Key file modified:**
+- `scripts/run-pipeline.mjs` (import + preflight function + call before Step 1)
+
+### 2026-03-09 — Actionable Rate Limit Error Messages
+
+**Status:** ✅ COMPLETE (all 4 solutions + pipeline preflight now show when rate limit resets)
+
+**Problem:** Rate limit error messages just said "Wait a few minutes or use a token with higher limits" — repeating the error without actionable info. Users couldn't tell WHEN the limit resets.
+
+**Solution delivery:**
+- Updated `categorizePipelineError()` in all 4 solutions to check `error.name === 'RateLimitError'` first
+- When the error IS a `RateLimitError` (from github-rest), extracts `resetAt`, `remaining`, `limit` fields parsed from response headers
+- Error messages now show: `GitHub API rate limit exceeded (0/5000 calls remaining)`
+- Suggestions now show: `Rate limit resets at 10:45:23 PM (in ~12 minutes). Wait for reset or use a different token.`
+- Falls back to generic message when error is a plain 403/rate-limit string match (no parsed fields)
+- Pipeline preflight (`buildReport`) now shows rate limit status after Kaylee added `rateLimit` to `TokenValidationResult`
+- Preflight gates: remaining=0 → hard exit; remaining<100 → warning; otherwise → info line
+
+**Design choices:**
+- **Name-based duck typing:** Uses `error.name === 'RateLimitError'` instead of `instanceof` import to avoid coupling solutions to the class directly. Cast to typed shape for field access.
+- **Graceful fallback:** The existing 403/rate-limit string matching remains as a fallback for errors that don't come through as RateLimitError (e.g., re-thrown plain Errors).
+- **Preflight hard gate at 0:** Pipeline `process.exit(1)` when remaining=0 since all 4 steps would fail anyway.
+
+**Key files modified:**
+- `solutions/security-audit-repos/src/index.ts` (categorizePipelineError with RateLimitError check)
+- `solutions/sample-health-check/src/index.ts` (same pattern)
+- `solutions/create-remediation-issues/src/index.ts` (same pattern)
+- `solutions/pr-feedback-aggregator/src/index.ts` (same pattern)
+- `scripts/run-pipeline.mjs` (buildReport + preflight with rate limit display and hard gate)
+
+**All 338 tests pass** (52 github-rest + 25 security-audit + 116 health-check + 75 remediation + 70 pr-feedback), build clean.
+

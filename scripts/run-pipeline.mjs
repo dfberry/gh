@@ -11,10 +11,116 @@
  */
 
 import { execSync } from 'node:child_process';
-import { readdir } from 'node:fs/promises';
+import { readdir, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { GitHubClient } from '../packages/github-rest/dist/index.js';
 
 const applyMode = process.argv.includes('--apply');
+
+// ── Preflight: validate GitHub token (hard gate) ────────────────────────
+const PREFLIGHT_DIR = './generated/preflight';
+
+async function preflight() {
+  console.log('\n🔑 Preflight: Checking GitHub token...\n');
+
+  await mkdir(PREFLIGHT_DIR, { recursive: true });
+
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+
+  if (!token) {
+    const report = buildReport({
+      status: 'FAILED',
+      error: 'No GITHUB_TOKEN or GH_TOKEN found in environment',
+      suggestion: 'Add GITHUB_TOKEN=ghp_xxx to your .env file',
+    });
+    await writePreflightLog(timestamp, report);
+    console.log(report.display);
+    process.exit(1);
+  }
+
+  const client = new GitHubClient({ token });
+  const result = await client.validateToken();
+
+  if (result.valid) {
+    const report = buildReport({
+      status: 'PASSED',
+      login: result.login,
+      scopes: result.scopes,
+      rateLimit: result.rateLimit,
+    });
+    await writePreflightLog(timestamp, report);
+    console.log(report.display);
+
+    // Hard gate: if rate limit is exhausted, abort the pipeline
+    if (result.rateLimit && result.rateLimit.remaining === 0) {
+      process.exit(1);
+    }
+    return;
+  }
+
+  const report = buildReport({
+    status: 'FAILED',
+    error: result.error,
+    suggestion: result.suggestion,
+  });
+  await writePreflightLog(timestamp, report);
+  console.log(report.display);
+  process.exit(1);
+}
+
+function buildReport({ status, login, scopes, rateLimit, error, suggestion }) {
+  const lines = [];
+  lines.push('════════════════════════════════════════════════════════════');
+  lines.push('GITHUB TOKEN PREFLIGHT CHECK');
+  lines.push('════════════════════════════════════════════════════════════');
+
+  if (status === 'PASSED') {
+    lines.push(`Status:         ✅ PASSED`);
+    lines.push(`Authenticated:  @${login}`);
+    lines.push(`Scopes:         ${scopes?.length ? scopes.join(', ') : '(fine-grained token — no classic scopes)'}`);
+
+    if (rateLimit) {
+      const resetTime = rateLimit.resetAt
+        ? new Date(rateLimit.resetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+        : 'unknown';
+
+      if (rateLimit.remaining === 0) {
+        lines.push(`Rate Limit:     ❌ 0/${rateLimit.limit} remaining (resets at ${resetTime})`);
+        lines.push('');
+        lines.push('The pipeline cannot run — GitHub API rate limit is exhausted.');
+        lines.push('Wait for the rate limit to reset before running the pipeline.');
+      } else if (rateLimit.remaining < 100) {
+        lines.push(`Rate Limit:     ⚠️ ${rateLimit.remaining}/${rateLimit.limit} remaining (resets at ${resetTime}) — pipeline may hit limits!`);
+      } else {
+        lines.push(`Rate Limit:     ${rateLimit.remaining}/${rateLimit.limit} remaining (resets at ${resetTime})`);
+      }
+    }
+
+    lines.push('════════════════════════════════════════════════════════════');
+  } else {
+    lines.push(`Status:         ❌ FAILED`);
+    lines.push(`Error:          ${error}`);
+    lines.push(`Fix:            ${suggestion}`);
+    lines.push('');
+    lines.push('The pipeline requires a valid GitHub token to run.');
+    lines.push('All 4 steps call the GitHub API — nothing will work without it.');
+    lines.push('════════════════════════════════════════════════════════════');
+  }
+
+  return {
+    display: lines.join('\n'),
+    json: { status, login, scopes, rateLimit, error, suggestion, timestamp: new Date().toISOString() },
+  };
+}
+
+async function writePreflightLog(timestamp, report) {
+  const logPath = join(PREFLIGHT_DIR, `${timestamp}-preflight.json`);
+  await writeFile(logPath, JSON.stringify(report.json, null, 2));
+  console.log(`📄 Preflight log: ${logPath}\n`);
+}
+
+await preflight();
 
 /**
  * Run a shell command, streaming output to the console.
