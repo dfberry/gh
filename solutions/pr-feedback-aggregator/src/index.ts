@@ -15,6 +15,7 @@ import type {
   AggregatedReport,
   PRFeedbackOptions,
   PipelineError,
+  PRInfo,
 } from './types.js';
 
 // Re-export types for convenience
@@ -25,6 +26,7 @@ export type {
   AggregatedReport,
   PRFeedbackOptions,
   PipelineError,
+  PRInfo,
 } from './types.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -325,15 +327,28 @@ export async function generateReport(
       console.log(`    (dry-run: skipping LLM analysis)`);
     }
 
+    // Collect per-PR metadata
+    const prMap = new Map<number, PRInfo>();
+    for (const c of comments) {
+      const existing = prMap.get(c.prNumber);
+      if (existing) {
+        existing.commentCount++;
+      } else {
+        prMap.set(c.prNumber, { number: c.prNumber, title: c.prTitle, commentCount: 1 });
+      }
+    }
+
     summaries.push({
       repo: fullRepo,
       prCount,
       commentCount: comments.length,
       patterns,
+      prs: prMap.size > 0 ? [...prMap.values()] : undefined,
     });
   }
 
   const result = aggregateResults(summaries);
+  result.dryRun = options.dryRun;
   if (errors.length > 0) {
     result.errors = errors;
   }
@@ -361,11 +376,39 @@ export function generateMarkdownSummary(
 
   lines.push(
     `# PR Feedback Report\n`,
+  );
+
+  if (report.dryRun) {
+    lines.push(`> 🔒 **DRY RUN** — LLM analysis was skipped. Run without \`--dry-run\` to identify patterns.\n`);
+  }
+
+  lines.push(
     `**${report.repoCount}** repos | **${report.totalPRs}** PRs | **${report.totalComments}** comments\n`,
     `Generated: ${report.generatedAt}\n`,
   );
 
-  // Top patterns
+  // Dry-run: show what would be analyzed
+  if (report.dryRun && report.perRepo.length > 0) {
+    lines.push(`## What Would Be Analyzed\n`);
+    lines.push(`The following PRs would be sent to LLM analysis:\n`);
+
+    for (const r of report.perRepo) {
+      lines.push(`### ${r.repo}\n`);
+
+      if (r.prs && r.prs.length > 0) {
+        lines.push(`| PR | Title | Comments |`);
+        lines.push(`|----|-------|----------|`);
+        for (const pr of r.prs) {
+          lines.push(`| #${pr.number} | ${pr.title} | ${pr.commentCount} |`);
+        }
+        lines.push('');
+      } else {
+        lines.push(`_${r.prCount} PRs, ${r.commentCount} comments_\n`);
+      }
+    }
+  }
+
+  // Top patterns (only populated in live mode)
   if (report.topPatterns.length > 0) {
     lines.push(`## Top Patterns\n`);
     for (const p of report.topPatterns) {
@@ -399,6 +442,16 @@ export function generateMarkdownSummary(
     for (const rec of report.recommendations) {
       lines.push(`- ${rec}`);
     }
+    lines.push('');
+  }
+
+  // Dry-run: how to apply
+  if (report.dryRun) {
+    lines.push(`## How to Apply\n`);
+    lines.push(`To run full LLM analysis and identify feedback patterns:\n`);
+    lines.push('```bash');
+    lines.push('npm run pr-feedback-aggregator -- --input <repos.json> --out <dir>');
+    lines.push('```');
     lines.push('');
   }
 

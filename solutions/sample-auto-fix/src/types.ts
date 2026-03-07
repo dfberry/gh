@@ -117,6 +117,8 @@ export interface AutoFixResult {
   created: CreatedFix[];
   skipped: SkippedFix[];
   errors: FixError[];
+  /** Fix plans built during planning (populated in dry-run mode for reporting). */
+  plans?: FixPlan[];
   summary: {
     totalPlanned: number;
     totalCreated: number;

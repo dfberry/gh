@@ -91,6 +91,12 @@ function generateRemediationSummary(result: RemediationResult): string {
 
   lines.push('# Remediation Issues Report');
   lines.push('');
+
+  if (result.dryRun) {
+    lines.push('> 🔒 **DRY RUN** — No issues were created.');
+    lines.push('');
+  }
+
   lines.push(`Generated: ${result.summary.timestamp}`);
   lines.push(`Mode: ${result.dryRun ? 'DRY RUN' : 'LIVE'}`);
   lines.push('');
@@ -103,7 +109,30 @@ function generateRemediationSummary(result: RemediationResult): string {
   lines.push(`| Total Skipped | ${result.summary.totalSkipped} |`);
   lines.push('');
 
-  if (result.planned.length > 0) {
+  if (result.dryRun && result.planned.length > 0) {
+    lines.push('## What Would Happen');
+    lines.push('');
+    lines.push(`The following **${result.planned.length}** issue(s) would be created:`);
+    lines.push('');
+    for (const issue of result.planned) {
+      lines.push(`### ${issue.owner}/${issue.repo}: ${issue.title}`);
+      lines.push('');
+      lines.push(`| Field | Value |`);
+      lines.push(`|-------|-------|`);
+      lines.push(`| **Severity** | ${issue.severity.toUpperCase()} |`);
+      lines.push(`| **Source** | ${issue.source} |`);
+      lines.push(`| **Finding** | \`${issue.findingType}\` |`);
+      lines.push(`| **Labels** | ${issue.labels.map(l => `\`${l}\``).join(', ')} |`);
+      lines.push('');
+      lines.push('<details>');
+      lines.push('<summary>Issue body preview</summary>');
+      lines.push('');
+      lines.push(issue.body);
+      lines.push('');
+      lines.push('</details>');
+      lines.push('');
+    }
+  } else if (result.planned.length > 0) {
     lines.push('## Planned Issues');
     lines.push('');
     for (const issue of result.planned) {
@@ -127,6 +156,17 @@ function generateRemediationSummary(result: RemediationResult): string {
     for (const issue of result.skipped) {
       lines.push(`- ${issue.owner}/${issue.repo}: ${issue.title} — _${issue.reason}_`);
     }
+    lines.push('');
+  }
+
+  if (result.dryRun) {
+    lines.push('## How to Apply');
+    lines.push('');
+    lines.push('To create these issues, run without `--dry-run`:');
+    lines.push('');
+    lines.push('```bash');
+    lines.push('npm run create-remediation-issues -- --security-input <path> --health-input <path>');
+    lines.push('```');
     lines.push('');
   }
 

@@ -39,12 +39,21 @@ export interface FeedbackPattern {
   severity: 'high' | 'medium' | 'low';
 }
 
+/** Per-PR metadata collected during feedback pipeline. */
+export interface PRInfo {
+  number: number;
+  title: string;
+  commentCount: number;
+}
+
 /** Per-repo feedback summary. */
 export interface RepoFeedbackSummary {
   repo: string;
   prCount: number;
   commentCount: number;
   patterns: FeedbackPattern[];
+  /** Per-PR metadata (populated when available). */
+  prs?: PRInfo[];
 }
 
 // ─── Aggregated Report ───────────────────────────────────────────────────────
@@ -59,6 +68,8 @@ export interface AggregatedReport {
   perRepo: RepoFeedbackSummary[];
   recommendations: string[];
   errors?: PipelineError[];
+  /** Whether the report was generated in dry-run mode (LLM analysis skipped). */
+  dryRun?: boolean;
 }
 
 // ─── Options ─────────────────────────────────────────────────────────────────

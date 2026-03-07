@@ -27,6 +27,24 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-07-21 — Dry-Run Markdown Enhancement Pattern
+
+**Task:** Enhanced all three pipeline dry-run markdown reports to show "what would happen" details instead of bare summary counts.
+
+**Pattern established — every dry-run markdown must include:**
+1. `> 🔒 **DRY RUN** — No changes were made.` blockquote near the top
+2. A "What Would Happen" section with detailed planned actions (issue bodies, PR titles, template previews)
+3. A "How to Apply" section at the bottom with the exact command
+
+**Files changed:**
+- `solutions/create-remediation-issues/src/cli.ts` — `generateRemediationSummary()` now renders full issue details (body preview, labels, severity table) in dry-run, plus how-to-apply footer
+- `solutions/pr-feedback-aggregator/src/types.ts` — Added `dryRun?: boolean` to `AggregatedReport`, added `PRInfo` type and `prs?` to `RepoFeedbackSummary` for per-PR metadata
+- `solutions/pr-feedback-aggregator/src/index.ts` — `generateReport()` now populates `dryRun` flag and per-PR data; `generateMarkdownSummary()` shows "What Would Be Analyzed" table with PR numbers/titles/comment counts in dry-run
+- `solutions/sample-auto-fix/src/types.ts` — Added `plans?: FixPlan[]` to `AutoFixResult` (populated in dry-run only)
+- `solutions/sample-auto-fix/src/index.ts` — `autoFixFindings()` includes plans in result when dry-run; `generateMarkdownReport()` shows fix plans with categories, branch names, PR titles, and template content previews (first 5 lines)
+
+**Key design decision:** Data for rich dry-run reports was already available in all three solutions — the issue was the markdown generators discarded it. Fix was to thread that data through to the markdown layer (adding `plans` to auto-fix result, `prs` to per-repo summary, `dryRun` flag to report types).
+
 ### 2026-07-21 — Pipeline Tee Logging & Output Directory Pre-creation
 
 **Task:** Two enhancements to `scripts/run-pipeline.mjs`:

@@ -17,6 +17,7 @@ import type {
   SecurityAuditReport,
   HealthCheckReport,
   AzureBestPracticesReport,
+  FixPlan,
 } from './types.js';
 
 import { extractFixableFindings, filterByCategory, groupByRepo } from './parser.js';
@@ -133,6 +134,7 @@ export async function autoFixFindings(
     created: execution.created,
     skipped: execution.skipped,
     errors: execution.errors,
+    plans: effectiveDryRun ? plans : undefined,
     summary: {
       totalPlanned: plans.length,
       totalCreated: execution.created.length,
@@ -152,12 +154,20 @@ export async function autoFixFindings(
   return result;
 }
 
+/** Maximum lines of template content to show in dry-run previews. */
+const TEMPLATE_PREVIEW_LINES = 5;
+
 /**
  * Generate markdown report from AutoFixResult.
  */
 export function generateMarkdownReport(result: AutoFixResult): string {
   let output = '# Auto-Fix Report\n\n';
   output += `**Generated:** ${new Date().toLocaleString()}\n\n`;
+
+  if (result.dryRun) {
+    output += '> 🔒 **DRY RUN** — No branches, files, or PRs were created.\n\n';
+  }
+
   output += '============================================================\n\n';
   
   output += '## Mode\n\n';
@@ -169,8 +179,40 @@ export function generateMarkdownReport(result: AutoFixResult): string {
   output += `- **Skipped:** ${result.summary.totalSkipped} ⏭️\n`;
   output += `- **Errors:** ${result.summary.totalErrors} ❌\n\n`;
   
-  // Created fixes
-  if (result.created.length > 0) {
+  // Dry-run: show detailed fix plans
+  if (result.dryRun && result.plans && result.plans.length > 0) {
+    output += '## What Would Happen\n\n';
+    output += `The following **${result.plans.length}** fix(es) would be applied:\n\n`;
+
+    for (const plan of result.plans) {
+      output += `### ${plan.owner}/${plan.repo}\n\n`;
+      output += `| Field | Value |\n`;
+      output += `|-------|-------|\n`;
+      output += `| **Category** | \`${plan.category}\` |\n`;
+      output += `| **Branch** | \`${plan.branch}\` |\n`;
+      output += `| **PR Title** | ${plan.prTitle} |\n`;
+      output += `| **Files** | ${plan.templates.map(t => `\`${t.path}\``).join(', ')} |\n\n`;
+
+      // Template previews
+      for (const template of plan.templates) {
+        const previewLines = template.content.split('\n').slice(0, TEMPLATE_PREVIEW_LINES);
+        const truncated = template.content.split('\n').length > TEMPLATE_PREVIEW_LINES;
+
+        output += `<details>\n`;
+        output += `<summary>📄 ${template.path} preview</summary>\n\n`;
+        output += '```\n';
+        output += previewLines.join('\n');
+        if (truncated) {
+          output += '\n# ... (truncated)';
+        }
+        output += '\n```\n\n';
+        output += `</details>\n\n`;
+      }
+    }
+  }
+
+  // Created fixes (live mode)
+  if (result.created.length > 0 && !result.dryRun) {
     output += '## Created Fixes\n\n';
     for (const fix of result.created) {
       output += `### ${fix.repo}\n\n`;
@@ -205,6 +247,15 @@ export function generateMarkdownReport(result: AutoFixResult): string {
     }
   }
   
+  // Dry-run: how to apply
+  if (result.dryRun) {
+    output += '## How to Apply\n\n';
+    output += 'To apply these fixes, run with `--apply`:\n\n';
+    output += '```bash\n';
+    output += 'npm run sample-auto-fix -- --security-input <path> --apply\n';
+    output += '```\n\n';
+  }
+
   output += '============================================================\n';
   
   return output;
