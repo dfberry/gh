@@ -896,3 +896,160 @@ npm run sample-auto-fix -- \
 **Decision:** Approve architecture. Begin implementation after Kaylee's endpoints ready (NOW READY). Target: End of week for v1 completion.
 
 ---
+
+### 34. sample-auto-fix Implementation Complete (Wash — 2026-03-07)
+
+**Status:** ✅ IMPLEMENTED
+
+**Context:** Built complete `sample-auto-fix` solution (P2 SMART Goal #6) — automated remediation with PR creation for missing security files and Azure config.
+
+**What Was Built:**
+
+**Core Solution:** `solutions/sample-auto-fix/` with 47/47 tests passing (100% coverage)
+
+**Modules (6):**
+- `parser.ts` — Extract fixable findings from upstream JSON (4 sources)
+- `planner.ts` — Build fix plans with template attachment
+- `executor.ts` — GitHub API orchestration (branch → write → PR)
+- `dedup.ts` — PR deduplication
+- `index.ts` — Main orchestrator
+- `cli.ts` — CLI entry point
+
+**Fix Templates (4):**
+- `security-md.ts` — SECURITY.md template
+- `env-example.ts` — .env.example template
+- `dependabot-yml.ts` — .github/dependabot.yml template
+- `azure-yaml.ts` — azure.yaml template
+
+**Fix Categories (v1 — Safe, Idempotent):**
+1. **missing-security-files** — SECURITY.md, .env.example, dependabot.yml
+2. **missing-azure-config** — azure.yaml
+
+**Safety Model (6 Layers):**
+1. Dry-run by default (no writes unless `--apply`)
+2. Fork detection (skip forks with message)
+3. PR deduplication (check existing autofix/* PRs)
+4. Rate limit preflight (abort if remaining < 100)
+5. Per-repo error recovery (one failure doesn't kill pipeline)
+6. Category filtering (`--category` flag)
+
+**Test Coverage:**
+- parser.test.ts: 9 tests (pure functions)
+- planner.test.ts: 8 tests (pure functions)
+- dedup.test.ts: 6 tests (mocked repos.findPRByBranch)
+- executor.test.ts: 6 tests (mocked github-rest full workflow)
+- index.test.ts: 6 tests (orchestration)
+- cli.test.ts: 12 tests (parseArgs validation)
+- **Total:** 47/47 passing
+
+**Blocking Dependencies (Resolved by Kaylee):**
+- ✅ git.ts endpoints (getRef, createRef, deleteRef)
+- ✅ contents.ts write support (createOrUpdateFile, deleteFile, encodeContent)
+- ✅ repos.ts helpers (getDefaultBranchSHA, findPRByBranch)
+
+**Integration:**
+- Root package.json: `"sample-auto-fix": "node --env-file \"./.env\" solutions/sample-auto-fix/dist/cli.js"`
+- Root tsconfig.json: project reference added
+- npm workspaces linked successfully
+
+**Data Flow:**
+```
+Upstream Reports → Parser → Planner → Executor → Output
+      (JSON)         ↓        ↓          ↓        (JSON)
+                 Findings  Fix Plans   PRs Created
+```
+
+**CLI Flags:**
+- `--remediation-input` — Path to remediation issues JSON
+- `--security-input` — Path to security audit JSON
+- `--health-input` — Path to health check JSON
+- `--azure-input` — Path to Azure BP audit JSON
+- `--category <list>` — Comma-separated category filter
+- `--out <dir>` — Output directory (default: generated/sample-auto-fix)
+- `--apply` — Enable writes (default: dry-run)
+- `--verbose` — Verbose logging
+
+**Output Format (JSON):**
+```json
+{
+  "dryRun": true,
+  "created": [{ "repo": "org/name", "prNumber": 42, "branch": "autofix/...", "filesModified": [...] }],
+  "skipped": [{ "repo": "org/fork", "reason": "Repository is a fork" }],
+  "errors": [{ "repo": "org/name", "message": "...", "suggestion": "..." }],
+  "summary": { "totalPlanned": 15, "totalCreated": 12, "totalSkipped": 2, "totalErrors": 1 }
+}
+```
+
+**Key Implementation Patterns:**
+- Parser: Pure functions for extraction and filtering
+- Planner: Group by repo + category, attach templates
+- Executor: Per-repo workflow (check fork → check PR → create branch → write files → create PR)
+- Testing: Mock github-rest endpoints; pure function tests have no mocks
+
+**v1 Complete:**
+✅ Missing security files category  
+✅ Missing Azure config category  
+✅ Dry-run by default  
+✅ Deduplication  
+✅ Fork detection  
+✅ Error recovery  
+✅ Rate limit preflight  
+✅ JSON output  
+✅ Full test coverage (47 tests)
+
+**v2 Deferred:**
+- Interactive confirmation gate
+- Category 3: CI/CD workflow updates
+- Category 4: Documentation improvements
+- LLM-based code fixes (requires AST)
+- Auto-close issues on PR merge
+
+**Decision:** ✅ **APPROVED AND IMPLEMENTED** — All 47 tests passing, zero build errors. Ready for pipeline integration.
+
+**Wash** — Solutions Developer  
+2026-03-07
+
+---
+
+### 35. Pipeline Integration: sample-auto-fix Step 6 (Coordinator — 2026-03-07)
+
+**Status:** ✅ COMPLETE
+
+**Context:** Integrated sample-auto-fix (P2 SMART Goal #6) into pipeline sequence.
+
+**Changes:**
+
+**File:** `scripts/run-pipeline.mjs`  
+**Commit:** aa34d47
+
+**Pipeline Sequence (Updated):**
+1. ✅ gather-security-alerts → `generated/security-audit.json`
+2. ✅ sample-health-check → `generated/health-check.json`
+3. ✅ azure-best-practices-check → `generated/azure-bp.json`
+4. ✅ create-remediation-issues → creates remediation issues in repos
+5. ✅ sample-auto-fix → creates automated fix PRs (NEW — Step 6)
+6. (future) pr-feedback-aggregator → cross-PR pattern analysis
+
+**Details:**
+- Invoked after create-remediation-issues (consumes same upstream sources)
+- Input: remediation, security, health, azure audit outputs
+- Output: `generated/sample-auto-fix/results.json`
+- Mode: Dry-run by default (safe to run immediately)
+- Safety: Deduplication prevents duplicate PRs on rerun
+
+**Blockers Resolved:**
+- ✅ Wash solution complete (47/47 tests)
+- ✅ Kaylee endpoints complete (85/85 tests)
+- ✅ No build errors, integration verified
+
+**Next Steps:**
+- Smoke test full pipeline run
+- Monitor rate limits during batch execution
+- Collect template feedback for v1→v2 refinement
+
+**Decision:** ✅ **INTEGRATION COMPLETE** — Pipeline Step 6 ready for testing and smoke run.
+
+**Coordinator**  
+2026-03-07
+
+---
