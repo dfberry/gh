@@ -27,6 +27,20 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-07-21 — Pipeline Tee Logging & Output Directory Pre-creation
+
+**Task:** Two enhancements to `scripts/run-pipeline.mjs`:
+1. **Tee-like logging** — All stdout/stderr output now mirrors to `./generated/pipeline-{ISO-timestamp}.log` while still appearing on the console. Implemented by patching `process.stdout.write`/`process.stderr.write` plus converting `run()` from `execSync` to async `spawn` with piped stdio.
+2. **Output directory pre-creation** — Added `STEP_OUTPUT_DIRS` array and `mkdir({recursive: true})` loop before Step 1 so ALL six step directories exist before any step runs. Fixes the Step 6 `sample-auto-fix` crash and prevents similar issues for other steps.
+
+**Key patterns:**
+- `createWriteStream` from `node:fs` (streaming, not sync — project-safe)
+- `spawn` from `child_process` with `['inherit', 'pipe', 'pipe']` stdio config for real-time streaming + capture
+- `process.on('exit', ...)` handler for best-effort log flush on `process.exit(1)` error paths
+- Log stream properly closed with `await new Promise(r => logStream.end(r))` on the happy path
+
+**Files:** `scripts/run-pipeline.mjs` (65 insertions, 16 deletions)
+
 ### 2026-03-05 — Code Review Nits: Extract getDefaultBranch + Token Standardization
 
 **From Mal's code review of security-audit-repos:**
@@ -387,3 +401,31 @@
 - packages/github-rest/src/endpoints/repos.ts (EXTENDED — +2 convenience wrappers, +44 LOC)
 - packages/github-rest/src/endpoints/repos.test.ts (EXTENDED — +7 tests, +120 LOC)
 - packages/github-rest/src/index.ts (UPDATED — exports for new modules/functions/types)
+
+### 2026-03-07 — Pipeline Tee Logging & Output Directory Pre-creation
+
+**Task:** Two enhancements to `scripts/run-pipeline.mjs` to fix pipeline reliability and observability.
+
+**Changes:**
+1. **Tee logging** — All stdout/stderr output (including child process output) now mirrors to `./generated/pipeline-{ISO-timestamp}.log` while preserving original console output. Implemented by:
+   - Converting `run()` from `execSync` (blocking, no output capture) to async `spawn` with piped stdio (`['inherit', 'pipe', 'pipe']`)
+   - Patching `process.stdout.write` and `process.stderr.write` to tee to log stream
+   - Log stream properly closed on happy path; `process.on('exit')` handler for best-effort flush on error exits
+
+2. **Output directory pre-creation** — All six step output directories now created before Step 1 runs using `mkdir({recursive: true})`. Fixes Step 6 crash (missing `./generated/sample-auto-fix/`) and prevents similar issues for other steps.
+
+**Key patterns:**
+- `createWriteStream` from `node:fs` (streaming, not sync — project-safe)
+- `spawn` with `['inherit', 'pipe', 'pipe']` stdio config for real-time streaming + capture
+- `process.on('exit', ...)` handler for error-path log flush
+- `STEP_OUTPUT_DIRS` array documents all output paths; easy to extend
+
+**Verification:**
+- Full pipeline runs clean — all 6 steps pass
+- Output properly tee'd to timestamped log file
+- Windows path bugs resolved (auto-fix CLI entry point)
+- Commit: 446d15d
+
+**Files touched:**
+- scripts/run-pipeline.mjs (65 insertions, 16 deletions)
+- solutions/sample-auto-fix/src/cli.ts (Windows path fix)

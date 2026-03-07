@@ -1118,3 +1118,36 @@ This created friction:
 - `docs/PIPELINE.md` — new, 440 lines
 - `.squad/agents/inara/history.md` — updated learnings
 
+---
+
+### 27. Pipeline Tee Logging & Output Directory Pre-creation (Kaylee — 2026-03-07)
+
+**Status:** Implemented (Commit: 446d15d)
+
+**Scope:** `scripts/run-pipeline.mjs`
+
+## Summary
+
+Two enhancements to the pipeline runner:
+
+1. **Tee logging** — `npm run pipeline` now writes all output (stdout + stderr, including child process output) to `./generated/pipeline-{ISO-timestamp}.log` while preserving the original console output exactly as before. No external dependencies — uses `createWriteStream` + `process.stdout.write` patching + async `spawn`.
+
+2. **Output directory pre-creation** — All six step output directories are now created before Step 1 runs (`mkdir({recursive: true})`). This fixes the Step 6 crash where `./generated/sample-auto-fix/` didn't exist, and prevents the same class of issue for all other steps.
+
+## Design Choices
+
+- Switched `run()` from `execSync` (blocking, no output capture) to async `spawn` with piped stdio. This enables real-time streaming through the patched `process.stdout.write`, giving us the tee behavior.
+- All `run()` calls now use `await` since the function is async.
+- Log stream has a `process.on('exit')` handler for best-effort flush on error exits.
+
+## Team Impact
+
+- Pipeline log files will accumulate in `./generated/` — consider periodic cleanup or `.gitignore` (already ignored).
+- Any new steps added to the pipeline should add their output directory to the `STEP_OUTPUT_DIRS` array.
+
+## Verification
+
+- Full pipeline runs clean — all 6 steps pass
+- Output properly tee'd to log file
+- Windows path bugs resolved in auto-fix CLI entry point
+
