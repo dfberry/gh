@@ -21,8 +21,8 @@
     "evaluate:empty-repos": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js evaluate-repos-for-empty --input=\"./generated/gh-cleanup-gather/gather-user-repos.json\" --config-file=\"./packages/gh-cleanup/evaluate-config.json\" --out=\"./generated/gh-cleanup-evaluate\" --out-prefix=\"evaluate-\"",
 
     "test": "npm run test --workspaces --if-present",
-    "test:dev": "npm run test --workspaces --if-present -- -w",
-    "test:ci": "npm run test --workspaces --if-present -- --run",
+    "test:watch": "npm run test --workspaces --if-present -- -w",
+    "test:ci": "npm run test --workspaces --if-present",
     "run-all": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-all.sh > ./generated/run-all-dev.log 2>&1'",
     "gh-cleanup:branch-protection": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- branch-protection'",
     "gh-cleanup:collaborator": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- collaborators'",
