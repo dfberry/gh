@@ -253,3 +253,26 @@
 
 **All 338 tests pass** (52 github-rest + 25 security-audit + 116 health-check + 75 remediation + 70 pr-feedback), build clean.
 
+### 2026-03-09 — Pipeline Repo Accessibility Pre-Check
+
+**Status:** ✅ COMPLETE (pipeline now checks repo access before running solutions)
+
+**Problem:** Microsoft enterprise policy 403s blocked the PAT on Azure-Samples repos. All 4 solutions ran and failed on the same blocked repos, wasting time and producing confusing errors.
+
+**Solution delivery:**
+- Added `checkRepoAccess()` function to `scripts/run-pipeline.mjs` as Preflight Step 2 (after token validation)
+- For each repo in `active-sample-repos.json`, calls `client.checkRepoAccess(owner, repo)` and displays ✅/❌ results
+- Writes structured JSON log to `generated/preflight/{timestamp}-repo-access.json`
+- If some repos blocked: writes filtered `accessible-repos.json`, pipeline continues on accessible repos only
+- If ALL repos blocked: pipeline aborts with clear message
+- If `checkRepoAccess` method not yet available: skips pre-check with warning (safe for parallel dev with Kaylee)
+
+**Design choices:**
+- **Preflight returns client:** Changed `preflight()` to return the `GitHubClient` instance so it can be reused for repo access checks without creating a second client
+- **Direct node commands:** Steps 1, 2, 4 now invoke node directly with `effectiveInput` path instead of `npm run` (which has hardcoded input paths in package.json)
+- **Graceful fallback:** `typeof ghClient.checkRepoAccess !== 'function'` guard allows pipeline to work even before Kaylee merges the method
+- **Step 3 (create-remediation-issues) unchanged:** It consumes outputs from steps 1 & 2, which already contain only accessible repos
+
+**Key file modified:**
+- `scripts/run-pipeline.mjs` (readFile import + preflight returns client + checkRepoAccess function + effectiveInput threading through steps 1/2/4)
+

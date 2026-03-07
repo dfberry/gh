@@ -270,3 +270,34 @@
 
 **Key files touched:**
 - `packages/github-rest/src/core/client.ts` (all 3 changes)
+
+### 2026-03-06 — Surfaced API Body Messages in All GitHubError Throws + Added checkRepoAccess()
+
+**Context:** User hit a 403 from Microsoft enterprise policy blocking classic PATs with lifetime > 90 days on Azure-Samples org. Error body had the real explanation, but `_singleRequest()` threw `GitHubError('GitHub API error 403')` — completely hiding the body's `message` field.
+
+**Change 1 — Include body message in ALL error throws:**
+- In `_singleRequest()`, extract `apiMsg` from the body's `message` field before all three throw sites.
+- Generic `GitHubError` now throws: `GitHub API error 403: The 'Microsoft Open Source' enterprise forbids access via...`
+- `RateLimitError` for 429/5xx now includes body message if present.
+- `RateLimitError` for 403 rate limits: keeps `GitHub API rate limit exceeded` prefix but appends body message.
+- Pattern: `apiMsg ? \`GitHub API error ${status}: ${apiMsg}\` : \`GitHub API error ${status}\``
+
+**Change 2 — Added `checkRepoAccess(owner, repo)` method:**
+- New `RepoAccessResult` interface: `{ accessible, owner, repo, error?, suggestion? }`
+- Never throws — returns structured result with actionable suggestions:
+  - 404 → "Repository not found" + check name/access hint
+  - 403 with "enterprise" in body → exact body message + "Adjust PAT lifetime or use fine-grained token"
+  - 403 generic → body message or "Access forbidden" + check permissions hint
+  - Other errors → `HTTP {status}: {message}`
+- Uses `this.get()` internally — retry loop correctly doesn't retry 403/404 (only RateLimitErrors are retried)
+
+**Change 3 — Exported `RepoAccessResult` from index.ts:**
+- Added `RepoAccessResult` to the `export type` line alongside `TokenValidationResult` and `RateLimitInfo`.
+
+**Test impact:** Zero — all 399 tests pass. Existing endpoint tests mock at the `client.get()` level, not at `fetch`, so the error message changes in `_singleRequest()` don't affect them.
+
+**Build & Test:** ✅ `npm run build` zero errors, ✅ 399/399 tests pass
+
+**Key files touched:**
+- `packages/github-rest/src/core/client.ts` (error messages + RepoAccessResult + checkRepoAccess)
+- `packages/github-rest/src/index.ts` (RepoAccessResult export)
