@@ -7,6 +7,22 @@ export type RetryOptions = {
   maxTimeoutMs?: number;
 };
 
+export interface RateLimitInfo {
+  limit: number;
+  remaining: number;
+  resetAt: Date;
+  used: number;
+}
+
+export interface TokenValidationResult {
+  valid: boolean;
+  login?: string;
+  scopes?: string[];
+  rateLimit?: RateLimitInfo;
+  error?: string;
+  suggestion?: string;
+}
+
 export class GitHubClient {
   token?: string;
   baseUrl: string;
@@ -17,7 +33,7 @@ export class GitHubClient {
     this.token = opts.token ?? process.env.GH_TOKEN;
     this.baseUrl = opts.baseUrl ?? 'https://api.github.com';
     this.userAgent = opts.userAgent ?? 'github-rest/0.1';
-    this.retry = opts.retry;
+    this.retry = opts.retry ?? { attempts: 3, factor: 2, minTimeoutMs: 1000, maxTimeoutMs: 60000 };
   }
 
   /**
@@ -50,6 +66,74 @@ export class GitHubClient {
   }
 
   /**
+   * Fetch rate limit information from GET /rate_limit.
+   * This endpoint does NOT count against the rate limit.
+   * Never throws — returns undefined if the request fails.
+   */
+  async getRateLimit(): Promise<RateLimitInfo | undefined> {
+    try {
+      const data = await this.get<{
+        resources: { core: { limit: number; remaining: number; reset: number; used: number } };
+      }>('/rate_limit');
+      const core = data.resources.core;
+      return {
+        limit: core.limit,
+        remaining: core.remaining,
+        resetAt: new Date(core.reset * 1000),
+        used: core.used,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Preflight check: validate the token without throwing.
+   * Returns a result object with validity, login, scopes, rate limit, or an error message.
+   */
+  async validateToken(): Promise<TokenValidationResult> {
+    if (!this.token || this.token.trim() === '') {
+      return {
+        valid: false,
+        error: 'No token provided',
+        suggestion: 'Set GITHUB_TOKEN in .env or pass token to GitHubClient constructor',
+      };
+    }
+
+    try {
+      const user = await this.getAuthenticatedUser<{ login: string }>();
+      const scopes = await this.getTokenScopes();
+
+      // Rate limit info is optional enrichment — don't fail validation if it errors
+      const rateLimit = await this.getRateLimit();
+
+      return { valid: true, login: user.login, scopes, rateLimit };
+    } catch (err) {
+      if (err instanceof GitHubError) {
+        if (err.status === 401) {
+          return {
+            valid: false,
+            error: 'Token is invalid or expired',
+            suggestion: 'Check GITHUB_TOKEN in .env — the token may have been revoked or may have expired',
+          };
+        }
+        if (err.status === 403) {
+          return {
+            valid: false,
+            error: 'Token is rate-limited or blocked',
+            suggestion: 'Wait for rate-limit reset or check token permissions at https://github.com/settings/tokens',
+          };
+        }
+      }
+      return {
+        valid: false,
+        error: err instanceof Error ? err.message : String(err),
+        suggestion: 'Unexpected error — check network connectivity and GITHUB_TOKEN value',
+      };
+    }
+  }
+
+  /**
    * Check whether the current token has admin permission on the given repo.
    */
   async hasRepoAdmin(owner: string, repo: string): Promise<boolean> {
@@ -78,6 +162,48 @@ export class GitHubClient {
   }
 
   async rawRequest<T = unknown>(method: string, pathOrUrl: string, opts: { params?: Record<string, string | number>; body?: unknown; headers?: Record<string, string>; signal?: AbortSignal } = {}): Promise<{ body: T; headers: Record<string, string>; status: number }> {
+    const maxAttempts = this.retry?.attempts ?? 3;
+    let lastError: Error | undefined;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await this._singleRequest<T>(method, pathOrUrl, opts);
+      } catch (err) {
+        lastError = err as Error;
+
+        if (!(err instanceof RateLimitError)) throw err;
+        if (attempt === maxAttempts) throw err;
+
+        // Rate limit (429 or 403 rate limit) — wait for reset
+        if (err.status === 429 || err.status === 403) {
+          const waitMs = err.resetAt
+            ? Math.min(err.resetAt - Date.now() + 1000, this.retry?.maxTimeoutMs ?? 60000)
+            : (this.retry?.minTimeoutMs ?? 1000) * Math.pow(this.retry?.factor ?? 2, attempt - 1);
+          const waitSec = Math.ceil(Math.max(waitMs, 1000) / 1000);
+          console.log(`⏳ Rate limited. Retrying in ${waitSec}s... (attempt ${attempt}/${maxAttempts})`);
+          await new Promise(r => setTimeout(r, Math.max(waitMs, 1000)));
+          continue;
+        }
+
+        // Server error (5xx) — exponential backoff with jitter
+        if (err.status >= 500) {
+          const baseMs = (this.retry?.minTimeoutMs ?? 1000) * Math.pow(this.retry?.factor ?? 2, attempt - 1);
+          const jitter = baseMs * (0.8 + Math.random() * 0.4); // ±20%
+          const waitMs = Math.min(jitter, this.retry?.maxTimeoutMs ?? 60000);
+          const waitSec = Math.ceil(waitMs / 1000);
+          console.log(`⏳ Server error ${err.status}. Retrying in ${waitSec}s... (attempt ${attempt}/${maxAttempts})`);
+          await new Promise(r => setTimeout(r, waitMs));
+          continue;
+        }
+
+        // Unknown RateLimitError variant — don't retry
+        throw err;
+      }
+    }
+    throw lastError!;
+  }
+
+  private async _singleRequest<T = unknown>(method: string, pathOrUrl: string, opts: { params?: Record<string, string | number>; body?: unknown; headers?: Record<string, string>; signal?: AbortSignal } = {}): Promise<{ body: T; headers: Record<string, string>; status: number }> {
     let url = pathOrUrl.startsWith('http') ? pathOrUrl : `${this.baseUrl}${pathOrUrl}`;
     
     // Add query parameters if provided
@@ -114,6 +240,15 @@ export class GitHubClient {
     if (!res.ok) {
       if (res.status === 429 || res.status >= 500) {
         throw new RateLimitError(`GitHub API error ${res.status}`, res.status, rawHeaders, body);
+      }
+      // Primary and secondary rate limit: 403 with exhausted quota or "rate limit" in body message
+      if (res.status === 403) {
+        const bodyMsg = typeof body === 'object' && body !== null && 'message' in body
+          ? String((body as Record<string, unknown>).message).toLowerCase()
+          : '';
+        if (rawHeaders['x-ratelimit-remaining'] === '0' || bodyMsg.includes('rate limit')) {
+          throw new RateLimitError(`GitHub API rate limit exceeded`, res.status, rawHeaders, body);
+        }
       }
       throw new GitHubError(`GitHub API error ${res.status}`, res.status, rawHeaders, body);
     }
