@@ -59,6 +59,42 @@
 
 **Next:** Documentation updates, smoke testing, rate limit monitoring, v2 planning
 
+## 2026-03-15 — Pipeline Documentation Update Complete
+
+**Task:** Update README.md and create docs/PIPELINE.md to document the 6-step orchestrator
+
+**What changed:**
+1. **README.md** — Replaced outdated 4-solution section with complete 6-step pipeline documentation:
+   - Added quick-start commands (`npm run pipeline`, `npm run pipeline:apply`)
+   - Added 6x1 table showing all steps with purposes and output paths
+   - Updated test count (296+ → 300+)
+   - Added link to detailed docs/PIPELINE.md
+
+2. **docs/PIPELINE.md** (new file) — Comprehensive 600-line pipeline guide:
+   - Overview of the detect → score → remediate workflow
+   - Prerequisites (Node 22+, GitHub token, optional OpenAI key for Step 4)
+   - Run commands (dry-run vs. `--apply`)
+   - Detailed per-step breakdowns (all 6 steps):
+     - What it does, inputs, outputs, flags
+     - Safety notes (especially Steps 3 & 6 which are destructive)
+   - Output structure with example directory layout
+   - Error handling and rate limiting
+   - 4 complete usage examples (dry-run, apply, single step, debug)
+   - FAQ with scheduling, customization, GHE support
+
+**Tone & style:**
+- Concise README (links to detailed docs) — follows existing pattern
+- Comprehensive PIPELINE.md (users can learn full pipeline without external references)
+- Safety-first: emphasizes `--apply` requirement for destructive ops
+- Step-by-step structure: easy to navigate and reference
+
+**Files updated/created:**
+- `README.md` (lines 28–97 replaced)
+- `docs/PIPELINE.md` (new, 440 lines)
+
+**Rationale:**
+The previous README documented an outdated 4-solution pipeline using `scripts/run-all.sh`. The project now has 6 integrated solutions orchestrated by `scripts/run-pipeline.mjs`. This update reflects the actual pipeline, provides clear usage guidance, and emphasizes safety (dry-run by default, explicit `--apply` flag required for destructive operations).
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
