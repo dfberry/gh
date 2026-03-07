@@ -259,3 +259,31 @@
 - Observability: per-step duration tracking, API quota remaining, artifact size alerts
 
 **Decision written to:** `.squad/decisions/inbox/mal-pipeline-review.md`
+
+### 2026-03-07 — Architecture Design: azure-best-practices-check (P2)
+
+**Status:** Architecture decision written to `.squad/decisions/inbox/mal-azure-best-practices-architecture.md`
+
+**Key architectural decisions:**
+
+1. **Solution only, no new package** — Azure best practices rules are domain-specific to sample repos, not reusable primitives. Extract to package only if duplication emerges later. MCP tools cannot be called at runtime from Node.js CLI — rules must be embedded as static TypeScript.
+
+2. **15 checks across 5 dimensions** — azure-sdk (package.json analysis), iac (Bicep/Terraform presence & patterns), config (azure.yaml, .env.example), ci-cd (federated auth, current actions), security (no connection strings in source, managed identity docs).
+
+3. **Additive scoring (0→100), same model as health-check** — 5 dimensions with weight budgets totaling 100. Letter grades A/B/C/D/F. CheckResult includes `recommendation` field (new vs existing solutions) for actionable fix suggestions.
+
+4. **Zero new github-rest endpoints** — All required file reading primitives exist: `contents.getDecodedFileContent()`, `contents.getRootContents()`, `contents.fileExists()`. Blocked on nothing.
+
+5. **Independent in v1, feeds into remediation in v2** — Runs as Step 5 in pipeline (like pr-feedback-aggregator). v2 extends `create-remediation-issues` with `azureBestPracticesReport?` input and `analyzeAzureBPFindings()`.
+
+6. **Rule source: embedded TypeScript** — Pure functions in `rules.ts`. MCP tools used by developers to research rules, not called at runtime. Maintenance = update rules when Azure best practices change.
+
+7. **API budget: 5-9 calls per repo** — Root contents scan + package.json + IaC files + workflow files + README. ~50-90 calls for 10 repos. No rate limit concern.
+
+**File structure:** `src/index.ts` (orchestrator) + `src/cli.ts` + `src/rules.ts` (15 pure check functions) + `src/scoring.ts` + `src/types.ts`
+
+**Key patterns carried forward:**
+- Solutions cannot call MCP tools at runtime — external knowledge must be baked in as static rules
+- `contents.getDecodedFileContent()` is the workhorse for file-based analysis solutions
+- CheckResult with `recommendation` field is a pattern worth adopting in health-check v2
+- No cross-solution imports — report shapes defined locally in consuming solution's types.ts

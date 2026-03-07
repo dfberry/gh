@@ -683,3 +683,54 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 4. Run pipeline with --apply in staging
 
 ---
+
+### 30. Architecture Decision: azure-best-practices-check (P2) (Mal — 2026-03-07)
+
+**Status:** DECIDED
+
+**Priority:** P2 (SMART goal strategy)
+
+**Placement:** Solution only (`solutions/azure-best-practices-check`) — no new package.
+
+**Rationale:** MCP `azure-mcp-get_azure_bestpractices` tool exists but solutions run as Node.js CLI tools unable to call MCP at runtime. Solution must be self-contained. Rules are domain-specific to Azure sample repos; not a reusable primitive. If later duplicated across solutions, extract to `packages/azure-analysis` at that point (DRY: don't abstract prematurely).
+
+**Scope (v1):** 15 checks across 5 dimensions (additive scoring 0→100):
+- **azure-sdk** (4 checks): `@azure/identity` presence, no deprecated SDKs, modern `@azure/` packages, TypeScript types
+- **iac** (3 checks): IaC file presence, no hardcoded secrets in Bicep/Terraform, parameterized variables
+- **config** (3 checks): `azure.yaml` (azd), `.env.example`, `SECURITY.md` presence
+- **ci-cd** (3 checks): OIDC/federated auth in workflows, no hardcoded creds, current Azure GitHub Actions
+- **security** (2 checks): no connection strings in source, managed identity documentation
+
+**Scoring Model:** Additive (0→100). Dimensions: azure-sdk (25 pts), iac (25 pts), config (15 pts), ci-cd (20 pts), security (15 pts). Grade thresholds: A≥85, B≥70, C≥55, D≥40, F<40.
+
+**Data Flow:** GitHub REST API (file fetch) → Rules engine (pure functions) → Scoring (additive) → Output (JSON + Markdown). Uses only `github-rest` file reading primitives; no new endpoints needed.
+
+**Integration:** v1 runs independently (like pr-feedback-aggregator, added as Step 5 in `run-pipeline.mjs`). v2 feeds into create-remediation-issues.
+
+**File Structure:** Standard solution pattern (index.ts, cli.ts, rules.ts, scoring.ts, types.ts) + colocated tests.
+
+**API Budget:** 5-9 calls per repo; 50-90 total for 10 repos. No rate limit concern.
+
+**Implementation Order:** Scaffold (Wash) → Test-first rules/scoring (Zoe) → Implement rules → Implement scoring → Orchestrator → CLI → Integration tests → Pipeline integration.
+
+**Blocking:** Nothing. All github-rest endpoints exist.
+
+---
+
+### 31. Decision: --out is a directory for all solution CLIs (Wash — 2026-03-07)
+
+**Status:** Applied
+
+**Context:** Inconsistent CLI `--out` semantics: create-remediation-issues treated it as a file path, while security-audit and health-check treated it as a directory.
+
+**Decision:** All solution CLIs treat `--out` as an **output directory** (not file path). Each CLI generates timestamped filenames internally: `{timestamp}-{solution}.json` and `{timestamp}-{solution}.md`. Defaults to `generated/{solution-name}/` if not provided.
+
+**Applies to:**
+- `solutions/security-audit-repos/src/cli.ts` ✅ (already follows)
+- `solutions/sample-health-check/src/cli.ts` ✅ (already follows)
+- `solutions/create-remediation-issues/src/cli.ts` ✅ (updated)
+- `solutions/pr-feedback-aggregator/src/cli.ts` (verify)
+
+**Impact:** Pipeline script (`scripts/run-pipeline.mjs`) can use `findLatestJson(dir)` uniformly for all steps.
+
+---

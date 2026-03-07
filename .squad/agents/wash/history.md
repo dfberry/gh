@@ -26,6 +26,16 @@
 - Solution patterns: Promise.allSettled for graceful degradation, weighted scoring (start at base, deduct/award points), dual output formats (JSON + Markdown)
 - Graceful degradation via 404 handling (features disabled don't fail checks)
 
+**✅ 2026-03-07 — azure-best-practices-check (P2) Architecture Decision APPROVED**
+- Mal finalized architecture: Solution only (`solutions/azure-best-practices-check`), no new package
+- 15 checks across 5 dimensions (azure-sdk, iac, config, ci-cd, security)
+- Additive scoring (0→100), letter grades (A/B/C/D/F)
+- v1 independent; v2 feeds into create-remediation-issues
+- All github-rest endpoints exist; zero blockers
+- Ready for Wash (scaffolding) + Zoe (test-first rules/scoring)
+- See `.squad/decisions.md` Decision #30 for full architecture details
+
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
