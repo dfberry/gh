@@ -5,7 +5,7 @@
  * and writes JSON + Markdown output files.
  */
 
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { GitHubClient } from 'github-rest';
 import {
@@ -92,6 +92,17 @@ export async function runCli(args: Partial<CliArgs>): Promise<void> {
   const out = args.out ?? './output';
   const verbose = args.verbose ?? false;
 
+  // Ensure output directory exists
+  await mkdir(out, { recursive: true });
+
+  // Clean up any previous error log from the output directory
+  const errorLogPath = join(out, 'pr-feedback-errors.log');
+  try {
+    await unlink(errorLogPath);
+  } catch {
+    // File doesn't exist — that's fine
+  }
+
   if (verbose) {
     console.log(`Reading repositories from: ${input}`);
   }
@@ -114,7 +125,6 @@ export async function runCli(args: Partial<CliArgs>): Promise<void> {
   const report = await generateReport(client, options);
   const markdown = generateMarkdownSummary(report);
 
-  await mkdir(out, { recursive: true });
   const jsonPath = join(out, 'feedback-aggregation-report.json');
   const mdPath = join(out, 'feedback-aggregation-recommendations.md');
 

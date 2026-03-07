@@ -89,11 +89,19 @@ async function main() {
     console.log(`Output: ${outputDir}`);
     console.log(`Format: ${format}\n`);
 
+    // Ensure output directory exists
+    await fs.mkdir(outputDir, { recursive: true });
+
+    // Clean up any previous error log from this directory
+    const errorLogPath = path.join(outputDir, 'health-check-errors.log');
+    try {
+      await fs.unlink(errorLogPath);
+    } catch {
+      // File doesn't exist — that's fine
+    }
+
     const client = new GitHubClient({ token });
     const report = await checkReposHealth(client, repos, { verbose });
-
-    // Ensure output directory
-    await fs.mkdir(outputDir, { recursive: true });
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
 

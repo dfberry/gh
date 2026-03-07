@@ -92,14 +92,22 @@ async function main() {
     console.log(`Output: ${outputDir}`);
     console.log(`Format: ${format}\n`);
 
+    // Ensure output directory exists
+    await fs.mkdir(outputDir, { recursive: true });
+
+    // Clean up any previous error log from this directory
+    const errorLogPath = path.join(outputDir, 'security-audit-errors.log');
+    try {
+      await fs.unlink(errorLogPath);
+    } catch {
+      // File doesn't exist — that's fine
+    }
+
     // Create GitHub client
     const client = new GitHubClient({ token });
 
     // Perform audit
     const report = await auditRepos(client, repos, { verbose });
-
-    // Ensure output directory exists
-    await fs.mkdir(outputDir, { recursive: true });
 
     // Generate timestamp for filenames
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);

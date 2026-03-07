@@ -7,7 +7,7 @@
 import { GitHubClient } from 'github-rest';
 import { createRemediationIssues } from './index.js';
 import type { RemediationInput, RemediationOptions, PipelineError } from './types.js';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 export interface CliArgs {
@@ -79,6 +79,16 @@ export async function runCli(args: CliArgs): Promise<void> {
   const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
   const client = new GitHubClient({ token });
   const verbose = args.verbose ?? false;
+
+  // Clean up any previous error log from the output directory
+  const errorDir = args.out ? dirname(args.out) : 'generated/remediation-issues';
+  await mkdir(errorDir, { recursive: true });
+  const errorLogPath = join(errorDir, 'remediation-issues-errors.log');
+  try {
+    await unlink(errorLogPath);
+  } catch {
+    // File doesn't exist — that's fine
+  }
 
   const input: RemediationInput = {};
 

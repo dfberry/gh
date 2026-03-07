@@ -11,7 +11,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
+import { readdir, readFile, mkdir, writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { GitHubClient } from '../packages/github-rest/dist/index.js';
 
@@ -180,6 +180,42 @@ async function checkRepoAccess(ghClient, inputFile) {
 }
 
 const effectiveInput = await checkRepoAccess(client, INPUT_FILE);
+
+// ── Cleanup: Remove stale error logs from previous runs ────────────────
+async function cleanupStaleErrorLogs() {
+  const errorLogDirs = [
+    './generated/security-audit',
+    './generated/sample-health-check',
+    './generated/remediation-issues',
+    './generated/pr-feedback-aggregator',
+  ];
+
+  console.log('\n🧹 Cleaning stale error logs from previous runs...\n');
+
+  let removedCount = 0;
+  for (const dir of errorLogDirs) {
+    try {
+      const entries = await readdir(dir);
+      for (const file of entries) {
+        if (file.endsWith('-errors.log')) {
+          const logPath = join(dir, file);
+          await unlink(logPath);
+          removedCount++;
+          console.log(`  🗑️  Removed: ${logPath}`);
+        }
+      }
+    } catch {
+      // Directory doesn't exist or other error — skip
+    }
+  }
+
+  if (removedCount === 0) {
+    console.log('  ✓ No stale error logs found');
+  }
+  console.log('');
+}
+
+await cleanupStaleErrorLogs();
 
 /**
  * Run a shell command, streaming output to the console.
