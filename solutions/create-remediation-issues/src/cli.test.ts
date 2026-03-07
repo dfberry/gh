@@ -15,6 +15,7 @@ vi.mock('node:fs/promises', () => ({
   readFile: vi.fn(),
   writeFile: vi.fn(),
   mkdir: vi.fn(),
+  unlink: vi.fn(),
 }));
 
 // Mock github-rest
@@ -57,9 +58,9 @@ describe('parseArgs', () => {
   });
 
   it('should parse --out flag', () => {
-    const args = parseArgs(['--out', './output']);
+    const args = parseArgs(['--out', './output-dir']);
 
-    expect(args.out).toBe('./output');
+    expect(args.out).toBe('./output-dir');
   });
 
   it('should parse --dry-run flag', () => {
@@ -96,14 +97,14 @@ describe('parseArgs', () => {
     const args = parseArgs([
       '--security-input', './sec.json',
       '--health-input', './health.json',
-      '--out', './output',
+      '--out', './output-dir',
       '--dry-run',
       '--verbose',
     ]);
 
     expect(args.securityInput).toBe('./sec.json');
     expect(args.healthInput).toBe('./health.json');
-    expect(args.out).toBe('./output');
+    expect(args.out).toBe('./output-dir');
     expect(args.dryRun).toBe(true);
     expect(args.verbose).toBe(true);
   });
@@ -163,11 +164,39 @@ describe('runCli', () => {
 
     await runCli({
       securityInput: './sec.json',
-      out: './output/result.json',
+      out: './output-dir',
       dryRun: true,
     });
 
-    expect(writeFile).toHaveBeenCalled();
+    // Should write both JSON and MD with timestamped filenames
+    const writeCalls = vi.mocked(writeFile).mock.calls;
+    const writtenPaths = writeCalls.map(c => String(c[0]));
+    expect(writtenPaths.some(p => p.includes('remediation.json'))).toBe(true);
+    expect(writtenPaths.some(p => p.includes('remediation.md'))).toBe(true);
+  });
+
+  it('should write output to default directory when --out is not provided', async () => {
+    vi.mocked(readFile).mockResolvedValue(JSON.stringify({ repos: [], summary: {} }));
+    vi.mocked(writeFile).mockResolvedValue(undefined);
+    vi.mocked(mkdir).mockResolvedValue(undefined);
+    vi.mocked(createRemediationIssues).mockResolvedValue({
+      created: [], skipped: [], planned: [], dryRun: true,
+      summary: { totalPlanned: 0, totalCreated: 0, totalSkipped: 0, timestamp: '' },
+    } as any);
+
+    await runCli({
+      securityInput: './sec.json',
+      dryRun: true,
+    });
+
+    // Should still write output using default directory
+    const mkdirCalls = vi.mocked(mkdir).mock.calls;
+    const mkdirPaths = mkdirCalls.map(c => String(c[0]));
+    expect(mkdirPaths.some(p => p.includes('generated'))).toBe(true);
+
+    const writeCalls = vi.mocked(writeFile).mock.calls;
+    const writtenPaths = writeCalls.map(c => String(c[0]));
+    expect(writtenPaths.some(p => p.includes('remediation.json'))).toBe(true);
   });
 
   it('should pass dry-run option to createRemediationIssues', async () => {

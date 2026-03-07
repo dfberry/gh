@@ -303,3 +303,13 @@
 **All 286 tests pass** (25 security-audit + 116 health-check + 75 remediation + 70 pr-feedback), build clean with zero errors.
 
 
+
+
+### 2026-03-07 - Remediation output gap fixed
+
+**Problem:** generated/remediation-issues/ was empty after pipeline runs. The CLI only wrote output when --out was explicitly provided, and the pipeline script never passed --out.
+
+**Fix (Option B + pipeline):**
+- cli.ts: Changed --out from file-path to directory semantics (matching security-audit and health-check pattern). Default output dir: generated/remediation-issues. Always writes timestamped json+md. Summary prints unconditionally. Added generateRemediationSummary() for MD output.
+- run-pipeline.mjs: Added --out ./generated/remediation-issues to remediation step. Uses findLatestJson() after the step (consistent with other steps).
+- cli.test.ts: Updated tests for directory-based --out; added test for default output behavior; added unlink to fs mock. 76 tests pass (61 index + 15 CLI).

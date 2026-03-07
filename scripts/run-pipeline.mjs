@@ -281,12 +281,16 @@ const remediationCmd = [
   'npm run create-remediation-issues --',
   `--security-input "${securityFile}"`,
   `--health-input "${healthFile}"`,
+  '--out ./generated/remediation-issues',
   '--verbose',
   dryRunFlag,
 ].filter(Boolean).join(' ');
 
 run('create-remediation-issues', remediationCmd);
-console.log('\n✅ Remediation issues complete!\n');
+
+const remediationDir = './generated/remediation-issues';
+const remediationFile = await findLatestJson(remediationDir);
+console.log(`✅ Remediation issues complete: ${remediationFile}\n`);
 
 // ── Step 4: PR Feedback Aggregator ──────────────────────────────────────
 console.log('💬 Running PR feedback aggregator...');
