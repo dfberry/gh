@@ -287,3 +287,66 @@
 - `contents.getDecodedFileContent()` is the workhorse for file-based analysis solutions
 - CheckResult with `recommendation` field is a pattern worth adopting in health-check v2
 - No cross-solution imports — report shapes defined locally in consuming solution's types.ts
+
+### 2026-03-07 — Architecture Design: sample-auto-fix (P2 SMART Goal #6)
+
+**Status:** Architecture decision written to `.squad/decisions/inbox/mal-sample-auto-fix-architecture.md`
+
+**Key architectural decisions:**
+
+1. **Capstone solution architecture** — sample-auto-fix is the final solution in the SMART Goal strategy, closing the automation loop: detect → track → **fix automatically**. Highest impact and highest risk because it performs destructive operations (branches, commits, PRs) on target repos at scale.
+
+2. **CRITICAL github-rest gaps (BLOCKING)** — sample-auto-fix requires 3 new/extended modules:
+   - **NEW: `git.ts`** — getRef, createRef, deleteRef (branch creation/management)
+   - **EXTEND: `contents.ts`** — createOrUpdateFile, deleteFile, encodeContent helper (file writes)
+   - **EXTEND: `repos.ts`** — getDefaultBranchSHA, findPRByBranch (convenience wrappers for dedup)
+   - Estimated effort: 4-6 hours (Kaylee, P0 blocking)
+
+3. **v1 fix categories: security + Azure config only** — Start with safe, idempotent, low-conflict fixes:
+   - Category 1 (P0): Missing security files (SECURITY.md, .env.example, dependabot.yml)
+   - Category 2 (P1): Missing Azure config (azure.yaml, .azure/ structure)
+   - **DEFER to v2:** CI/CD workflow updates (conflict risk), documentation improvements (complex merge logic), code-level fixes (requires AST + testing)
+
+4. **Safety model: 6 layers of defense** — This solution writes to production repos; every guardrail must be in place:
+   - **Dry-run by default** (explicit `--apply` required)
+   - **Confirmation gate** (optional `--interactive` flag shows summary + prompt)
+   - **Deduplication** (check for existing autofix/* PRs before creating)
+   - **Fork detection** (never write to forks, skip with message)
+   - **Per-repo error recovery** (partial success acceptable, don't fail entire pipeline)
+   - **Rate limit awareness** (preflight check, abort if <100 remaining)
+
+5. **Pipeline integration: Step 6** — Consumes 4 upstream reports (remediation-issues, security-audit, health-check, azure-best-practices) and outputs JSON with created PRs, skipped repos, errors. Inherits `--apply` flag from pipeline.
+
+6. **File structure: parser → planner → executor separation** — Pure functions for parsing/planning (testable without mocks), orchestration layer for API calls (executor.ts with mocked github-rest in tests). Templates are static data in `templates/` directory (no logic, just strings with placeholders).
+
+7. **API budget: ~8 calls per repo** — getRepo (fork check) + listPullRequests (dedup) + getRef (SHA) + createRef (branch) + 3× createOrUpdateFile (files) + createPullRequest (PR) = 8 calls × 50 repos = 400 calls. Well within 5000/hour limit.
+
+8. **v2 enhancements deferred:**
+   - Intelligent merge strategies (append to existing files vs overwrite)
+   - LLM-assisted code fixes (hardcoded secrets, deprecated APIs)
+   - Issue lifecycle management (auto-close issues when PR merges)
+   - Batch processing optimizations (parallel repo processing)
+   - Rollback support (delete branches, close PRs if fix breaks CI)
+
+**Critical architectural insights:**
+
+- **Git Data API is the missing primitive** — Until now, github-rest only had read operations (repos, alerts, contents.getFile). sample-auto-fix requires write operations (branch creation, file updates, PR creation). `git.ts` is the foundational module; without it, no automated remediation is possible.
+
+- **Base64 encoding is GitHub API contract** — Contents API requires base64-encoded file content for writes. Must provide `encodeContent(string): string` helper to avoid repetitive Buffer conversions in solution code.
+
+- **Deduplication by branch pattern is simpler than issue tracking** — Instead of tracking "did we already create an issue for this finding?", check "does an open PR from `autofix/{category}-*` already exist?". Leverages GitHub's native PR/branch state, no external database needed.
+
+- **Fork detection is non-negotiable** — Auto-fixing forks would create PRs against user-owned repos we don't control. Even with dry-run, the conceptual violation is dangerous. Hard gate: if `repo.fork === true`, skip immediately.
+
+- **Per-repo failure isolation prevents cascade failures** — If repo #5 hits a 403, don't abort the pipeline. Log the error, continue to repo #6. Final JSON includes `errors[]` array for manual review. Partial automation is better than zero automation.
+
+- **Templates must be pure data, not functions** — Resist the temptation to make templates "smart" (e.g., LLM-generated content). v1 uses static string templates with placeholder substitution. If a template needs logic, that's a signal to defer to v2 or make it a separate category.
+
+**Measurement strategy:**
+
+- Track PRs created per run (goal: 10+ per run for 50-repo corpus)
+- Track PR merge rate (goal: 70%+ merged within 7 days)
+- Track categories (which fixes are most valuable? security files vs Azure config vs CI/CD?)
+- Track errors (which error categories dominate? auth? rate limits? conflict detection?)
+
+**Next steps:** Kaylee builds github-rest endpoints (P0 blocking). Wash implements solution after endpoints ready. Zoe writes tests. Mal reviews + smoke tests in staging repos. Target: End of week for v1 completion.

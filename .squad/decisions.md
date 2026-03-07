@@ -734,3 +734,165 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 **Impact:** Pipeline script (`scripts/run-pipeline.mjs`) can use `findLatestJson(dir)` uniformly for all steps.
 
 ---
+
+### 32. Decision: Git Endpoints for sample-auto-fix (Kaylee — 2026-03-07)
+
+**Status:** Implemented
+
+**Context:** P2 SMART Goal #6 — sample-auto-fix requires GitHub REST endpoints for branch/file operations. All endpoints now built and tested.
+
+**Scope:** Three new modules + extensions in `packages/github-rest/`:
+
+**1. New Module: git.ts (67 LOC, 10 tests)**
+- `getRef(client, owner, repo, ref)` — GET /repos/{owner}/{repo}/git/ref/{ref}
+- `createRef(client, owner, repo, ref, sha)` — POST /repos/{owner}/{repo}/git/refs
+- `deleteRef(client, owner, repo, ref)` — DELETE /repos/{owner}/{repo}/git/refs/{ref}
+- **Key design:** Smart ref path handling (strips/requires 'refs/' prefix appropriately), typed returns, error propagation (404/409/422)
+
+**2. Extended Module: contents.ts (+108 LOC, 18 new tests)**
+- `encodeContent(content: string)` — Helper to base64-encode file content
+- `createOrUpdateFile(client, owner, repo, path, options)` — PUT /repos/{owner}/{repo}/contents/{path}
+  - Creates new files or updates existing ones
+  - Options: message (required), content (auto-encoded), branch?, sha? (for updates)
+- `deleteFile(client, owner, repo, path, options)` — DELETE /repos/{owner}/{repo}/contents/{path}
+  - Options: message, sha (required), branch?
+- **Key design:** Automatic base64 encoding, supports optional branch parameter, SHA required for updates/deletes (conflict detection)
+
+**3. Extended Module: repos.ts (+44 LOC, 7 new tests)**
+- `getDefaultBranchSHA(client, owner, repo)` — Get HEAD SHA of default branch (convenience wrapper over getRepo + getRef)
+- `findPRByBranch(client, owner, repo, headBranch)` — Check if PR exists for a branch (returns PR number or null)
+- **Key design:** Encapsulates multi-step patterns into single-call wrappers, reduces command module boilerplate
+
+**4. Updated Exports: index.ts**
+- `export * as git from './endpoints/git.js'`
+- Named exports: getRef, createRef, deleteRef, encodeContent, createOrUpdateFile, deleteFile, getDefaultBranchSHA, findPRByBranch
+- Type exports: GitRef, FileCommitResult, GitUser
+
+**Testing & Verification:**
+- ✅ Build: Zero errors with `npm run build`
+- ✅ Tests: 85/85 tests pass (35 new tests added)
+- ✅ Exports verified: All functions accessible via package exports
+
+**Architectural Patterns:**
+- Client-first convention (all functions take `client` as first parameter)
+- Error propagation (GitHub errors bubble up naturally)
+- TypeScript strict mode
+- Consistent naming conventions (get*, create*, delete*)
+- Test patterns (mock client with vi.fn(), test success + error cases)
+- ESM discipline (`import type`, `.js` extensions)
+
+**Impact & Next Steps:**
+- ✅ Unblocks Mal's sample-auto-fix implementation (P2 SMART Goal #6)
+- Enables automated branch creation for remediation workflows
+- Provides file write operations for fix application
+- Convenience wrappers reduce command module boilerplate
+- **Next:** Wash implements sample-auto-fix solution (parser → planner → executor)
+
+---
+
+### 33. Architecture Decision: sample-auto-fix (P2 SMART Goal Solution #6) (Mal — 2026-03-07)
+
+**Status:** Approved
+
+**Priority:** P2 (SMART goal strategy)
+
+**Context:** Capstone solution automating remediation of findings from upstream solutions (create-remediation-issues, security-audit, health-check, azure-bp) by modifying files in target repositories, creating branches, committing changes, and opening pull requests.
+
+**Key Characteristics:**
+- **Consumes:** Output from create-remediation-issues and raw audit/health data
+- **Produces:** Branches, commits, and PRs in target repositories
+- **Risk Profile:** HIGHEST — writes to repos, creates visible artifacts
+- **Safety Model:** Dry-run by default, explicit confirmation gates, deduplication
+
+**Data Flow:**
+```
+Upstream sources (issues, security, health, azure reports)
+  → Parse & extract fixable findings (filter by category)
+  → Group by repo → per-repo fix plan
+  → FOR EACH REPO: Check existing PR, create branch, apply fixes, open PR, apply labels
+  → Output: JSON report (created PRs, skipped repos, errors)
+```
+
+**Fix Categories (v1 — Safe, Idempotent, Low-Conflict):**
+1. **Missing Security Files** — SECURITY.md, .env.example, dependabot.yml (templates)
+2. **Missing Azure Config** — azure.yaml (template)
+3. **CI/CD** (v2 deferred) — Workflow updates
+4. **Documentation** (v2 deferred) — README updates
+
+**6-Layer Safety Model:**
+1. **Dry-run by default** — CLI must pass `--apply` explicitly to enable writes
+2. **Confirmation gate** (v2) — Interactive mode with summary + prompt
+3. **Deduplication** — Skip if PR already exists (branch pattern check)
+4. **Fork detection** — Never auto-fix forks (skip with message)
+5. **Error recovery** — Per-repo failures don't fail pipeline. Aggregate errors in output.
+6. **Rate limit awareness** — Preflight check (fail if < 100 remaining). ~8 API calls per repo.
+
+**File Structure:**
+```
+solutions/sample-auto-fix/
+├── src/
+│   ├── index.ts              # autoFixFindings() orchestrator
+│   ├── cli.ts                # CLI wrapper (--input, --out, --dry-run, --category)
+│   ├── types.ts              # AutoFixResult, FixPlan, PipelineError
+│   ├── parser.ts             # extractFixableFindings() — reads upstream JSON
+│   ├── planner.ts            # buildFixPlans() — groups by repo + category
+│   ├── executor.ts           # executeFixPlan() — branch/write/commit/PR orchestration
+│   ├── dedup.ts              # checkForExistingPR() — branch/PR dedup logic
+│   ├── templates/            # Fix templates (static data)
+│   │   ├── security-md.ts
+│   │   ├── env-example.ts
+│   │   ├── dependabot-yml.ts
+│   │   ├── azure-yaml.ts
+│   │   └── ci-workflow.ts
+│   ├── index.test.ts, parser.test.ts, planner.test.ts, executor.test.ts, cli.test.ts
+└── README.md
+```
+
+**Separation of Concerns:**
+- **parser.ts:** Pure functions — read upstream JSON, filter by auto-fixable categories
+- **planner.ts:** Pure functions — group findings by repo, build fix plans with templates
+- **executor.ts:** Orchestration — call github-rest APIs (branch, write, PR), handle errors
+- **dedup.ts:** Read-only checks — query existing PRs/branches
+- **templates/:** Static data — string templates with placeholders
+
+**v1 Scope (Ship Threshold):**
+✅ Category 1: Missing security files (SECURITY.md, .env.example, dependabot.yml)  
+✅ Category 2: Missing Azure config files (azure.yaml)  
+✅ Dry-run by default, `--apply` to enable writes  
+✅ Deduplication (skip if PR exists)  
+✅ Fork detection (skip with message)  
+✅ Error recovery (per-repo failures don't fail pipeline)  
+✅ Rate limit preflight check  
+✅ JSON output (created/skipped/errors arrays)  
+✅ github-rest endpoints (Kaylee's git.ts, contents write, repos convenience) — COMPLETE  
+✅ Tests: parser, planner, executor (mocked github-rest)
+
+**v2 Enhancements (Deferred):**
+- Interactive confirmation gate
+- Category 3: CI/CD workflow updates
+- Category 4: Documentation improvements
+- LLM-based fix generation (code changes)
+- Auto-close issues when PR merges
+- Retry logic for transient API failures
+
+**Pipeline Integration (Step 6 in scripts/run-pipeline.mjs):**
+```javascript
+npm run sample-auto-fix -- \
+  --remediation-input <file> \
+  --security-input <file> \
+  --health-input <file> \
+  --azure-input <file> \
+  --out ./generated/sample-auto-fix \
+  --category security,azure \
+  --dry-run (or --apply for real)
+```
+
+**Critical Path:**
+1. **Kaylee** — Build git.ts + extend contents.ts + extend repos.ts (~4-6h) ✅ COMPLETE
+2. **Wash** — Implement solution (parser → planner → executor → CLI) (~6-8h)
+3. **Zoe** — Test suite (unit + integration tests) (~3-4h)
+4. **Mal** — Code review + smoke test in staging repos (~2h)
+
+**Decision:** Approve architecture. Begin implementation after Kaylee's endpoints ready (NOW READY). Target: End of week for v1 completion.
+
+---

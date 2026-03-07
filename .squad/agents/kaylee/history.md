@@ -301,3 +301,62 @@
 **Key files touched:**
 - `packages/github-rest/src/core/client.ts` (error messages + RepoAccessResult + checkRepoAccess)
 - `packages/github-rest/src/index.ts` (RepoAccessResult export)
+
+
+## Learnings
+
+### 2026-03-07 — Built Git Endpoints + Contents Write Support for sample-auto-fix (P2 SMART Goal #6)
+
+**Context:** Mal's architecture decision for sample-auto-fix requires new GitHub REST endpoints to create branches, commit files, and open PRs for automated remediation workflows. This is the highest-risk solution in the monorepo because it performs write operations on target repos at scale.
+
+**What I built:**
+
+**1. NEW MODULE: packages/github-rest/src/endpoints/git.ts**
+- getRef(client, owner, repo, ref) — GET /repos/{owner}/{repo}/git/ref/{ref}
+- createRef(client, owner, repo, ref, sha) — POST /repos/{owner}/{repo}/git/refs
+- deleteRef(client, owner, repo, ref) — DELETE /repos/{owner}/{repo}/git/refs/{ref}
+- Interface: GitRef with ref, node_id, url, object.sha/type/url
+- Smart ref path handling: strips 'refs/' prefix for GET/DELETE, requires full 'refs/heads/...' for POST
+- Full test coverage in git.test.ts: 10 tests covering success, error propagation (404/409/422)
+
+**2. EXTENDED: packages/github-rest/src/endpoints/contents.ts**
+- encodeContent(content: string) — Helper to base64-encode strings for GitHub API
+- createOrUpdateFile(client, owner, repo, path, options) — PUT /repos/{owner}/{repo}/contents/{path}
+  - Options: message (required), content (auto-encoded), branch?, sha? (for updates)
+- deleteFile(client, owner, repo, path, options) — DELETE /repos/{owner}/{repo}/contents/{path}
+  - Options: message, sha (required), branch?
+- New interfaces: FileCommitResult, GitUser (for commit author/committer)
+- Added 18 tests to contents.test.ts covering creates, updates, deletes, nested paths, error handling
+
+**3. EXTENDED: packages/github-rest/src/endpoints/repos.ts**
+- getDefaultBranchSHA(client, owner, repo) — Convenience wrapper to get HEAD SHA of default branch
+  - Fetches repo metadata, extracts default branch name, queries git ref, returns SHA
+- findPRByBranch(client, owner, repo, headBranch) — Check if PR exists for a branch
+  - Returns PR number or null; uses listPullRequests with head filter
+- Added 7 tests to repos.test.ts covering success cases, fallbacks, custom branches, error propagation
+
+**4. UPDATED: packages/github-rest/src/index.ts**
+- Added export * as git from './endpoints/git.js'
+- Exported new functions: getDefaultBranchSHA, findPRByBranch, encodeContent, createOrUpdateFile, deleteFile, getRef, createRef, deleteRef
+- Exported new types: FileCommitResult, GitUser, GitRef
+
+**Build & Test:** ✅ npm run build zero errors, ✅ 85/85 tests pass (up from 67)
+
+**Key patterns followed:**
+- Client-first parameter convention: (client, owner, repo, ...args)
+- Error propagation: Let GitHub errors bubble up naturally (404/409/422)
+- TypeScript strict: Explicit types for all parameters and return values
+- Consistent naming: get*, create*, delete* verbs
+- Test coverage: Mock client with vi.fn(), test success + all error paths
+- Import discipline: import type for types, .js extensions for ESM
+
+**Why this matters:** These endpoints unblock Mal's sample-auto-fix implementation. The write operations (createRef, createOrUpdateFile) are the foundation for automated PR creation workflows. The convenience wrappers (getDefaultBranchSHA, findPRByBranch) reduce boilerplate in command modules and centralize common patterns.
+
+**Key files touched:**
+- packages/github-rest/src/endpoints/git.ts (NEW — 3 functions, 1 interface, 67 LOC)
+- packages/github-rest/src/endpoints/git.test.ts (NEW — 10 tests, 157 LOC)
+- packages/github-rest/src/endpoints/contents.ts (EXTENDED — +3 functions, +2 interfaces, +108 LOC)
+- packages/github-rest/src/endpoints/contents.test.ts (EXTENDED — +18 tests, +228 LOC)
+- packages/github-rest/src/endpoints/repos.ts (EXTENDED — +2 convenience wrappers, +44 LOC)
+- packages/github-rest/src/endpoints/repos.test.ts (EXTENDED — +7 tests, +120 LOC)
+- packages/github-rest/src/index.ts (UPDATED — exports for new modules/functions/types)

@@ -59,6 +59,16 @@
 - See `.squad/decisions.md` Decision #30 for full architecture details
    - Test factories (makeRepo, makeReport) reduce boilerplate and improve readability
 
+**✅ 2026-03-07 — sample-auto-fix (P2) Endpoints COMPLETE & Architecture APPROVED**
+- Kaylee built all blocking github-rest endpoints needed for sample-auto-fix:
+  - **git.ts:** getRef, createRef, deleteRef (10 tests)
+  - **contents.ts (extended):** createOrUpdateFile, deleteFile, encodeContent (18 new tests)
+  - **repos.ts (extended):** getDefaultBranchSHA, findPRByBranch (7 new tests)
+  - **Total:** 85/85 tests passing, zero build errors
+- Mal finalized comprehensive architecture: 4 fix categories, 6-layer safety model, file structure, v1 vs v2 scope
+- **Next for Zoe:** Write test suite for sample-auto-fix (parser/planner/executor tests)
+- See `.squad/decisions.md` Decision #32 (git endpoints) and #33 (sample-auto-fix architecture)
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
