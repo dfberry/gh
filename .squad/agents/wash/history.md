@@ -276,3 +276,30 @@
 **Key file modified:**
 - `scripts/run-pipeline.mjs` (readFile import + preflight returns client + checkRepoAccess function + effectiveInput threading through steps 1/2/4)
 
+### 2026-03-09 — Stale Error Log Cleanup
+
+**Status:** ✅ COMPLETE (pipeline and all solution CLIs now clean up error logs from previous runs)
+
+**Problem:** Error logs from previous pipeline runs persisted in `generated/` output directories and were incorrectly reported at the end of subsequent successful runs. Even though the current run had no errors, old `*-errors.log` files from rate-limited runs hours earlier remained and the pipeline's error scanner falsely reported them.
+
+**Solution delivery:**
+- Added `cleanupStaleErrorLogs()` function to `scripts/run-pipeline.mjs` that removes all `*-errors.log` files from the 4 output directories before running the 4 solution steps
+- Added per-solution cleanup at the start of each CLI's run function: security-audit-repos, sample-health-check, create-remediation-issues, pr-feedback-aggregator
+- Each solution now deletes its own error log before running (handles standalone CLI invocations outside the pipeline)
+
+**Architecture decisions:**
+- **Two-layer cleanup:** Pipeline cleans ALL error logs before starting (handles pipeline runs). Each solution CLI cleans its OWN error log before running (handles standalone runs). This ensures error logs always reflect the CURRENT run.
+- **Silent unlink failures:** `try { await unlink(errorLogPath) } catch {}` — file not existing is the happy path, so we swallow errors silently
+- **Early cleanup in CLIs:** Each solution cleans its error log immediately after ensuring the output directory exists and before making any API calls. This ensures a clean slate even if the run crashes mid-execution.
+- **Consistent pattern:** All 4 solutions follow the same cleanup pattern (unlink error log → make API calls → write new error log if needed)
+
+**Key files modified:**
+- `scripts/run-pipeline.mjs` (added unlink import + cleanupStaleErrorLogs function before step 1)
+- `solutions/security-audit-repos/src/cli.ts` (cleanup before auditRepos call)
+- `solutions/sample-health-check/src/cli.ts` (cleanup before checkReposHealth call)
+- `solutions/create-remediation-issues/src/cli.ts` (added unlink import + cleanup before createRemediationIssues call)
+- `solutions/pr-feedback-aggregator/src/cli.ts` (added unlink import + cleanup before generateReport call)
+
+**All 286 tests pass** (25 security-audit + 116 health-check + 75 remediation + 70 pr-feedback), build clean with zero errors.
+
+

@@ -207,3 +207,55 @@
 **API budget:** ~52 GitHub API calls per repo (1 list + 50 comment fetches) + 1 LLM call per repo. For 10 repos = ~520 GitHub calls + 10 LLM calls. Well within limits.
 
 **Next steps:** Wash (Solutions Dev) will implement. Blocking on nothing — all github-rest endpoints already exist and exported.
+
+### 2026-03-07 — Pipeline Architecture Review: Production-Ready
+
+**Status:** ✅ APPROVE — Branch `diberry/pr-feedback-aggregator` ready for merge to main
+
+**Scope:** Full architectural review of `scripts/run-pipeline.mjs` + outputs from 4-step pipeline (security-audit → health-check → create-remediation-issues → pr-feedback-aggregator)
+
+**Key findings:**
+
+1. **Preflight gating architecture is robust** — Two-layer defense:
+   - Layer 1: Token validation (checks validity, scopes, rate limit) — hard gate, exits on failure
+   - Layer 2: Repo access filtering (tests each repo, filters inaccessible) — graceful degradation, continues with accessible subset
+   - Edge case handling: 0 accessible repos → clean exit with explanation; partial access → filtered `accessible-repos.json` passed to all solutions
+   - Correctly blocked `Azure-Samples/azure-sdk-for-js-docs` (Microsoft org PAT lifetime policy violation)
+
+2. **Solution outputs are architecturally correct:**
+   - `security-audit`: Subtractive scoring (100 - penalties) — correct model for security posture
+   - `sample-health-check`: Additive scoring (0 + earned points) — correct inverse model for health assessment
+   - `create-remediation-issues`: Dry-run outputs console summary only (no JSON file) — intentional design, document in README
+   - `pr-feedback-aggregator`: Dry-run skips LLM calls (0 patterns expected) — correct, avoids expensive external calls
+
+3. **Data flow pattern validated:** Sequential dependencies with `findLatestJson()` discovery:
+   - Preflight → filtered repo list
+   - Security-audit → timestamped audit JSON
+   - Health-check → timestamped health JSON
+   - Create-remediation-issues consumes both
+   - PR-feedback-aggregator runs independently
+   - Pattern is fail-fast: any step failure exits immediately, no cascading failures
+
+4. **Error handling is production-grade:**
+   - Hard gates: no token, invalid token, exhausted rate limit, 0 accessible repos → exit 1 with clear fix suggestions
+   - Soft warnings: stale error logs → non-blocking (Wash will add cleanup step)
+   - Graceful degradation: partial repo access → continue with subset, log blocked repos
+
+5. **Stale error log issue is non-blocking:** Error logs from prior runs (14:40) don't affect current run (15:16). Solutions write fresh logs on each run. Wash is adding cleanup step as hygiene improvement, not a pipeline bug fix.
+
+**Architecture patterns to carry forward:**
+
+- **Two-phase preflight** (validate → filter) prevents wasted API calls to inaccessible resources
+- **Timestamped artifact strategy** preserves full run history, enables trend analysis, no overwrite risk
+- **Dry-run by default** enforces safe iteration (user must explicitly `--apply` for destructive ops)
+- **Console + file output duality** satisfies human workflow (console summaries) and automation needs (JSON artifacts)
+- **Sequential fail-fast** over partial success — pipeline integrity matters more than completion
+
+**v2 enhancements identified:**
+
+- Parallel execution: security-audit + health-check have no interdependencies (could halve runtime)
+- Resume from checkpoint: re-run from failed step instead of full restart
+- Diff mode: compare current run to prior baseline, show deltas
+- Observability: per-step duration tracking, API quota remaining, artifact size alerts
+
+**Decision written to:** `.squad/decisions/inbox/mal-pipeline-review.md`
