@@ -12,12 +12,36 @@
  *   node scripts/run-pipeline.mjs --apply    # create real GitHub issues + PRs
  */
 
-import { execSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
 import { readdir, readFile, mkdir, writeFile, unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { GitHubClient } from '../packages/github-rest/dist/index.js';
 
 const applyMode = process.argv.includes('--apply');
+
+// ── Tee-like logging: mirror all output to a timestamped log file ───────
+const pipelineTimestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+await mkdir('./generated', { recursive: true });
+const LOG_PATH = `./generated/pipeline-${pipelineTimestamp}.log`;
+const logStream = createWriteStream(LOG_PATH);
+
+const _origStdoutWrite = process.stdout.write.bind(process.stdout);
+const _origStderrWrite = process.stderr.write.bind(process.stderr);
+
+process.stdout.write = function (chunk, encoding, cb) {
+  logStream.write(chunk);
+  return _origStdoutWrite(chunk, encoding, cb);
+};
+process.stderr.write = function (chunk, encoding, cb) {
+  logStream.write(chunk);
+  return _origStderrWrite(chunk, encoding, cb);
+};
+
+// Best-effort flush on abrupt exit (process.exit calls in error paths)
+process.on('exit', () => {
+  try { logStream.end(); } catch { /* swallow */ }
+});
 
 // ── Preflight: validate GitHub token (hard gate) ────────────────────────
 const PREFLIGHT_DIR = './generated/preflight';
@@ -222,16 +246,22 @@ async function cleanupStaleErrorLogs() {
 await cleanupStaleErrorLogs();
 
 /**
- * Run a shell command, streaming output to the console.
- * Throws with a descriptive message on failure.
+ * Run a shell command, streaming output to console (and log file via patched writes).
+ * Returns a promise that resolves on success or exits the process on failure.
  */
-function run(label, command) {
-  try {
-    execSync(command, { stdio: 'inherit' });
-  } catch {
-    console.error(`\n❌ Pipeline failed at: ${label}`);
-    process.exit(1);
-  }
+async function run(label, command) {
+  return new Promise((resolve) => {
+    const child = spawn(command, { shell: true, stdio: ['inherit', 'pipe', 'pipe'] });
+    child.stdout.on('data', (chunk) => process.stdout.write(chunk));
+    child.stderr.on('data', (chunk) => process.stderr.write(chunk));
+    child.on('close', (code) => {
+      if (code !== 0) {
+        console.error(`\n❌ Pipeline failed at: ${label}`);
+        process.exit(1);
+      }
+      resolve();
+    });
+  });
 }
 
 /**
@@ -257,9 +287,22 @@ async function findLatestJson(dir) {
   return join(dir, jsonFiles[jsonFiles.length - 1]);
 }
 
+// ── Ensure all step output directories exist ────────────────────────────
+const STEP_OUTPUT_DIRS = [
+  './generated/security-audit',
+  './generated/sample-health-check',
+  './generated/remediation-issues',
+  './generated/pr-feedback-aggregator',
+  './generated/azure-best-practices',
+  './generated/sample-auto-fix',
+];
+for (const dir of STEP_OUTPUT_DIRS) {
+  await mkdir(dir, { recursive: true });
+}
+
 // ── Step 1: Security Audit ──────────────────────────────────────────────
 console.log('\n🔒 Running security audit...');
-run('security-audit', `node solutions/security-audit-repos/dist/cli.js --input "${effectiveInput}" --out ./generated/security-audit --verbose`);
+await run('security-audit', `node solutions/security-audit-repos/dist/cli.js --input "${effectiveInput}" --out ./generated/security-audit --verbose`);
 
 const securityDir = './generated/security-audit';
 const securityFile = await findLatestJson(securityDir);
@@ -267,7 +310,7 @@ console.log(`✅ Security audit complete: ${securityFile}\n`);
 
 // ── Step 2: Sample Health Check ─────────────────────────────────────────
 console.log('🏥 Running health check...');
-run('sample-health-check', `node solutions/sample-health-check/dist/cli.js --input="${effectiveInput}" --out="./generated/sample-health-check" --verbose`);
+await run('sample-health-check', `node solutions/sample-health-check/dist/cli.js --input="${effectiveInput}" --out="./generated/sample-health-check" --verbose`);
 
 const healthDir = './generated/sample-health-check';
 const healthFile = await findLatestJson(healthDir);
@@ -290,7 +333,7 @@ const remediationCmd = [
   dryRunFlag,
 ].filter(Boolean).join(' ');
 
-run('create-remediation-issues', remediationCmd);
+await run('create-remediation-issues', remediationCmd);
 
 const remediationDir = './generated/remediation-issues';
 const remediationFile = await findLatestJson(remediationDir);
@@ -307,7 +350,7 @@ const feedbackCmd = [
   feedbackDryRunFlag,
 ].filter(Boolean).join(' ');
 
-run('pr-feedback-aggregator', feedbackCmd);
+await run('pr-feedback-aggregator', feedbackCmd);
 console.log('\n✅ PR feedback aggregation complete!\n');
 
 // ── Step 5: Azure Best Practices Check ──────────────────────────────────
@@ -320,7 +363,7 @@ const azureBpCmd = [
   '--verbose',
 ].join(' ');
 
-run('azure-best-practices-check', azureBpCmd);
+await run('azure-best-practices-check', azureBpCmd);
 
 const azureBpDir = './generated/azure-best-practices';
 const azureBpFile = await findLatestJson(azureBpDir);
@@ -347,7 +390,7 @@ const autoFixCmd = [
   autoFixDryRunFlag,
 ].filter(Boolean).join(' ');
 
-run('sample-auto-fix', autoFixCmd);
+await run('sample-auto-fix', autoFixCmd);
 
 const autoFixDir = './generated/sample-auto-fix';
 const autoFixFile = await findLatestJson(autoFixDir);
@@ -385,3 +428,9 @@ if (errorLogFiles.length > 0) {
 }
 
 console.log('✅ Pipeline complete!\n');
+console.log(`📄 Pipeline log: ${LOG_PATH}\n`);
+
+// ── Flush and close the log file ────────────────────────────────────────
+process.stdout.write = _origStdoutWrite;
+process.stderr.write = _origStderrWrite;
+await new Promise((resolve) => logStream.end(resolve));
