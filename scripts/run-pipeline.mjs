@@ -11,7 +11,7 @@
  */
 
 import { execSync } from 'node:child_process';
-import { readdir, mkdir, writeFile } from 'node:fs/promises';
+import { readdir, readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { GitHubClient } from '../packages/github-rest/dist/index.js';
 
@@ -56,7 +56,7 @@ async function preflight() {
     if (result.rateLimit && result.rateLimit.remaining === 0) {
       process.exit(1);
     }
-    return;
+    return client;
   }
 
   const report = buildReport({
@@ -120,7 +120,66 @@ async function writePreflightLog(timestamp, report) {
   console.log(`📄 Preflight log: ${logPath}\n`);
 }
 
-await preflight();
+const client = await preflight();
+
+// ── Preflight Step 2: Check repo accessibility ──────────────────────────
+const INPUT_FILE = './active-sample-repos.json';
+
+async function checkRepoAccess(ghClient, inputFile) {
+  // Guard: skip if checkRepoAccess isn't available yet (Kaylee is adding it)
+  if (typeof ghClient.checkRepoAccess !== 'function') {
+    console.log('\n⚠️  Repo access pre-check not available yet (checkRepoAccess not implemented). Skipping.\n');
+    return inputFile;
+  }
+
+  const repos = JSON.parse(await readFile(inputFile, 'utf8'));
+
+  console.log(`\n🔍 Preflight: Checking access to ${repos.length} repositories...\n`);
+
+  const results = [];
+  for (const repoFullName of repos) {
+    const [owner, repo] = repoFullName.split('/');
+    const result = await ghClient.checkRepoAccess(owner, repo);
+    results.push(result);
+
+    if (result.accessible) {
+      console.log(`  ✅ ${repoFullName}`);
+    } else {
+      console.log(`  ❌ ${repoFullName}`);
+      console.log(`     ${result.error}`);
+      if (result.suggestion) console.log(`     Fix: ${result.suggestion}`);
+    }
+  }
+
+  // Write access log
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const logPath = join(PREFLIGHT_DIR, `${timestamp}-repo-access.json`);
+  await writeFile(logPath, JSON.stringify({ repos: results, timestamp: new Date().toISOString() }, null, 2));
+  console.log(`\n📄 Repo access log: ${logPath}`);
+
+  const accessible = results.filter(r => r.accessible);
+  const blocked = results.filter(r => !r.accessible);
+
+  if (accessible.length === 0) {
+    console.log('\n❌ No accessible repositories found. Cannot run pipeline.');
+    console.log('   Fix the issues above and re-run.\n');
+    process.exit(1);
+  }
+
+  if (blocked.length > 0) {
+    console.log(`\n⚠️  ${blocked.length} repo(s) blocked — pipeline will run on ${accessible.length} accessible repo(s) only.\n`);
+
+    // Write filtered input file for solutions to use
+    const filteredRepos = accessible.map(r => `${r.owner}/${r.repo}`);
+    const filteredPath = './generated/preflight/accessible-repos.json';
+    await writeFile(filteredPath, JSON.stringify(filteredRepos, null, 2));
+    return filteredPath;
+  }
+
+  return inputFile; // all repos accessible, use original
+}
+
+const effectiveInput = await checkRepoAccess(client, INPUT_FILE);
 
 /**
  * Run a shell command, streaming output to the console.
@@ -160,7 +219,7 @@ async function findLatestJson(dir) {
 
 // ── Step 1: Security Audit ──────────────────────────────────────────────
 console.log('\n🔒 Running security audit...');
-run('security-audit', 'npm run security-audit');
+run('security-audit', `node solutions/security-audit-repos/dist/cli.js --input "${effectiveInput}" --out ./generated/security-audit --verbose`);
 
 const securityDir = './generated/security-audit';
 const securityFile = await findLatestJson(securityDir);
@@ -168,7 +227,7 @@ console.log(`✅ Security audit complete: ${securityFile}\n`);
 
 // ── Step 2: Sample Health Check ─────────────────────────────────────────
 console.log('🏥 Running health check...');
-run('sample-health-check', 'npm run sample-health-check');
+run('sample-health-check', `node solutions/sample-health-check/dist/cli.js --input="${effectiveInput}" --out="./generated/sample-health-check" --verbose`);
 
 const healthDir = './generated/sample-health-check';
 const healthFile = await findLatestJson(healthDir);
@@ -197,7 +256,10 @@ console.log('\n✅ Remediation issues complete!\n');
 console.log('💬 Running PR feedback aggregator...');
 const feedbackDryRunFlag = applyMode ? '' : ' --dry-run';
 const feedbackCmd = [
-  'npm run pr-feedback-aggregator --',
+  `node solutions/pr-feedback-aggregator/dist/cli.js`,
+  `--input "${effectiveInput}"`,
+  '--out ./generated/pr-feedback-aggregator',
+  '--verbose',
   feedbackDryRunFlag,
 ].filter(Boolean).join(' ');
 

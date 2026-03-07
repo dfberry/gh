@@ -23,6 +23,14 @@ export interface TokenValidationResult {
   suggestion?: string;
 }
 
+export interface RepoAccessResult {
+  accessible: boolean;
+  owner: string;
+  repo: string;
+  error?: string;
+  suggestion?: string;
+}
+
 export class GitHubClient {
   token?: string;
   baseUrl: string;
@@ -145,6 +153,35 @@ export class GitHubClient {
     }
   }
 
+  /**
+   * Check if a repo is accessible and return a structured result.
+   * Never throws — returns `{ accessible: false, error, suggestion }` on failure.
+   */
+  async checkRepoAccess(owner: string, repo: string): Promise<RepoAccessResult> {
+    try {
+      await this.get(`/repos/${owner}/${repo}`);
+      return { accessible: true, owner, repo };
+    } catch (err) {
+      if (err instanceof GitHubError) {
+        const bodyMsg = typeof err.body === 'object' && err.body !== null && 'message' in (err.body as Record<string, unknown>)
+          ? String((err.body as Record<string, unknown>).message)
+          : '';
+
+        if (err.status === 404) {
+          return { accessible: false, owner, repo, error: 'Repository not found', suggestion: 'Check the repo name and ensure your token has access' };
+        }
+        if (err.status === 403 && bodyMsg.toLowerCase().includes('enterprise')) {
+          return { accessible: false, owner, repo, error: bodyMsg, suggestion: 'Adjust your PAT lifetime or use a fine-grained token' };
+        }
+        if (err.status === 403) {
+          return { accessible: false, owner, repo, error: bodyMsg || 'Access forbidden', suggestion: 'Check token permissions or org settings' };
+        }
+        return { accessible: false, owner, repo, error: `HTTP ${err.status}: ${bodyMsg || err.message}` };
+      }
+      return { accessible: false, owner, repo, error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+
   private buildHeaders(extra: Record<string, string> = {}) {
     const h: Record<string, string> = {
       Accept: 'application/vnd.github+json',
@@ -238,19 +275,29 @@ export class GitHubClient {
       body = await res.text().catch(() => undefined);
     }
     if (!res.ok) {
+      const apiMsg = typeof body === 'object' && body !== null && 'message' in body
+        ? String((body as Record<string, unknown>).message)
+        : '';
+
       if (res.status === 429 || res.status >= 500) {
-        throw new RateLimitError(`GitHub API error ${res.status}`, res.status, rawHeaders, body);
+        throw new RateLimitError(
+          apiMsg ? `GitHub API error ${res.status}: ${apiMsg}` : `GitHub API error ${res.status}`,
+          res.status, rawHeaders, body,
+        );
       }
       // Primary and secondary rate limit: 403 with exhausted quota or "rate limit" in body message
       if (res.status === 403) {
-        const bodyMsg = typeof body === 'object' && body !== null && 'message' in body
-          ? String((body as Record<string, unknown>).message).toLowerCase()
-          : '';
-        if (rawHeaders['x-ratelimit-remaining'] === '0' || bodyMsg.includes('rate limit')) {
-          throw new RateLimitError(`GitHub API rate limit exceeded`, res.status, rawHeaders, body);
+        if (rawHeaders['x-ratelimit-remaining'] === '0' || apiMsg.toLowerCase().includes('rate limit')) {
+          throw new RateLimitError(
+            apiMsg ? `GitHub API rate limit exceeded: ${apiMsg}` : `GitHub API rate limit exceeded`,
+            res.status, rawHeaders, body,
+          );
         }
       }
-      throw new GitHubError(`GitHub API error ${res.status}`, res.status, rawHeaders, body);
+      throw new GitHubError(
+        apiMsg ? `GitHub API error ${res.status}: ${apiMsg}` : `GitHub API error ${res.status}`,
+        res.status, rawHeaders, body,
+      );
     }
     return { body: body as T, headers: rawHeaders, status: res.status };
   }

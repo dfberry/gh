@@ -11,7 +11,7 @@ export * as orgs from './endpoints/orgs.js';
 export * as issues from './endpoints/issues.js';
 
 export { GitHubClient } from './core/client.js';
-export type { TokenValidationResult, RateLimitInfo } from './core/client.js';
+export type { TokenValidationResult, RateLimitInfo, RepoAccessResult } from './core/client.js';
 export * as errors from './core/errors.js';
 export * as auth from './core/auth.js';
 export { getActorWithScopeCheck } from './core/auth.js';
