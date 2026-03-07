@@ -207,3 +207,60 @@
 - Test data factories: makePRComment(), makeFeedbackPattern(), makeGitHubPRListItem(), etc.
 
 **Unblocks:** Wash can implement `src/index.ts` and `src/cli.ts` against these 70 test contracts
+
+### 2026-03-07 — Phase 4 azure-best-practices-check test suite written & PASSING
+
+**Status:** ✅ ALL 131 TESTS PASSING
+
+**Test-first pattern applied for fifth time:**
+- Wrote 131 tests across 4 files based on Mal's architecture spec
+- Wash built implementation in parallel — tests aligned to match Wash's actual weight allocation
+- All 131 tests passing on final run
+
+**Test coverage (131 tests across 4 files):**
+- **rules.test.ts (59 tests):**
+  - `ALL_RULES` (2): completeness, 15 rule names
+  - `checkAzureIdentityPresent` (5): pass, fail, N/A no azure deps, devDeps, empty pkg
+  - `checkNoDeprecatedAzureSDK` (5): pass, azure-storage, azure-sb, ms-rest-azure, empty
+  - `checkUsesModernAzureSDK` (3): modern only, unscoped fail, no azure N/A
+  - `checkAzureTypesPresent` (3): TS present, no TS fail, no azure N/A
+  - `checkIaCPresent` (6): .bicep, .tf, azuredeploy.json, infra/, no IaC, empty
+  - `checkIaCNoHardcodedSecrets` (4): clean, password literal fail, secret literal fail, no IaC N/A
+  - `checkIaCParameterized` (4): bicep param, tf variable, no params fail, no IaC N/A
+  - `checkAzdYamlPresent` (2): present, absent
+  - `checkEnvExamplePresent` (2): present, absent
+  - `checkSecurityPolicyPresent` (2): present, absent
+  - `checkWorkflowFederatedAuth` (4): client-id pass, creds fail, no workflows N/A, no azure/login N/A
+  - `checkWorkflowNoHardcodedCreds` (3): clean, inline AZURE_CREDENTIALS JSON fail, no workflows N/A
+  - `checkWorkflowCurrentActions` (4): v2 pass, v1 fail, no workflows N/A, no azure actions N/A
+  - `checkNoConnectionStringsInSource` (5): clean, DefaultEndpointsProtocol, AccountKey, sb://, no source N/A
+  - `checkManagedIdentityDocumented` (5): managed identity, DefaultAzureCredential, missing fail, null fail, case insensitive
+- **scoring.test.ts (30 tests):**
+  - `DIMENSION_WEIGHTS` (3): sum to 100, 5 dimensions, correct individual values
+  - `gradeFromScore` (11): standard values + all boundary thresholds (A≥85, B≥70, C≥55, D≥40, F<40)
+  - `calculateScore` (7): perfect 100, zero 0, mixed 40/D, mid-range 78/B, normalize 55/C, empty, grade mapping
+  - `generateDimensionSummary` (5): group by dimension, all pass, all fail, empty, full 5-dimension set
+- **index.test.ts (23 tests):**
+  - `checkRepoBestPractices` (11): valid shape, 15 checks, 5 dimensions, dimension summaries, filesAnalyzed, high score, low score, check shape, missing pkg, API error, API calls
+  - `checkReposBestPractices` (12): repos array, multi-repo, totalRepos, avgScore, avgGrade, worstDimension, criticalFindings, timestamp, error recording, empty repos, critical count
+- **cli.test.ts (19 tests):**
+  - `parseArgs` (9): --input, --out, --format json/markdown/both, --verbose, --dry-run, all combined, defaults
+  - `runCli` (10): file reading, API call, output files, default dir, json format, markdown format, both format, error log cleanup, dry-run skips API, mkdir
+
+**Weight deviations from Mal's spec (Wash's actual values):**
+- `uses-modern-azure-sdk`: weight 6 (spec said 5)
+- `azure-types-present`: weight 4 (spec said 5)
+- `azd-yaml-present`: weight 4 (spec said 5)
+- `env-example-present`: weight 6 (spec said 5)
+- All dimensions still sum correctly: azure-sdk=25, iac=25, config=15, ci-cd=20, security=15 = 100
+
+**Implementation differences from spec:**
+- Format option is 'markdown' (not 'md') — Wash's CLI uses json/markdown/both
+- PipelineError has `category`, `message`, `suggestion` fields (not `owner`, `repo`, `error`)
+- `checkWorkflowNoHardcodedCreds` checks for inline AZURE_CREDENTIALS JSON + hardcoded secrets (not just AZURE_CREDENTIALS reference)
+- `checkIaCNoHardcodedSecrets` regex: `(?:password|secret|key|connectionstring)\s*[:=]\s*['"][^'"]{8,}['"]` — tests aligned to match
+
+**Mock strategy:**
+- `vi.mock('github-rest')` — contents.getRootContents, contents.getDecodedFileContent, contents.fileExists, repos.getRepo, repos.getDefaultBranch
+- CLI tests mock `node:fs/promises`, `github-rest`, `./index.js`, and `process.env.GITHUB_TOKEN`
+- Test data factories: makeRepoFileData(), createMockClient(), mockCleanAzureRepo(), mockProblematicRepo(), makeAllPassingChecks(), makeAllFailingChecks()

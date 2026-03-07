@@ -323,3 +323,28 @@
 - cli.ts: Changed --out from file-path to directory semantics (matching security-audit and health-check pattern). Default output dir: generated/remediation-issues. Always writes timestamped json+md. Summary prints unconditionally. Added generateRemediationSummary() for MD output.
 - run-pipeline.mjs: Added --out ./generated/remediation-issues to remediation step. Uses findLatestJson() after the step (consistent with other steps).
 - cli.test.ts: Updated tests for directory-based --out; added test for default output behavior; added unlink to fs mock. 76 tests pass (61 index + 15 CLI).
+### 2026-03-07 — azure-best-practices-check (P2) IMPLEMENTED
+
+**Status:** ✅ COMPLETE — Full solution built and all 131 tests passing
+
+**What was built:**
+- `solutions/azure-best-practices-check/` — complete Azure best practices validator
+- 15 pure-function check rules across 5 dimensions: azure-sdk (4), iac (3), config (3), ci-cd (3), security (2)
+- Additive scoring engine (0→100) with letter grades (A≥85, B≥70, C≥55, D≥40, F<40)
+- Orchestrator: fetches files via github-rest contents API (5-9 calls/repo), runs rules, aggregates report
+- CLI: `--input`, `--out`, `--format json|markdown|both`, `--verbose`, `--dry-run`
+- Dual output: timestamped `{ts}-azure-bp.json` + `{ts}-azure-bp.md`
+- Error log cleanup + pipeline error categorization (same patterns as health-check/security-audit)
+
+**Key implementation details:**
+- PipelineError shape updated to match existing solutions (`repo`, `category`, `message`, `suggestion`)
+- Zoe's pre-existing test stubs had `format: 'md'` and `PipelineError.error` — fixed to match actual interface
+- CLI tests needed GITHUB_TOKEN env mock and `generateMarkdownReport` mock — added afterEach cleanup
+- Workflow file discovery: uses `client.get()` to list `.github/workflows` directory, then fetches up to 3 YAML files
+- IaC file discovery: checks root-level .bicep/.tf/azuredeploy.json, then falls back to infra/ directory
+
+**Patterns confirmed:**
+- `isMain` guard pattern for testable CLI modules
+- `import type` for type-only imports throughout
+- Sequential repo processing for rate-limit safety
+- Promise.allSettled not needed here (single-path fetching, not parallel)

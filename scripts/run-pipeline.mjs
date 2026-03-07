@@ -1,9 +1,11 @@
 /**
- * Pipeline script: security-audit → sample-health-check → create-remediation-issues → pr-feedback-aggregator
+ * Pipeline script: security-audit → sample-health-check → create-remediation-issues
+ *                  → pr-feedback-aggregator → azure-best-practices-check
  *
- * Runs all four solutions in sequence. The first two produce reports,
- * create-remediation-issues consumes them, and pr-feedback-aggregator
- * analyzes PR reviewer comments for recurring patterns.
+ * Runs all five solutions in sequence. The first two produce reports,
+ * create-remediation-issues consumes them, pr-feedback-aggregator
+ * analyzes PR reviewer comments, and azure-best-practices-check
+ * scores repos on Azure SDK, IaC, CI/CD, config, and security patterns.
  *
  * Usage:
  *   node scripts/run-pipeline.mjs            # dry-run (default)
@@ -104,7 +106,7 @@ function buildReport({ status, login, scopes, rateLimit, error, suggestion }) {
     lines.push(`Fix:            ${suggestion}`);
     lines.push('');
     lines.push('The pipeline requires a valid GitHub token to run.');
-    lines.push('All 4 steps call the GitHub API — nothing will work without it.');
+    lines.push('All 5 steps call the GitHub API — nothing will work without it.');
     lines.push('════════════════════════════════════════════════════════════');
   }
 
@@ -188,6 +190,7 @@ async function cleanupStaleErrorLogs() {
     './generated/sample-health-check',
     './generated/remediation-issues',
     './generated/pr-feedback-aggregator',
+    './generated/azure-best-practices',
   ];
 
   console.log('\n🧹 Cleaning stale error logs from previous runs...\n');
@@ -306,12 +309,29 @@ const feedbackCmd = [
 run('pr-feedback-aggregator', feedbackCmd);
 console.log('\n✅ PR feedback aggregation complete!\n');
 
+// ── Step 5: Azure Best Practices Check ──────────────────────────────────
+console.log('☁️  Running Azure best practices check...');
+const azureBpCmd = [
+  `node solutions/azure-best-practices-check/dist/cli.js`,
+  `--input "${effectiveInput}"`,
+  '--out ./generated/azure-best-practices',
+  '--format both',
+  '--verbose',
+].join(' ');
+
+run('azure-best-practices-check', azureBpCmd);
+
+const azureBpDir = './generated/azure-best-practices';
+const azureBpFile = await findLatestJson(azureBpDir);
+console.log(`✅ Azure best practices check complete: ${azureBpFile}\n`);
+
 // ── Check for error logs ────────────────────────────────────────────────
 const errorDirs = [
   securityDir,
   healthDir,
   './generated/remediation-issues',
   './generated/pr-feedback-aggregator',
+  azureBpDir,
 ];
 const errorLogFiles = [];
 for (const dir of errorDirs) {
