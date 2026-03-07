@@ -358,3 +358,62 @@
 - `import type` for type-only imports throughout
 - Sequential repo processing for rate-limit safety
 - Promise.allSettled not needed here (single-path fetching, not parallel)
+### 2026-03-07 — sample-auto-fix (P2) IMPLEMENTED
+
+**Status:** ✅ COMPLETE — Full solution built and all 47 tests passing
+
+**What was built:**
+- \solutions/sample-auto-fix/\ — automated remediation with PR creation
+- Complete pipeline: parser → planner → executor orchestration
+- 4 fix templates: SECURITY.md, .env.example, dependabot.yml, azure.yaml
+- 2 fix categories: missing-security-files, missing-azure-config
+- 6-layer safety model:
+  1. Dry-run by default (--apply required for writes)
+  2. Fork detection (skip forks with message)
+  3. PR deduplication (checkForExistingPR before creating)
+  4. Rate limit preflight (abort if remaining < 100)
+  5. Per-repo error recovery (one failure doesn't kill pipeline)
+  6. Category filtering (--category flag limits fix types)
+- CLI: \--remediation-input\, \--security-input\, \--health-input\, \--azure-input\, \--out\, \--category\, \--apply\, \--dry-run\, \--verbose\
+- Output: timestamped JSON with created PRs, skipped repos, errors, and summary
+
+**Key implementation details:**
+- Parser: extractFixableFindings() reads 4 upstream JSON formats, merges duplicate findings by repo
+- Planner: buildFixPlans() groups by repo+category, attaches templates, generates PR titles/bodies
+- Executor: executeFixPlans() orchestrates branch creation, file writes, PR creation via github-rest
+- Dedup: checkForExistingPR() prevents duplicate auto-fix PRs for same category
+- Templates: Pure string data in src/templates/ (no logic, just content)
+- All github-rest calls use correct exports: \epos.createPullRequest\, \client.getRateLimit()\
+
+**Testing strategy:**
+- Parser/planner: Pure function tests (no mocks)
+- Executor: Mocked github-rest calls with vi.mock pattern
+- Dedup: Mocked repos.findPRByBranch for PR existence checks
+- Index: Mocked executeFixPlans to verify orchestration flow
+- CLI: parseArgs validation tests
+
+**Patterns confirmed:**
+- GitHubClient instantiation: \
+ew GitHubClient({ token })\ (not just token string)
+- Rate limit check: \client.getRateLimit()\ returns RateLimitInfo directly
+- PR creation: \epos.createPullRequest()\ not pullRequests module
+- Git operations: \git.createRef()\, \epos.getDefaultBranchSHA()\
+- File writes: \contents.createOrUpdateFile()\, \contents.encodeContent()\
+- Test mocking: vi.mock at module level + vi.mocked() for assertions
+
+**File structure:**
+- src/types.ts — All interfaces (AutoFixResult, FixPlan, FixTemplate, etc.)
+- src/templates/ — 4 template files with static content
+- src/parser.ts + parser.test.ts — Extract + filter findings
+- src/planner.ts + planner.test.ts — Build fix plans with templates
+- src/executor.ts + executor.test.ts — Execute plans (branch/write/PR)
+- src/dedup.ts + dedup.test.ts — PR deduplication logic
+- src/index.ts + index.test.ts — Main orchestrator
+- src/cli.ts + cli.test.ts — CLI entry point
+- Total: 47 tests (6 parser, 8 planner, 6 dedup, 6 executor, 6 index, 12 CLI, 3 types-related)
+
+**Integration:**
+- Added to root package.json scripts: \sample-auto-fix\ command
+- Added to root tsconfig.json references
+- npm workspace linked + built successfully
+- Zero TypeScript errors, all tests passing

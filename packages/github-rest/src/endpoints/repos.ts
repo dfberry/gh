@@ -416,3 +416,49 @@ export async function getCommunityProfile(
 ): Promise<CommunityProfile> {
   return client.get<CommunityProfile>(`/repos/${owner}/${repo}/community/profile`);
 }
+
+// --- Convenience Wrappers ---
+
+/**
+ * Get the SHA of the default branch HEAD commit.
+ * Convenience wrapper that fetches the repository and extracts the default branch SHA.
+ * 
+ * @returns The SHA of the HEAD commit on the default branch
+ * @throws GitHubError if the repository doesn't exist or has no default branch
+ */
+export async function getDefaultBranchSHA(
+  client: GitHubClient,
+  owner: string,
+  repo: string
+): Promise<string> {
+  const repoData = await getRepo(client, owner, repo);
+  const defaultBranch = repoData.default_branch ?? 'main';
+  
+  // Get the branch ref to extract the SHA
+  const branchRef = await client.get<{ object: { sha: string } }>(
+    `/repos/${owner}/${repo}/git/ref/heads/${defaultBranch}`
+  );
+  
+  return branchRef.object.sha;
+}
+
+/**
+ * Check if a PR exists for a given branch.
+ * 
+ * @param headBranch - The head branch name (e.g., 'feature-branch')
+ * @returns The PR number if a PR exists, null otherwise
+ */
+export async function findPRByBranch(
+  client: GitHubClient,
+  owner: string,
+  repo: string,
+  headBranch: string
+): Promise<number | null> {
+  // Search for open PRs with the specified head branch
+  const prs = await listPullRequests(client, owner, repo, {
+    state: 'open',
+    head: `${owner}:${headBranch}`,
+  });
+  
+  return prs.length > 0 ? prs[0].number : null;
+}

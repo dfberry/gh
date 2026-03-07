@@ -1,0 +1,28 @@
+{
+  "name": "sample-auto-fix",
+  "version": "0.1.0",
+  "description": "Automated remediation with PR creation for sample repositories — fixes missing security files, Azure config, and CI/CD gaps",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "sample-auto-fix": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file .env dist/cli.js",
+    "test": "vitest --run",
+    "test:watch": "vitest --watch",
+    "test:run": "vitest run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "github-rest": "file:../../packages/github-rest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

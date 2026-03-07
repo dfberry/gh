@@ -1,15 +1,15 @@
 /**
  * Pipeline script: security-audit → sample-health-check → create-remediation-issues
- *                  → pr-feedback-aggregator → azure-best-practices-check
+ *                  → pr-feedback-aggregator → azure-best-practices-check → sample-auto-fix
  *
- * Runs all five solutions in sequence. The first two produce reports,
+ * Runs all six solutions in sequence. The first two produce reports,
  * create-remediation-issues consumes them, pr-feedback-aggregator
- * analyzes PR reviewer comments, and azure-best-practices-check
- * scores repos on Azure SDK, IaC, CI/CD, config, and security patterns.
+ * analyzes PR reviewer comments, azure-best-practices-check scores
+ * Azure patterns, and sample-auto-fix creates PRs for fixable findings.
  *
  * Usage:
  *   node scripts/run-pipeline.mjs            # dry-run (default)
- *   node scripts/run-pipeline.mjs --apply    # create real GitHub issues
+ *   node scripts/run-pipeline.mjs --apply    # create real GitHub issues + PRs
  */
 
 import { execSync } from 'node:child_process';
@@ -106,7 +106,7 @@ function buildReport({ status, login, scopes, rateLimit, error, suggestion }) {
     lines.push(`Fix:            ${suggestion}`);
     lines.push('');
     lines.push('The pipeline requires a valid GitHub token to run.');
-    lines.push('All 5 steps call the GitHub API — nothing will work without it.');
+    lines.push('All 6 steps call the GitHub API — nothing will work without it.');
     lines.push('════════════════════════════════════════════════════════════');
   }
 
@@ -191,6 +191,7 @@ async function cleanupStaleErrorLogs() {
     './generated/remediation-issues',
     './generated/pr-feedback-aggregator',
     './generated/azure-best-practices',
+    './generated/sample-auto-fix',
   ];
 
   console.log('\n🧹 Cleaning stale error logs from previous runs...\n');
@@ -325,6 +326,33 @@ const azureBpDir = './generated/azure-best-practices';
 const azureBpFile = await findLatestJson(azureBpDir);
 console.log(`✅ Azure best practices check complete: ${azureBpFile}\n`);
 
+// ── Step 6: Auto-Fix (P2) ───────────────────────────────────────────────
+const autoFixMode = applyMode ? 'APPLY' : 'dry-run';
+console.log(`🔧 Running auto-fix (${autoFixMode})...`);
+console.log(`  Inputs:`);
+console.log(`    - ${remediationFile}`);
+console.log(`    - ${securityFile}`);
+console.log(`    - ${healthFile}`);
+console.log(`    - ${azureBpFile}`);
+
+const autoFixDryRunFlag = applyMode ? ' --apply' : '';
+const autoFixCmd = [
+  `node solutions/sample-auto-fix/dist/cli.js`,
+  `--remediation-input "${remediationFile}"`,
+  `--security-input "${securityFile}"`,
+  `--health-input "${healthFile}"`,
+  `--azure-input "${azureBpFile}"`,
+  '--out ./generated/sample-auto-fix',
+  '--verbose',
+  autoFixDryRunFlag,
+].filter(Boolean).join(' ');
+
+run('sample-auto-fix', autoFixCmd);
+
+const autoFixDir = './generated/sample-auto-fix';
+const autoFixFile = await findLatestJson(autoFixDir);
+console.log(`✅ Auto-fix complete: ${autoFixFile}\n`);
+
 // ── Check for error logs ────────────────────────────────────────────────
 const errorDirs = [
   securityDir,
@@ -332,6 +360,7 @@ const errorDirs = [
   './generated/remediation-issues',
   './generated/pr-feedback-aggregator',
   azureBpDir,
+  autoFixDir,
 ];
 const errorLogFiles = [];
 for (const dir of errorDirs) {

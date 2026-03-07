@@ -9,6 +9,7 @@ export * as alerts from './endpoints/alerts.js';
 export * as contents from './endpoints/contents.js';
 export * as orgs from './endpoints/orgs.js';
 export * as issues from './endpoints/issues.js';
+export * as git from './endpoints/git.js';
 
 export { GitHubClient } from './core/client.js';
 export type { TokenValidationResult, RateLimitInfo, RepoAccessResult } from './core/client.js';
@@ -24,10 +25,27 @@ export * as pagination from './pagination/index.js';
 // remove after upstream adoption is fixed
 export { getPullRequestComments } from './endpoints/pull-requests.js';
 export { getRepoPermissions, hasAdminPermission } from './endpoints/permissions.js';
-export { findEmptyRepos, createUserRepo, createOrgRepo, listPullRequests, createPullRequest, getCommunityProfile } from './endpoints/repos.js';
+export { 
+  findEmptyRepos, 
+  createUserRepo, 
+  createOrgRepo, 
+  listPullRequests, 
+  createPullRequest, 
+  getCommunityProfile,
+  getDefaultBranchSHA,
+  findPRByBranch
+} from './endpoints/repos.js';
 export type { CommunityProfile, CommunityProfileFiles } from './endpoints/repos.js';
-export { fileExists, getDecodedFileContent } from './endpoints/contents.js';
-export type { ContentItem, ContentFile } from './endpoints/contents.js';
+export { 
+  fileExists, 
+  getDecodedFileContent,
+  encodeContent,
+  createOrUpdateFile,
+  deleteFile
+} from './endpoints/contents.js';
+export type { ContentItem, ContentFile, FileCommitResult, GitUser } from './endpoints/contents.js';
 export { getLatestWorkflowRun } from './endpoints/actions.js';
 export type { WorkflowsResponse, WorkflowRunsResponse, WorkflowRun, Workflow } from './endpoints/actions.js';
 export { getUserPrComments } from './endpoints/user-pr-comments.js';
+export { getRef, createRef, deleteRef } from './endpoints/git.js';
+export type { GitRef } from './endpoints/git.js';

@@ -42,6 +42,7 @@
     "sample-health-check": "node --env-file \"./.env\" solutions/sample-health-check/dist/cli.js --input=\"./active-sample-repos.json\" --out=\"./generated/sample-health-check\" --verbose",
     "create-remediation-issues": "node --env-file \"./.env\" solutions/create-remediation-issues/dist/cli.js",
     "pr-feedback-aggregator": "node --env-file \"./.env\" solutions/pr-feedback-aggregator/dist/cli.js --input ./active-sample-repos.json --out ./generated/pr-feedback-aggregator --verbose",
+    "sample-auto-fix": "node --env-file \"./.env\" solutions/sample-auto-fix/dist/cli.js",
     "pipeline": "node --env-file \"./.env\" scripts/run-pipeline.mjs",
     "pipeline:apply": "node --env-file \"./.env\" scripts/run-pipeline.mjs --apply"
   },

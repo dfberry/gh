@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { GitHubClient } from '../core/client.js';
-import { getCommunityProfile } from './repos.js';
+import { 
+  getCommunityProfile,
+  getDefaultBranchSHA,
+  findPRByBranch
+} from './repos.js';
 
 function createMockClient() {
   return {
@@ -83,3 +87,187 @@ describe('getCommunityProfile', () => {
     ).rejects.toThrow('GitHub API error 404');
   });
 });
+
+describe('getDefaultBranchSHA', () => {
+  let client: GitHubClient;
+
+  beforeEach(() => {
+    client = createMockClient();
+    vi.clearAllMocks();
+  });
+
+  it('returns SHA of the default branch HEAD', async () => {
+    const mockRepo = {
+      default_branch: 'main',
+      owner: { login: 'octocat' },
+      name: 'hello',
+    };
+    const mockRef = {
+      object: {
+        sha: 'abc123def456',
+      },
+    };
+    
+    (client.get as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockRepo)  // getRepo call
+      .mockResolvedValueOnce(mockRef);   // git ref call
+
+    const result = await getDefaultBranchSHA(client, 'octocat', 'hello');
+
+    expect(client.get).toHaveBeenCalledWith('/repos/octocat/hello');
+    expect(client.get).toHaveBeenCalledWith('/repos/octocat/hello/git/ref/heads/main');
+    expect(result).toBe('abc123def456');
+  });
+
+  it('falls back to main when default_branch is undefined', async () => {
+    const mockRepo = {
+      owner: { login: 'octocat' },
+      name: 'hello',
+    };
+    const mockRef = {
+      object: {
+        sha: 'fallback-sha',
+      },
+    };
+    
+    (client.get as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockRepo)
+      .mockResolvedValueOnce(mockRef);
+
+    const result = await getDefaultBranchSHA(client, 'octocat', 'hello');
+
+    expect(client.get).toHaveBeenCalledWith('/repos/octocat/hello/git/ref/heads/main');
+    expect(result).toBe('fallback-sha');
+  });
+
+  it('handles custom default branch names', async () => {
+    const mockRepo = {
+      default_branch: 'develop',
+      owner: { login: 'org' },
+      name: 'project',
+    };
+    const mockRef = {
+      object: {
+        sha: 'develop-sha-789',
+      },
+    };
+    
+    (client.get as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockRepo)
+      .mockResolvedValueOnce(mockRef);
+
+    const result = await getDefaultBranchSHA(client, 'org', 'project');
+
+    expect(client.get).toHaveBeenCalledWith('/repos/org/project/git/ref/heads/develop');
+    expect(result).toBe('develop-sha-789');
+  });
+
+  it('propagates errors when repository not found', async () => {
+    (client.get as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('GitHub API error 404')
+    );
+
+    await expect(
+      getDefaultBranchSHA(client, 'octocat', 'nonexistent')
+    ).rejects.toThrow('GitHub API error 404');
+  });
+
+  it('propagates errors when branch ref not found', async () => {
+    const mockRepo = {
+      default_branch: 'main',
+      owner: { login: 'octocat' },
+      name: 'hello',
+    };
+    
+    (client.get as ReturnType<typeof vi.fn>)
+      .mockResolvedValueOnce(mockRepo)
+      .mockRejectedValueOnce(new Error('GitHub API error 404'));
+
+    await expect(
+      getDefaultBranchSHA(client, 'octocat', 'hello')
+    ).rejects.toThrow('GitHub API error 404');
+  });
+});
+
+describe('findPRByBranch', () => {
+  let client: GitHubClient;
+
+  beforeEach(() => {
+    client = createMockClient();
+    vi.clearAllMocks();
+  });
+
+  it('returns PR number when open PR exists for branch', async () => {
+    const mockPRs = [
+      {
+        number: 42,
+        state: 'open',
+        title: 'Feature PR',
+        head: { ref: 'feature-branch', sha: 'abc123' },
+        base: { ref: 'main', sha: 'def456' },
+        html_url: 'https://github.com/octocat/hello/pull/42',
+      },
+    ];
+    
+    (client.get as ReturnType<typeof vi.fn>).mockResolvedValue(mockPRs);
+
+    const result = await findPRByBranch(client, 'octocat', 'hello', 'feature-branch');
+
+    expect(client.get).toHaveBeenCalledWith(
+      '/repos/octocat/hello/pulls',
+      expect.objectContaining({
+        params: expect.objectContaining({
+          state: 'open',
+          head: 'octocat:feature-branch',
+        }),
+      })
+    );
+    expect(result).toBe(42);
+  });
+
+  it('returns null when no PR exists for branch', async () => {
+    (client.get as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+
+    const result = await findPRByBranch(client, 'octocat', 'hello', 'nonexistent-branch');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns first PR number when multiple PRs exist', async () => {
+    const mockPRs = [
+      {
+        number: 10,
+        state: 'open',
+        title: 'First PR',
+        head: { ref: 'shared-branch', sha: 'sha1' },
+        base: { ref: 'main', sha: 'sha2' },
+        html_url: 'https://github.com/octocat/hello/pull/10',
+      },
+      {
+        number: 11,
+        state: 'open',
+        title: 'Second PR',
+        head: { ref: 'shared-branch', sha: 'sha1' },
+        base: { ref: 'develop', sha: 'sha3' },
+        html_url: 'https://github.com/octocat/hello/pull/11',
+      },
+    ];
+    
+    (client.get as ReturnType<typeof vi.fn>).mockResolvedValue(mockPRs);
+
+    const result = await findPRByBranch(client, 'octocat', 'hello', 'shared-branch');
+
+    expect(result).toBe(10);
+  });
+
+  it('propagates API errors', async () => {
+    (client.get as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('GitHub API error 403')
+    );
+
+    await expect(
+      findPRByBranch(client, 'octocat', 'private-repo', 'branch')
+    ).rejects.toThrow('GitHub API error 403');
+  });
+});
+
