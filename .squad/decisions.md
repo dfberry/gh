@@ -1053,3 +1053,68 @@ Upstream Reports → Parser → Planner → Executor → Output
 2026-03-07
 
 ---
+
+---
+
+### 36. Pipeline Documentation Update (Inara — 2026-03-15)
+
+# Decision: Pipeline Documentation Update
+
+**Date:** 2026-03-15  
+**Owner:** Inara (Content Engineer)  
+**Status:** ✅ Implemented
+
+## Context
+
+The project has evolved from a 4-solution pipeline (documented in README.md) to a complete 6-step orchestrator (`scripts/run-pipeline.mjs`). The README referenced the obsolete `scripts/run-all.sh` and omitted the `azure-best-practices-check` and `sample-auto-fix` solutions entirely.
+
+This created friction:
+- New users couldn't find the complete pipeline workflow
+- Documentation didn't match the actual implementation
+- Safety model (dry-run vs. `--apply`) wasn't clearly communicated
+
+## Decision
+
+**Update all pipeline documentation to reflect the 6-step orchestrator and emphasize safety:**
+
+1. **README.md** — Replace the 4-solution section with:
+   - Quick-start commands (`npm run pipeline`, `npm run pipeline:apply`)
+   - 6-step overview table with purposes and outputs
+   - Link to detailed docs
+   - Keep concise (avoid duplicating detailed documentation)
+
+2. **docs/PIPELINE.md** (new file) — Create comprehensive reference:
+   - Full step-by-step breakdowns (what, input, output, flags)
+   - Prerequisites and setup instructions
+   - Error handling and rate limiting
+   - Practical examples (dry-run, apply, single step, debug)
+   - FAQ for common scenarios
+
+## Rationale
+
+- **Discoverability:** README links to PIPELINE.md — users find both high-level and detailed info
+- **Safety:** Emphasize `--apply` requirement for destructive operations (issues, PRs)
+- **Accuracy:** Documentation now matches `scripts/run-pipeline.mjs` implementation
+- **Completeness:** All 6 solutions documented, including P2 features (azure-best-practices, auto-fix)
+- **Maintainability:** Detailed docs in separate file — easier to update per solution without bloating README
+
+## Trade-offs
+
+| Decision | Benefit | Cost |
+|----------|---------|------|
+| Keep README concise | Faster reads, links to details | Some users may skip to PIPELINE.md |
+| Table format for 6 steps | Quick visual scan | Less narrative flow than before |
+| Emphasize `--apply` flag | Safer by default | One extra step for users applying changes |
+
+## Follow-up
+
+- Monitor usage: are users finding docs? Do they prefer README table or PIPELINE.md deep dive?
+- Update individual solution READMEs to link back to PIPELINE.md
+- Consider CI workflow that validates all 6 steps in PR checks (currently not automated)
+
+## Files Changed
+
+- `README.md` — lines 28–97 replaced (Solutions Pipeline section)
+- `docs/PIPELINE.md` — new, 440 lines
+- `.squad/agents/inara/history.md` — updated learnings
+

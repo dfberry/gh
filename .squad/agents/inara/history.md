@@ -95,6 +95,23 @@
 **Rationale:**
 The previous README documented an outdated 4-solution pipeline using `scripts/run-all.sh`. The project now has 6 integrated solutions orchestrated by `scripts/run-pipeline.mjs`. This update reflects the actual pipeline, provides clear usage guidance, and emphasizes safety (dry-run by default, explicit `--apply` flag required for destructive operations).
 
+---
+
+## 2026-03-15 — Pipeline Documentation Complete
+
+**Task:** Update README.md and create docs/PIPELINE.md  
+**Status:** ✅ Complete  
+**Deliverables:**
+- README.md: 6-step table replaces outdated 4-solution section
+- docs/PIPELINE.md: New 436-line comprehensive guide
+
+**Key Learnings:**
+- Keep README concise (links to detailed docs) for discoverability
+- Table format for quick visual scans — easier than narrative
+- Emphasize safety flags (--apply) in prominent locations
+
+---
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
