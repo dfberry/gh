@@ -526,3 +526,160 @@ This forces every consumer to either cast with `as any` or work blind. It accumu
 - `solutions/create-remediation-issues/sample.env` (token example)
 
 ---
+
+### 19. validateToken() Preflight Method on GitHubClient (Kaylee — 2026-03-06)
+
+**Status:** Implemented
+
+**Context:** The pipeline needs a preflight check before running all 4 solutions so it can fail fast with a clear message instead of crashing mid-run on a bad or missing token.
+
+**Decision:** Added alidateToken() as a method on GitHubClient rather than a standalone function. It never throws — always returns a TokenValidationResult object with alid, login, scopes, rror, and suggestion fields.
+
+**Design Choices:**
+1. **Never-throw contract:** Callers can safely use const result = await client.validateToken() without try/catch.
+2. **Token presence checked first:** If 	his.token is falsy, return immediately without hitting API.
+3. **Reuses existing methods:** Internally calls getAuthenticatedUser() and getTokenScopes().
+4. **Scopes included in success result:** Enables pipeline to warn about missing scopes without a separate call.
+
+**Impact:** No breaking changes — additive only. Available to all consumers of GitHubClient immediately.
+
+---
+
+### 20. Retry-with-Backoff & 403 Rate Limit Detection (Kaylee — 2026-03-06)
+
+**Status:** Implemented
+
+**Decision:**
+1. **Detect 403 rate limits as RateLimitError** — Check for either x-ratelimit-remaining: 0 header OR "rate limit" in body message.
+2. **Automatic retry with backoff in awRequest()** — Rate limit errors wait for esetAt, server errors use exponential backoff with jitter. Non-retryable errors thrown immediately.
+3. **Default retry options** — { attempts: 3, factor: 2, minTimeoutMs: 1000, maxTimeoutMs: 60000 }.
+
+**Impact:** All solutions get automatic retry for free. Public API surface unchanged.
+
+---
+
+### 21. Surface API Body Messages in All GitHubError Throws (Kaylee — 2026-03-06)
+
+**Status:** Implemented
+
+**Decision:** All GitHubError and RateLimitError throws extract the body's message field. Format: GitHub API error {status}: {body message}.
+
+**Impact:** Pipeline logs show real failure reasons. checkRepoAccess() added as structured accessor returning RepoAccessResult.
+
+---
+
+### 22. Pipeline Repo Accessibility Pre-Check (Wash — 2026-03-09)
+
+**Status:** Implemented
+
+**Decision:** Added pre-check in pipeline Preflight Step 2 that probes each repo with client.checkRepoAccess() before running solutions.
+
+**Behaviors:**
+- **Partial access:** Write filtered ccessible-repos.json, continue with accessible repos only
+- **No access:** Abort with actionable error messages
+- **Graceful fallback:** Skip check with warning if method unavailable
+
+**Impact:** No solution source code modified — only pipeline script.
+
+---
+
+### 23. Actionable Rate Limit Error Messages (Wash — 2026-03-09)
+
+**Status:** Implemented
+
+**Decision:**
+1. Solutions check rror.name === 'RateLimitError' and extract reset time, remaining calls, limit
+2. Pipeline preflight displays rate limit info with three tiers: info, warning (<100 remaining), hard gate (0 remaining)
+
+---
+
+### 24. Pipeline Error Logging Pattern (Wash — 2026-03-09)
+
+**Status:** Implemented
+
+**Decision:** Each solution's core function collects errors into optional rrors?: PipelineError[] field. CLI writes {step}-errors.log files. Pipeline checks for logs after all steps.
+
+**Key Details:**
+- Error categories: auth, not_found, rate_limit, api_error, unknown
+- Fail-open: Errors logged but don't stop pipeline
+- Error log format: Plain text for quick human scanning
+- All 4 solutions affected; 286 tests pass (backward-compatible)
+
+---
+
+### 25. Pipeline Preflight Token Validation is Non-Blocking (Wash — 2026-03-09)
+
+**Status:** Implemented
+
+**Decision:** Preflight token check is **informational only** — warns on invalid tokens but does NOT exit.
+
+**Rationale:** Per-step error logs already capture failures. Early exit would lose diagnostic output. Preflight gives heads-up without changing error-logging contract.
+
+---
+
+### 26. Verbose Logging Pattern for Solutions (Wash — 2026-03-08)
+
+**Status:** Implemented
+
+**Decision:** All solutions support --verbose flag gating progress logging with if (verbose) console.log(...).
+
+**Pattern:**
+1. Add erbose?: boolean to options type
+2. Gate logging in core functions
+3. Show input/output paths and summaries in CLI
+
+**Style:** 2-space indentation, ✓ for success, ⚠ for warnings, '='.repeat(60) for tables.
+
+---
+
+### 27. Architecture Decision: pr-feedback-aggregator Solution (Mal — 2026-03-06)
+
+**Status:** Implemented
+
+**Context:** Phase 3 solution identifying recurring reviewer feedback themes and aggregating into actionable recommendations.
+
+**Data Flow:** GitHub API → fetch PR comments → clean bots → extract patterns (LLM) → aggregate globally → generate recommendations
+
+**Types:**
+- FeedbackComment — author, body, created_at, pr_number, repo
+- FeedbackPattern — theme, category, frequency, confidence, examples, recommendation
+- FeedbackAggregationReport — metadata, global_patterns[], per_repo[], recommendations_summary
+
+**CLI:** --input <file>, --out <dir>, --max-prs, --since, --dry-run, --verbose, --no-markdown
+
+---
+
+### 28. Test Contracts: pr-feedback-aggregator (Zoe — 2026-03-06)
+
+**Status:** Implemented (70 tests)
+
+**Decisions:**
+1. **Bot filtering:** Users ending with [bot] filtered before LLM analysis
+2. **Comment truncation:** Bodies >10000 chars truncated
+3. **LLM response:** { patterns: FeedbackPattern[] } contract; malformed JSON → empty array
+4. **Deduplication:** Same theme merged by summing frequencies, sorted by frequency
+5. **Dry-run:** Comments fetched but LLM skipped
+6. **CLI validation:** --max-prs positive integer, --since parseable date
+7. **Token required:** GITHUB_TOKEN must be set
+
+---
+
+### 29. Pipeline Quality Review — Ready for Merge (Mal — 2026-03-07)
+
+**Status:** Approved
+
+**Key Findings:**
+- ✅ All 4 solutions produce correct outputs
+- ✅ Preflight gating works (token + repo access)
+- ✅ Error logs captured for diagnostics
+- ✅ Edge cases handled (0 repos, partial access, invalid token)
+
+**Verdict:** ✅ **APPROVE — Ready for PR merge to main**
+
+**Post-merge tasks:**
+1. Error log cleanup to pipeline preamble
+2. Update repo README with pipeline usage examples
+3. Document dry-run behavior
+4. Run pipeline with --apply in staging
+
+---
