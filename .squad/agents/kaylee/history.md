@@ -45,6 +45,12 @@
 
 **Key design decision:** Data for rich dry-run reports was already available in all three solutions — the issue was the markdown generators discarded it. Fix was to thread that data through to the markdown layer (adding `plans` to auto-fix result, `prs` to per-repo summary, `dryRun` flag to report types).
 
+**Verification:**
+- Build: ✅ All packages compile cleanly
+- Tests: ✅ All existing tests pass (auto-fix: 47/47)
+- Pipeline: ✅ Full dry-run pipeline verified clean
+- Commit: c5d3376 — "feat: enhance dry-run markdown with actionable what-would-happen details"
+
 ### 2026-07-21 — Pipeline Tee Logging & Output Directory Pre-creation
 
 **Task:** Two enhancements to `scripts/run-pipeline.mjs`:

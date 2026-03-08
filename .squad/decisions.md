@@ -1200,3 +1200,46 @@ For inline stages (like preflight in `run-pipeline.mjs`):
 
 **Future:** When adding new pipeline stages, always include markdown generation from the start.
 
+---
+
+### 29. Dry-Run Markdown Actionability Enhancement (Kaylee — 2026-07-21)
+
+**Status:** ✅ Implemented
+
+**Context:** The pipeline had three solutions (`create-remediation-issues`, `pr-feedback-aggregator`, `sample-auto-fix`) that produced dry-run markdown reports, but the reports only showed summary counts (e.g., "3 issues would be created", "5 PRs found"). Users couldn't see what the actual changes would be, making dry-run less useful for validation and review before applying `--apply`.
+
+**Decision:** All dry-run markdown reports must include rich "what would happen" details showing exactly what actions would be taken, plus a clear "How to Apply" footer.
+
+**Required Pattern for Every Dry-Run Markdown:**
+1. **DRY RUN banner** — `> 🔒 **DRY RUN** — No changes were made.` blockquote near the top (make it visible and copy-paste friendly)
+2. **"What Would Happen" section** — Detailed planned actions:
+   - For remediation-issues: Full issue body previews, severity labels, category-grouped summary table
+   - For PR feedback: Table with PR numbers, titles, comment counts per repo
+   - For auto-fix: Detailed fix plans showing category, branch name, PR title, and template content previews (first 5 lines only)
+3. **"How to Apply" footer** — Exact command user should run to apply the changes (e.g., `npm run pipeline -- --apply`)
+
+**Implementation Approach:**
+Data for rich reports was already available in each solution — the gap was that markdown generators discarded it. Fix was to thread data through to the markdown layer:
+- `create-remediation-issues`: Modified `generateRemediationSummary()` to check `--dry-run` flag and render full issue bodies + labels + severity table
+- `pr-feedback-aggregator`: Added `PRInfo` type to track PR metadata; modified `generateMarkdownSummary()` to populate and display per-PR table in dry-run mode
+- `sample-auto-fix`: Added `plans?: FixPlan[]` array to `AutoFixResult` (populated when dry-run); modified `generateMarkdownReport()` to display fix plans with branch/PR/template previews
+
+**Files Changed:**
+- `solutions/create-remediation-issues/src/cli.ts` — Enhanced `generateRemediationSummary()`
+- `solutions/pr-feedback-aggregator/src/types.ts` — Added `dryRun`, `PRInfo`, and `prs` fields
+- `solutions/pr-feedback-aggregator/src/index.ts` — Populate dry-run metadata and render in markdown
+- `solutions/sample-auto-fix/src/types.ts` — Added `plans?: FixPlan[]` field
+- `solutions/sample-auto-fix/src/index.ts` — Populate and display fix plans in markdown
+
+**Benefits:**
+1. **Actionable Preview** — Users see exactly what will happen before running `--apply`
+2. **Confidence** — Rich details (issue bodies, PR details, fix previews) enable confident validation
+3. **Self-Documenting** — Dry-run output serves as a change request / approval document
+4. **Consistency** — All three solutions follow the same pattern
+
+**Test Status:** All existing tests pass; full pipeline verified clean.
+
+**Commit:** c5d3376 — "feat: enhance dry-run markdown with actionable what-would-happen details"
+
+**Future:** When adding new pipeline solutions, follow this pattern: always include the DRY RUN banner, "What Would Happen" section with rich details, and "How to Apply" footer in dry-run markdown output.
+
