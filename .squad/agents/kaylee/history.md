@@ -523,3 +523,43 @@ pm --prefix solutions/sample-auto-fix run build — compiles cleanly
 - solutions/sample-auto-fix/src/index.test.ts — Tests use correct data shapes
 - scripts/run-pipeline.mjs — Added generatePipelineSummary() at pipeline end
 
+### 2026-03-08 — Auto-Fix Finding Extraction & Pipeline Tally
+
+**Task:** Fix auto-fix finding extraction (0 fixable findings reported) and add pipeline summary tally.
+
+**Issue root cause:** Type mismatches between audit/health/azure schema shapes and auto-fix parser expectations.
+- Security audit findings use hyphen-separated keys (e.g., `branch_name`), but parser expected underscores
+- Health and Azure alerts come as arrays within `"findings"` object, not top-level arrays
+- Signal names in Azure audit use underscores but were compared with hyphenated keys
+
+**Solution:**
+1. **types.ts** — Unified finding types to match all three audit schemas (security, health, azure)
+   - `AuditFinding` now handles both hyphen and underscore key variants
+   - Azure/Health alerts mapped to consistent finding shape on intake
+   
+2. **index.ts** — New `extractAllFindings()` function classifies ALL findings, not just subset
+   - Returns `{ autoFixable, manual, informational }` buckets
+   - Identifies auto-fixable patterns: branch protections, collaborator rules, secrets remediation
+   - Manual-fix for permission/policy violations
+   - Informational for advisories and health recommendations
+   
+3. **cli.ts** — Updated output to use bucketed findings
+   
+4. **run-pipeline.mjs** — New `generatePipelineSummary()` at pipeline end
+   - Outputs tally: `{ autoFixable: N, manual: N, informational: N }`
+   - Ran all 6 steps, aggregates counts across repos
+
+**Test Results:**
+- ✅ 49 auto-fix tests pass (up from 47)
+- ✅ Pipeline dry-run complete, clean output
+- ✅ No regressions in other solutions
+
+**Commits:**
+- d3932ac — fix(auto-fix): extract all findings and add pipeline summary tally
+- 13f3b8e — docs(squad): update kaylee history and add pipeline-tally decision
+
+**Impact:**
+- Auto-fix stage now correctly triages findings for remediation
+- Pipeline provides actionable tally (vs 0 findings previously)
+- Template for cross-repo finding aggregation established
+
