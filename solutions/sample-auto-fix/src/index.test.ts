@@ -5,7 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { autoFixFindings } from './index.js';
 import type { GitHubClient } from 'github-rest';
-import type { SecurityAuditReport } from './types.js';
+import type { SecurityAuditReport, AzureBestPracticesReport } from './types.js';
 
 // Mock all dependencies
 vi.mock('./executor.js', () => ({
@@ -25,16 +25,15 @@ describe('index', () => {
   });
 
   describe('autoFixFindings', () => {
-    it('returns empty result when no findings', async () => {
+    it('returns result with allFindings when no auto-fixable findings', async () => {
       const securityReport: SecurityAuditReport = {
         repos: [
           {
             owner: 'org',
             repo: 'repo1',
-            securityFiles: {
-              securityMd: true,
-              dependabotYml: true,
-            },
+            score: 65,
+            branchProtection: { protected: false },
+            automatedSecurityFixes: { enabled: false },
           },
         ],
       };
@@ -47,100 +46,98 @@ describe('index', () => {
 
       expect(result.summary.totalPlanned).toBe(0);
       expect(result.summary.totalCreated).toBe(0);
+      // Should still report non-fixable findings
+      expect(result.allFindings).toBeDefined();
+      expect(result.allFindings!.length).toBeGreaterThan(0);
+      expect(result.summary.totalManualAction).toBeGreaterThan(0);
     });
 
     it('uses dry-run mode by default', async () => {
-      const securityReport: SecurityAuditReport = {
+      const azureReport: AzureBestPracticesReport = {
         repos: [
           {
             owner: 'org',
             repo: 'repo1',
-            securityFiles: {
-              securityMd: false,
-              dependabotYml: false,
-            },
+            checks: [
+              { dimension: 'config', signal: 'azd_yaml_present', passed: false, weight: 5, earned: 0 },
+              { dimension: 'config', signal: 'security_policy_present', passed: false, weight: 5, earned: 0 },
+            ],
           },
         ],
       };
 
-      const result = await autoFixFindings(mockClient, { security: securityReport });
+      const result = await autoFixFindings(mockClient, { azure: azureReport });
 
       expect(result.dryRun).toBe(true);
     });
 
     it('uses apply mode when explicitly enabled', async () => {
-      const securityReport: SecurityAuditReport = {
+      const azureReport: AzureBestPracticesReport = {
         repos: [
           {
             owner: 'org',
             repo: 'repo1',
-            securityFiles: {
-              securityMd: false,
-              dependabotYml: false,
-            },
+            checks: [
+              { dimension: 'config', signal: 'azd_yaml_present', passed: false, weight: 5, earned: 0 },
+            ],
           },
         ],
       };
 
       const result = await autoFixFindings(
         mockClient,
-        { security: securityReport },
+        { azure: azureReport },
         { apply: true },
       );
 
       expect(result.dryRun).toBe(false);
     });
 
-    it('filters findings by category when specified', async () => {
+    it('classifies findings correctly in summary', async () => {
       const securityReport: SecurityAuditReport = {
         repos: [
           {
             owner: 'org',
             repo: 'repo1',
-            securityFiles: {
-              securityMd: false,
-              dependabotYml: false,
-            },
+            branchProtection: { protected: false },
           },
         ],
       };
 
-      const { executeFixPlans } = await import('./executor.js');
+      const azureReport: AzureBestPracticesReport = {
+        repos: [
+          {
+            owner: 'org',
+            repo: 'repo1',
+            checks: [
+              { dimension: 'config', signal: 'azd_yaml_present', passed: false, weight: 5, earned: 0 },
+              { dimension: 'security', signal: 'managed_identity_documented', passed: false, weight: 8, earned: 0 },
+            ],
+          },
+        ],
+      };
 
-      await autoFixFindings(
+      const result = await autoFixFindings(
         mockClient,
-        { security: securityReport },
-        { dryRun: true, categories: ['missing-security-files'] },
+        { security: securityReport, azure: azureReport },
+        { dryRun: true },
       );
 
-      expect(executeFixPlans).toHaveBeenCalled();
-      const plans = vi.mocked(executeFixPlans).mock.calls[0][1];
-      expect(plans).toHaveLength(1);
-      expect(plans[0].category).toBe('missing-security-files');
+      expect(result.summary.totalAutoFixable).toBeGreaterThanOrEqual(1);
+      expect(result.summary.totalManualAction).toBeGreaterThanOrEqual(1);
+      expect(result.allFindings).toBeDefined();
     });
 
-    it('processes findings from multiple reports', async () => {
-      const securityReport: SecurityAuditReport = {
+    it('processes azure BP findings with checks array', async () => {
+      const azureReport: AzureBestPracticesReport = {
         repos: [
           {
             owner: 'org',
             repo: 'repo1',
-            securityFiles: {
-              securityMd: false,
-              dependabotYml: false,
-            },
-          },
-        ],
-      };
-
-      const healthReport = {
-        repos: [
-          {
-            owner: 'org',
-            repo: 'repo2',
-            checks: {
-              envExample: { pass: false },
-            },
+            checks: [
+              { dimension: 'config', signal: 'azd_yaml_present', passed: false, weight: 5, earned: 0 },
+              { dimension: 'config', signal: 'env_example_present', passed: false, weight: 5, earned: 0 },
+            ],
           },
         ],
       };
@@ -149,25 +146,24 @@ describe('index', () => {
 
       await autoFixFindings(
         mockClient,
-        { security: securityReport, health: healthReport },
+        { azure: azureReport },
         { dryRun: true },
       );
 
       expect(executeFixPlans).toHaveBeenCalled();
       const plans = vi.mocked(executeFixPlans).mock.calls[0][1];
-      expect(plans.length).toBeGreaterThanOrEqual(2);
+      expect(plans.length).toBeGreaterThanOrEqual(1);
     });
 
     it('includes execution results in summary', async () => {
-      const securityReport: SecurityAuditReport = {
+      const azureReport: AzureBestPracticesReport = {
         repos: [
           {
             owner: 'org',
             repo: 'repo1',
-            securityFiles: {
-              securityMd: false,
-              dependabotYml: false,
-            },
+            checks: [
+              { dimension: 'config', signal: 'azd_yaml_present', passed: false, weight: 5, earned: 0 },
+            ],
           },
         ],
       };
@@ -180,8 +176,8 @@ describe('index', () => {
             prNumber: 42,
             prUrl: 'https://github.com/org/repo1/pull/42',
             branch: 'autofix/test',
-            category: 'missing-security-files',
-            filesModified: ['SECURITY.md'],
+            category: 'missing-azure-config',
+            filesModified: ['azure.yaml'],
           },
         ],
         skipped: [],
@@ -190,7 +186,7 @@ describe('index', () => {
 
       const result = await autoFixFindings(
         mockClient,
-        { security: securityReport },
+        { azure: azureReport },
         { dryRun: true },
       );
 

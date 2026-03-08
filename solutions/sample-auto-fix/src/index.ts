@@ -3,7 +3,7 @@
  *
  * Orchestrates the complete auto-fix pipeline:
  *   1. Parse upstream reports (security, health, azure)
- *   2. Extract fixable findings
+ *   2. Extract fixable findings AND classify all findings
  *   3. Build fix plans with templates
  *   4. Execute plans (create branches, write files, open PRs)
  */
@@ -18,9 +18,10 @@ import type {
   HealthCheckReport,
   AzureBestPracticesReport,
   FixPlan,
+  ClassifiedFinding,
 } from './types.js';
 
-import { extractFixableFindings, filterByCategory, groupByRepo } from './parser.js';
+import { extractFixableFindings, extractAllFindings, filterByCategory, groupByRepo } from './parser.js';
 import { buildFixPlans } from './planner.js';
 import { executeFixPlans } from './executor.js';
 
@@ -36,6 +37,8 @@ export type {
   SkippedFix,
   FixError,
   FixCategory,
+  ClassifiedFinding,
+  FindingFixability,
 } from './types.js';
 
 // ─── Main Orchestrator ───────────────────────────────────────────────────────
@@ -66,7 +69,26 @@ export async function autoFixFindings(
     }
   }
 
-  // Step 1: Extract fixable findings
+  // Step 1a: Extract ALL findings (classified)
+  const allFindings = extractAllFindings(
+    reports.remediation,
+    reports.security,
+    reports.health,
+    reports.azure,
+  );
+
+  const autoFixable = allFindings.filter(f => f.fixability === 'auto-fixable');
+  const manualAction = allFindings.filter(f => f.fixability === 'manual-action');
+  const informational = allFindings.filter(f => f.fixability === 'informational');
+
+  if (verbose) {
+    console.log(`\n📊 All findings: ${allFindings.length} total`);
+    console.log(`   ✅ Auto-fixable: ${autoFixable.length}`);
+    console.log(`   ⚠️  Manual action: ${manualAction.length}`);
+    console.log(`   ℹ️  Informational: ${informational.length}`);
+  }
+
+  // Step 1b: Extract fixable findings (for template-based PR creation)
   let findings = extractFixableFindings(
     reports.remediation,
     reports.security,
@@ -75,7 +97,7 @@ export async function autoFixFindings(
   );
 
   if (verbose) {
-    console.log(`\n📊 Extracted ${findings.length} fixable findings`);
+    console.log(`\n📊 Extracted ${findings.length} fixable findings (will create PRs)`);
   }
 
   // Step 2: Filter by category (if specified)
@@ -88,18 +110,26 @@ export async function autoFixFindings(
 
   if (findings.length === 0) {
     if (verbose) {
-      console.log('\n✨ No fixable findings found');
+      if (allFindings.length > 0) {
+        console.log(`\n⚠️  No auto-fixable findings — but ${allFindings.length} findings need attention`);
+      } else {
+        console.log('\n✨ No findings found across any input reports');
+      }
     }
     return {
       dryRun: effectiveDryRun,
       created: [],
       skipped: [],
       errors: [],
+      allFindings,
       summary: {
         totalPlanned: 0,
         totalCreated: 0,
         totalSkipped: 0,
         totalErrors: 0,
+        totalAutoFixable: autoFixable.length,
+        totalManualAction: manualAction.length,
+        totalInformational: informational.length,
       },
     };
   }
@@ -135,11 +165,15 @@ export async function autoFixFindings(
     skipped: execution.skipped,
     errors: execution.errors,
     plans: effectiveDryRun ? plans : undefined,
+    allFindings,
     summary: {
       totalPlanned: plans.length,
       totalCreated: execution.created.length,
       totalSkipped: execution.skipped.length,
       totalErrors: execution.errors.length,
+      totalAutoFixable: autoFixable.length,
+      totalManualAction: manualAction.length,
+      totalInformational: informational.length,
     },
   };
 
@@ -149,6 +183,7 @@ export async function autoFixFindings(
     console.log(`  Created: ${result.summary.totalCreated}`);
     console.log(`  Skipped: ${result.summary.totalSkipped}`);
     console.log(`  Errors: ${result.summary.totalErrors}`);
+    console.log(`  Manual action needed: ${result.summary.totalManualAction}`);
   }
 
   return result;
@@ -159,6 +194,11 @@ const TEMPLATE_PREVIEW_LINES = 5;
 
 /**
  * Generate markdown report from AutoFixResult.
+ *
+ * Includes ALL findings categorized by fixability:
+ *   ✅ Auto-fixable (will create PRs)
+ *   ⚠️ Requires manual action
+ *   ℹ️ Informational
  */
 export function generateMarkdownReport(result: AutoFixResult): string {
   let output = '# Auto-Fix Report\n\n';
@@ -177,8 +217,66 @@ export function generateMarkdownReport(result: AutoFixResult): string {
   output += `- **Planned:** ${result.summary.totalPlanned}\n`;
   output += `- **Created:** ${result.summary.totalCreated} ✅\n`;
   output += `- **Skipped:** ${result.summary.totalSkipped} ⏭️\n`;
-  output += `- **Errors:** ${result.summary.totalErrors} ❌\n\n`;
-  
+  output += `- **Errors:** ${result.summary.totalErrors} ❌\n`;
+  output += `- **Auto-fixable findings:** ${result.summary.totalAutoFixable}\n`;
+  output += `- **Manual action required:** ${result.summary.totalManualAction}\n`;
+  output += `- **Informational:** ${result.summary.totalInformational}\n\n`;
+
+  // ── All Findings Section ──────────────────────────────────────────────
+  const allFindings = result.allFindings ?? [];
+
+  if (allFindings.length > 0) {
+    const autoFixableF = allFindings.filter(f => f.fixability === 'auto-fixable');
+    const manualActionF = allFindings.filter(f => f.fixability === 'manual-action');
+    const informationalF = allFindings.filter(f => f.fixability === 'informational');
+
+    output += '## All Findings\n\n';
+    output += `Found **${allFindings.length}** total findings across all input reports.\n\n`;
+
+    // Auto-fixable
+    if (autoFixableF.length > 0) {
+      output += '### ✅ Auto-Fixable\n\n';
+      output += 'These findings can be automatically fixed by creating PRs with template files.\n\n';
+      output += '| Repository | Signal | Description | Severity |\n';
+      output += '|------------|--------|-------------|----------|\n';
+      for (const f of autoFixableF) {
+        output += `| ${f.owner}/${f.repo} | \`${f.signal}\` | ${f.description} | ${f.severity} |\n`;
+      }
+      output += '\n';
+    }
+
+    // Manual action
+    if (manualActionF.length > 0) {
+      output += '### ⚠️ Requires Manual Action\n\n';
+      output += 'These findings cannot be auto-fixed and require human intervention.\n\n';
+      for (const f of manualActionF) {
+        output += `#### ${f.owner}/${f.repo} — \`${f.signal}\`\n\n`;
+        output += `- **Severity:** ${f.severity}\n`;
+        output += `- **Source:** ${f.source}\n`;
+        output += `- **Issue:** ${f.description}\n`;
+        if (f.manualAction) {
+          output += `- **Action:** ${f.manualAction}\n`;
+        }
+        output += '\n';
+      }
+    }
+
+    // Informational
+    if (informationalF.length > 0) {
+      output += '### ℹ️ Informational\n\n';
+      output += 'These findings are tracked for awareness but require no immediate action.\n\n';
+      output += '| Repository | Signal | Description | Source |\n';
+      output += '|------------|--------|-------------|--------|\n';
+      for (const f of informationalF) {
+        output += `| ${f.owner}/${f.repo} | \`${f.signal}\` | ${f.description} | ${f.source} |\n`;
+      }
+      output += '\n';
+    }
+  } else {
+    output += '## All Findings\n\n';
+    output += '✨ No findings detected across any input reports. All checks passing!\n\n';
+  }
+
   // Dry-run: show detailed fix plans
   if (result.dryRun && result.plans && result.plans.length > 0) {
     output += '## What Would Happen\n\n';

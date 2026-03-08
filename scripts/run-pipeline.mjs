@@ -527,6 +527,242 @@ if (errorLogFiles.length > 0) {
   console.log('');
 }
 
+// ── Pipeline Findings Summary ───────────────────────────────────────────
+
+async function generatePipelineSummary(paths) {
+  const { securityFile, healthFile, remediationFile, azureBpFile, autoFixFile } = paths;
+
+  // Load all JSON reports
+  const loadJson = async (path) => {
+    try {
+      return JSON.parse(await readFile(path, 'utf8'));
+    } catch {
+      return null;
+    }
+  };
+
+  const [securityData, healthData, remediationData, azureBpData, autoFixData] = await Promise.all([
+    loadJson(securityFile),
+    loadJson(healthFile),
+    loadJson(remediationFile),
+    loadJson(azureBpFile),
+    loadJson(autoFixFile),
+  ]);
+
+  // ── Extract metrics ─────────────────────────────────────────────────
+  const repoCount = securityData?.summary?.totalRepos ?? securityData?.repos?.length ?? 0;
+
+  // Security
+  const secAvgScore = securityData?.summary?.avgScore ?? 0;
+  const secReposNoBP = securityData?.summary?.reposWithoutBranchProtection ?? 0;
+  const secTotalDependabot = securityData?.summary?.totalDependabotAlerts ?? 0;
+  const secTotalCodeScanning = securityData?.summary?.totalCodeScanningAlerts ?? 0;
+  const secTotalSecretScanning = securityData?.summary?.totalSecretScanningAlerts ?? 0;
+
+  // Count repos without automated security fixes
+  let secReposNoAutoFix = 0;
+  if (securityData?.repos) {
+    for (const repo of securityData.repos) {
+      if (repo.automatedSecurityFixes?.enabled === false) secReposNoAutoFix++;
+    }
+  }
+
+  // Health
+  const healthAvgScore = healthData?.summary?.avgScore ?? 0;
+  const healthAvgGrade = healthData?.summary?.avgGrade ?? '?';
+  const healthWorst = healthData?.summary?.worstDimension ?? 'unknown';
+  let healthFailingChecks = 0;
+  if (healthData?.repos) {
+    for (const repo of healthData.repos) {
+      if (repo.checks && Array.isArray(repo.checks)) {
+        healthFailingChecks += repo.checks.filter(c => c.passed === false).length;
+      }
+    }
+  }
+
+  // Azure BP
+  const azureAvgScore = azureBpData?.summary?.avgScore ?? 0;
+  const azureAvgGrade = azureBpData?.summary?.avgGrade ?? '?';
+  const azureWorst = azureBpData?.summary?.worstDimension ?? 'unknown';
+  const azureCritical = azureBpData?.summary?.criticalFindings ?? 0;
+  let azureFailingChecks = 0;
+  if (azureBpData?.repos) {
+    for (const repo of azureBpData.repos) {
+      if (repo.checks && Array.isArray(repo.checks)) {
+        azureFailingChecks += repo.checks.filter(c => c.passed === false).length;
+      }
+    }
+  }
+  const azureRepoCount = azureBpData?.repos?.length ?? repoCount;
+  const azureFailingPerRepo = azureRepoCount > 0 ? Math.round(azureFailingChecks / azureRepoCount) : 0;
+
+  // Remediation
+  const remPlanned = remediationData?.summary?.totalPlanned ?? remediationData?.planned?.length ?? 0;
+  const remCreated = remediationData?.summary?.totalCreated ?? remediationData?.created?.length ?? 0;
+  const remMode = remediationData?.dryRun === false ? 'created' : 'dry-run';
+
+  // Auto-fix
+  const autoFixAutoFixable = autoFixData?.summary?.totalAutoFixable ?? 0;
+  const autoFixManual = autoFixData?.summary?.totalManualAction ?? 0;
+  const autoFixPlanned = autoFixData?.summary?.totalPlanned ?? 0;
+  const allFindings = autoFixData?.allFindings ?? [];
+
+  // Total findings needing attention
+  const totalAttention = autoFixManual + autoFixAutoFixable + (secTotalDependabot > 0 ? 1 : 0);
+
+  // ── Build console output ────────────────────────────────────────────
+  const sep = '════════════════════════════════════════════════════════════';
+  const lines = [];
+  lines.push('');
+  lines.push(sep);
+  lines.push('PIPELINE FINDINGS SUMMARY');
+  lines.push(sep);
+  lines.push(`Repositories:  ${repoCount}`);
+  lines.push('');
+
+  // Security section
+  lines.push(`Security (avg ${Math.round(secAvgScore)}/100):`);
+  if (secReposNoBP > 0)       lines.push(`  ⚠️  ${secReposNoBP} repo(s) without branch protection`);
+  if (secReposNoAutoFix > 0)  lines.push(`  ⚠️  ${secReposNoAutoFix} repo(s) without automated security fixes`);
+  if (secTotalDependabot > 0) lines.push(`  ⚠️  ${secTotalDependabot} Dependabot alert(s)`);
+  if (secTotalCodeScanning > 0) lines.push(`  ⚠️  ${secTotalCodeScanning} code scanning alert(s)`);
+  if (secTotalSecretScanning > 0) lines.push(`  🚨 ${secTotalSecretScanning} secret scanning alert(s)`);
+  if (secReposNoBP === 0 && secTotalDependabot === 0 && secTotalCodeScanning === 0 && secTotalSecretScanning === 0) {
+    lines.push('  ✅ No critical security findings');
+  }
+  lines.push('');
+
+  // Health section
+  lines.push(`Health (avg ${Math.round(healthAvgScore)}/100, grade ${healthAvgGrade}):`);
+  lines.push(`  Weakest: ${healthWorst}`);
+  if (healthFailingChecks > 0) {
+    lines.push(`  ⚠️  ${healthFailingChecks} checks failing across ${repoCount} repo(s)`);
+  } else {
+    lines.push('  ✅ All health checks passing');
+  }
+  lines.push('');
+
+  // Azure BP section
+  lines.push(`Azure Best Practices (avg ${Math.round(azureAvgScore)}/100, grade ${azureAvgGrade}):`);
+  lines.push(`  Weakest: ${azureWorst}`);
+  if (azureFailingChecks > 0) {
+    lines.push(`  ⚠️  ~${azureFailingPerRepo} checks failing per repo (${azureFailingChecks} total)`);
+  } else {
+    lines.push('  ✅ All Azure BP checks passing');
+  }
+  if (azureCritical > 0) {
+    lines.push(`  🚨 ${azureCritical} critical finding(s)`);
+  }
+  lines.push('');
+
+  // Remediation section
+  lines.push(`Remediation: ${remPlanned > 0 ? remPlanned : remCreated} issues ${remMode === 'dry-run' ? 'planned (dry-run)' : 'created'}`);
+
+  // Auto-fix section
+  lines.push(`Auto-Fix: ${autoFixAutoFixable} auto-fixable, ${autoFixManual} require manual action`);
+  lines.push('');
+
+  // Overall
+  const overallCount = allFindings.filter(f => f.fixability !== 'informational').length;
+  lines.push(`📊 Overall: ${overallCount} finding(s) need attention`);
+  lines.push(sep);
+  lines.push('');
+
+  const consoleOutput = lines.join('\n');
+
+  // ── Build markdown ──────────────────────────────────────────────────
+  let md = '# Pipeline Findings Summary\n\n';
+  md += `**Generated:** ${new Date().toLocaleString()}\n\n`;
+  md += `**Mode:** ${applyMode ? 'APPLY' : 'DRY-RUN'}\n\n`;
+  md += '---\n\n';
+
+  md += '## Overview\n\n';
+  md += `| Metric | Value |\n`;
+  md += `|--------|-------|\n`;
+  md += `| Repositories | ${repoCount} |\n`;
+  md += `| Security Score | ${Math.round(secAvgScore)}/100 |\n`;
+  md += `| Health Score | ${Math.round(healthAvgScore)}/100 (${healthAvgGrade}) |\n`;
+  md += `| Azure BP Score | ${Math.round(azureAvgScore)}/100 (${azureAvgGrade}) |\n`;
+  md += `| Total Findings | ${allFindings.length} |\n`;
+  md += `| Needs Attention | ${overallCount} |\n\n`;
+
+  md += '## Security\n\n';
+  md += `**Average Score:** ${Math.round(secAvgScore)}/100\n\n`;
+  if (secReposNoBP > 0) md += `- ⚠️ ${secReposNoBP} repo(s) without branch protection\n`;
+  if (secReposNoAutoFix > 0) md += `- ⚠️ ${secReposNoAutoFix} repo(s) without automated security fixes\n`;
+  if (secTotalDependabot > 0) md += `- ⚠️ ${secTotalDependabot} Dependabot alert(s)\n`;
+  if (secTotalCodeScanning > 0) md += `- ⚠️ ${secTotalCodeScanning} code scanning alert(s)\n`;
+  if (secTotalSecretScanning > 0) md += `- 🚨 ${secTotalSecretScanning} secret scanning alert(s)\n`;
+  md += '\n';
+
+  md += '## Health\n\n';
+  md += `**Average Score:** ${Math.round(healthAvgScore)}/100 (Grade: ${healthAvgGrade})\n\n`;
+  md += `- Weakest dimension: **${healthWorst}**\n`;
+  md += `- ${healthFailingChecks} checks failing across ${repoCount} repo(s)\n\n`;
+
+  md += '## Azure Best Practices\n\n';
+  md += `**Average Score:** ${Math.round(azureAvgScore)}/100 (Grade: ${azureAvgGrade})\n\n`;
+  md += `- Weakest dimension: **${azureWorst}**\n`;
+  md += `- ~${azureFailingPerRepo} checks failing per repo (${azureFailingChecks} total)\n`;
+  if (azureCritical > 0) md += `- 🚨 ${azureCritical} critical finding(s)\n`;
+  md += '\n';
+
+  md += '## Remediation\n\n';
+  md += `- ${remPlanned > 0 ? remPlanned : remCreated} issues ${remMode === 'dry-run' ? 'planned (dry-run)' : 'created'}\n\n`;
+
+  md += '## Auto-Fix Classification\n\n';
+  md += `| Classification | Count |\n`;
+  md += `|----------------|-------|\n`;
+  md += `| ✅ Auto-fixable | ${autoFixAutoFixable} |\n`;
+  md += `| ⚠️ Manual action | ${autoFixManual} |\n`;
+  md += `| ℹ️ Informational | ${allFindings.filter(f => f.fixability === 'informational').length} |\n\n`;
+
+  if (allFindings.length > 0) {
+    const manualFindings = allFindings.filter(f => f.fixability === 'manual-action');
+    if (manualFindings.length > 0) {
+      md += '### Findings Requiring Manual Action\n\n';
+      md += '| Repository | Signal | Description | Severity | Action |\n';
+      md += '|------------|--------|-------------|----------|--------|\n';
+      for (const f of manualFindings) {
+        md += `| ${f.owner}/${f.repo} | \`${f.signal}\` | ${f.description} | ${f.severity} | ${f.manualAction || '—'} |\n`;
+      }
+      md += '\n';
+    }
+
+    const autoFindings = allFindings.filter(f => f.fixability === 'auto-fixable');
+    if (autoFindings.length > 0) {
+      md += '### Auto-Fixable Findings\n\n';
+      md += '| Repository | Signal | Description |\n';
+      md += '|------------|--------|-------------|\n';
+      for (const f of autoFindings) {
+        md += `| ${f.owner}/${f.repo} | \`${f.signal}\` | ${f.description} |\n`;
+      }
+      md += '\n';
+    }
+  }
+
+  md += '---\n\n';
+  md += `*Generated by pipeline run at ${new Date().toISOString()}*\n`;
+
+  return { consoleOutput, markdown: md, overallCount };
+}
+
+// Generate and print the summary
+const summary = await generatePipelineSummary({
+  securityFile,
+  healthFile,
+  remediationFile,
+  azureBpFile,
+  autoFixFile,
+});
+
+console.log(summary.consoleOutput);
+
+// Write summary markdown
+const summaryMdPath = `./generated/pipeline-summary-${pipelineTimestamp}.md`;
+await writeFile(summaryMdPath, summary.markdown);
+console.log(`📄 Pipeline summary: ${summaryMdPath}`);
+
 console.log('✅ Pipeline complete!\n');
 console.log(`📄 Pipeline log: ${LOG_PATH}\n`);
 
