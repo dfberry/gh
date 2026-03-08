@@ -1243,3 +1243,127 @@ Data for rich reports was already available in each solution — the gap was tha
 
 **Future:** When adding new pipeline solutions, follow this pattern: always include the DRY RUN banner, "What Would Happen" section with rich details, and "How to Apply" footer in dry-run markdown output.
 
+---
+
+### 30. README Documentation Standards (Inara — 2026-03-22)
+
+**Status:** ✅ Implemented
+
+**Date:** 2026-03-22  
+**Decision maker:** Inara (Content Engineer)
+
+**Context:** Documentation audit revealed:
+- 4 missing solution READMEs (create-remediation-issues, pr-feedback-aggregator, azure-best-practices-check, sample-auto-fix)
+- Root README incomplete (missing llm-completion package, missing distinction between pipeline and standalone tools)
+- llm-completion README had duplicate content
+
+**Decision:** Establish and apply consistent README documentation standards across all solutions.
+
+**Gold Standard Template:**
+Use `security-audit-repos` and `sample-health-check` as reference implementations. All solution READMEs must include:
+1. **Purpose** — What it does and why it exists (2-3 sentences)
+2. **Installation** — Build commands
+3. **Usage** — CLI examples + Library examples (TypeScript)
+4. **Configuration** — Environment variables table
+5. **CLI Options** — Table format with defaults
+6. **Output** — JSON structure + Markdown summary examples
+7. **Related Solutions** — Cross-references
+8. **Contributing** — Link to copilot-instructions.md
+
+**Special Sections (when applicable):**
+- **Scoring Model** — For solutions that produce scores/grades
+- **Classification Logic** — For solutions that categorize findings
+- **Safety Notes** — For solutions with destructive operations
+- **Error Handling** — For solutions with API error recovery
+
+**Root README Structure:**
+- **Monorepo overview** — List all packages (github-rest, gh-cleanup, llm-completion)
+- **Pipeline Solutions** — 6 solutions that run via `npm run pipeline`
+- **Standalone Tools** — 4 tools that run independently
+- Clear distinction between orchestrated vs ad-hoc usage
+
+**Documentation Tone:**
+- Polished and intentional — every word earns its place
+- Technical but accessible — explain what/why/how concisely
+- Safety-conscious — emphasize defaults, flags, permissions
+- Use tables over prose for structured data (CLI options, scoring models, rule breakdowns)
+
+**Consequences:**
+- Consistent user experience across all solution documentation
+- Easy onboarding — users can learn one README pattern and apply to all solutions
+- Clear distinction between pipeline and standalone tools prevents confusion
+- Safety defaults are prominently documented
+
+**Maintenance:**
+- New solutions must follow the established pattern
+- Template sections ensure completeness (no missing docs)
+- Cross-references keep documentation graph connected
+
+**References:**
+- Gold standard: `solutions/security-audit-repos/README.md`, `solutions/sample-health-check/README.md`
+- Applied to: create-remediation-issues, pr-feedback-aggregator, azure-best-practices-check, sample-auto-fix
+- Root README updated
+
+---
+
+### 31. Dry-Run Markdown Report Standard (Kaylee — 2026-07-21)
+
+**Status:** ✅ Implemented
+
+**Author:** Kaylee (Core Dev)  
+**Date:** 2026-07-21  
+**Scope:** All pipeline solutions with dry-run modes
+
+**Decision:** Every solution that supports `--dry-run` must produce a rich markdown report showing what **would** happen, not just summary counts. The standard has three mandatory sections:
+
+1. **Banner:** `> 🔒 **DRY RUN** — No changes were made.` blockquote near the top
+2. **"What Would Happen" section:** Detailed planned actions (issue bodies, PR titles, file lists, template previews)   
+3. **"How to Apply" section:** Exact command to run in apply mode
+
+**Rationale:** Users reported dry-run markdown was not valuable because it showed "0 created" without explaining what the tool plans to do. The dry-run report is the primary way users decide whether to proceed with `--apply`.
+
+**Implementation Notes:**
+- Data for rich reports was already computed in all three solutions — the fix was threading it to the markdown layer    
+- Added `plans?: FixPlan[]` to `AutoFixResult` (populated only in dry-run to avoid JSON bloat in live mode)
+- Added `dryRun?: boolean` to `AggregatedReport` and `PRInfo` type for per-PR metadata
+- Template previews are truncated to 5 lines in auto-fix to keep reports scannable
+- JSON output is unchanged — only markdown rendering was enhanced
+
+**Affected Solutions:**
+- `solutions/create-remediation-issues`
+- `solutions/pr-feedback-aggregator`
+- `solutions/sample-auto-fix`
+
+**For Future Solutions:** Any new solution with a dry-run mode should follow this same three-section pattern. The markdown should answer: "If I run this for real, what exactly will it do?"
+
+---
+
+### 32. Auto-Fix Reports All Findings + Pipeline Summary Tally (Kaylee — 2026-03-08)
+
+**Status:** ✅ Implemented
+
+**Author:** Kaylee (Core Dev)  
+**Date:** 2026-03-08
+
+**Context:** The auto-fix stage reported "0 fixable findings" even when upstream stages found 37+ issues. Dina wanted a running tally of what needs fixing.
+
+**Decision:**
+
+1. **All findings classified:** The auto-fix report now extracts ALL findings from all upstream reports and classifies each as:
+   - `auto-fixable` — template file can be created via PR (SECURITY.md, .env.example, azure.yaml)
+   - `manual-action` — requires human intervention (enable branch protection, rotate secrets, etc.)
+   - `informational` — tracked for awareness (remediation planned issues, low-severity alerts)
+
+2. **Pipeline summary tally:** `run-pipeline.mjs` now generates a consolidated findings summary after all 6 stages complete, printed to console and written to `generated/pipeline-summary-{ts}.md`.
+
+3. **Signal name compatibility:** The `AUTO_FIXABLE_SIGNALS` map supports both hyphen (`azd-yaml-present`) and underscore (`azd_yaml_present`) signal names to handle current and future upstream formats.
+
+**Impact:**
+- Auto-fix markdown report now shows the full picture instead of "nothing found"
+- Pipeline output ends with a clear, actionable summary
+- No silent dropping of findings — every non-passing check is reported
+
+**Files affected:**
+- `solutions/sample-auto-fix/src/index.ts` — Findings classification logic
+- `scripts/run-pipeline.mjs` — Pipeline summary generation
+
