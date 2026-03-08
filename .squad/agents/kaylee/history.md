@@ -494,3 +494,32 @@ pm --prefix solutions/sample-auto-fix run build — compiles cleanly
 - solutions/sample-auto-fix/src/index.ts (+59 lines) — markdown generator function
 - solutions/sample-auto-fix/src/cli.ts (+5 lines) — import and invoke markdown generator
 
+### 2026-03-08 — Auto-Fix Finding Extraction Fix & Pipeline Summary
+
+**Problem:** Auto-fix stage reported "0 fixable findings" despite 37+ findings across all stages.
+
+**Root Cause (two bugs):**
+1. `types.ts` report interfaces didn't match actual upstream JSON shapes — security audit has `branchProtection.protected` (not `securityFiles`), health/azure checks are arrays of `ReportCheckResult` (not nested objects).
+2. Signal names in `AUTO_FIXABLE_SIGNALS` used underscores (`azd_yaml_present`) but actual data uses hyphens (`azd-yaml-present`).
+
+**Solution:**
+- Updated types to match real upstream shapes, added `ClassifiedFinding` with `fixability: 'auto-fixable' | 'manual-action' | 'informational'`
+- Added `extractAllFindings()` alongside `extractFixableFindings()` — extracts ALL findings from all reports and classifies them
+- Parser now supports both hyphen and underscore signal names
+- Markdown report shows all findings categorized (not just "nothing found")
+- Pipeline summary tally reads all JSON outputs and prints consolidated findings to console + writes `pipeline-summary-{ts}.md`
+
+**Key patterns:**
+- `AUTO_FIXABLE_SIGNALS` map: signal name → `{ file, category }` for template-based auto-fixes
+- `extractAllFindings()` walks every report type and classifies each finding by fixability
+- Pipeline summary uses `Promise.all` to load all JSON reports in parallel
+- Report interfaces use optional fields generously to handle both current and future data shapes
+
+**Files changed:**
+- solutions/sample-auto-fix/src/types.ts — Updated report interfaces + new classification types
+- solutions/sample-auto-fix/src/parser.ts — Fixed extraction + added extractAllFindings()
+- solutions/sample-auto-fix/src/index.ts — Orchestrator uses all findings, markdown shows categories
+- solutions/sample-auto-fix/src/parser.test.ts — Tests use correct data shapes
+- solutions/sample-auto-fix/src/index.test.ts — Tests use correct data shapes
+- scripts/run-pipeline.mjs — Added generatePipelineSummary() at pipeline end
+
