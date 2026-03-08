@@ -115,3 +115,59 @@ The previous README documented an outdated 4-solution pipeline using `scripts/ru
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-03-22 — Comprehensive README Update Across 4 Solutions + Root + llm-completion
+
+**Task:** Documentation audit identified 4 missing solution READMEs, incomplete root README, and duplicate content in llm-completion README.
+
+**What changed:**
+1. **Created 4 solution READMEs** (following security-audit-repos and sample-health-check patterns):
+   - `solutions/create-remediation-issues/README.md` — Signal vs score-based findings, deduplication logic, safety model
+   - `solutions/pr-feedback-aggregator/README.md` — LLM pattern analysis, bot filtering, dry-run modes
+   - `solutions/azure-best-practices-check/README.md` — 15 rules across 5 dimensions, 0-100 scoring, A-F grades
+   - `solutions/sample-auto-fix/README.md` — Fixability classification (auto-fixable/manual/informational), 6-layer safety model, template-based PR creation
+
+2. **Updated root README.md**:
+   - Expanded "Monorepo overview" from 2 packages to 3 (added llm-completion)
+   - Distinguished **Pipeline Solutions** (6) from **Standalone Tools** (4)
+   - Added table listing standalone tools: get-pr-comments, get-user-comments, move-between-repos, get-instruction-from-pr-comments
+   - Made `npm run pipeline` more prominent in quick-start section
+
+3. **Fixed packages/llm-completion/README.md**:
+   - Removed duplicate content (entire README appeared twice)
+   - Kept single clean copy with proper TypeScript examples and API documentation
+
+**Documentation patterns learned:**
+- **Gold standard READMEs:** security-audit-repos and sample-health-check serve as the template
+- **Required sections:** Purpose, Installation, Usage (CLI + Library), Configuration, CLI Options (table), Output (JSON + Markdown), Related Solutions
+- **Special sections for context:** Scoring Models (when applicable), Classification Logic (for sample-auto-fix), Safety Notes (for destructive operations)
+- **Code examples:** Always TypeScript with explicit type imports
+- **Tables over prose:** CLI options, scoring models, rule breakdowns
+- **Safety emphasis:** Default behaviors (dry-run) prominently documented
+
+**Key file paths:**
+- Solution README pattern: `solutions/{name}/README.md`
+- Pipeline vs standalone distinction matters — users need to know what's orchestrated vs ad-hoc
+- Root README is the entry point — keep it navigable with clear sections and tables
+
+**Tone:**
+- Polished and intentional — every word earns its place
+- Technical but accessible — explain what/why/how concisely
+- Safety-conscious — emphasize defaults, flags, and permissions clearly
+
+**Commit message pattern used:**
+```
+docs: comprehensive README update across repo
+
+- Create README.md for 4 pipeline solutions:
+  {list}
+- Update root README: {changes}
+- Fix {package} README {issue}
+
+Co-authored-by: Copilot <...>
+```
+
+**Files created/modified:**
+- Created: 4 solution READMEs (8-10KB each)
+- Modified: README.md, packages/llm-completion/README.md
+
