@@ -1,0 +1,28 @@
+{
+  "name": "azure-best-practices-check",
+  "version": "0.1.0",
+  "description": "Azure best practices analyzer for GitHub sample repositories — checks SDK usage, IaC, config, CI/CD, and security patterns",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "azure-best-practices-check": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file .env dist/cli.js",
+    "test": "vitest --run",
+    "test:watch": "vitest --watch",
+    "test:run": "vitest run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "github-rest": "file:../../packages/github-rest"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  }
+}

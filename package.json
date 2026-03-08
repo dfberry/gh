@@ -21,8 +21,8 @@
     "evaluate:empty-repos": "node --env-file \"./.env\" packages/gh-cleanup/dist/bin/cli.js evaluate-repos-for-empty --input=\"./generated/gh-cleanup-gather/gather-user-repos.json\" --config-file=\"./packages/gh-cleanup/evaluate-config.json\" --out=\"./generated/gh-cleanup-evaluate\" --out-prefix=\"evaluate-\"",
 
     "test": "npm run test --workspaces --if-present",
-    "test:dev": "npm run test --workspaces --if-present -- -w",
-    "test:ci": "npm run test --workspaces --if-present -- --run",
+    "test:watch": "npm run test --workspaces --if-present -- -w",
+    "test:ci": "npm run test --workspaces --if-present",
     "run-all": "bash -lc 'set -a; [ -f .env ] && source .env || true; mkdir -p ./generated && bash ./scripts/run-all.sh > ./generated/run-all-dev.log 2>&1'",
     "gh-cleanup:branch-protection": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- branch-protection'",
     "gh-cleanup:collaborator": "bash -lc 'set -a; [ -f .env ] && source .env || true; npm --prefix packages/gh-cleanup run start -- collaborators'",
@@ -41,6 +41,8 @@
     "security-audit": "node --env-file \"./.env\" solutions/security-audit-repos/dist/cli.js --input ./active-sample-repos.json --out ./generated/security-audit --verbose",
     "sample-health-check": "node --env-file \"./.env\" solutions/sample-health-check/dist/cli.js --input=\"./active-sample-repos.json\" --out=\"./generated/sample-health-check\" --verbose",
     "create-remediation-issues": "node --env-file \"./.env\" solutions/create-remediation-issues/dist/cli.js",
+    "pr-feedback-aggregator": "node --env-file \"./.env\" solutions/pr-feedback-aggregator/dist/cli.js --input ./active-sample-repos.json --out ./generated/pr-feedback-aggregator --verbose",
+    "sample-auto-fix": "node --env-file \"./.env\" solutions/sample-auto-fix/dist/cli.js",
     "pipeline": "node --env-file \"./.env\" scripts/run-pipeline.mjs",
     "pipeline:apply": "node --env-file \"./.env\" scripts/run-pipeline.mjs --apply"
   },

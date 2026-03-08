@@ -19,6 +19,7 @@ export type {
   RemediationResult,
   CreatedIssue,
   SkippedIssue,
+  PipelineError,
 } from './types.js';
 
 import type {
@@ -30,6 +31,7 @@ import type {
   RemediationResult,
   SkippedIssue,
   CreatedIssue,
+  PipelineError,
 } from './types.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -157,7 +159,12 @@ export function analyzeSecurityFindings(
   options?: RemediationOptions,
 ): RemediationIssue[] {
   const threshold = options?.securityScoreThreshold ?? DEFAULT_SECURITY_SCORE_THRESHOLD;
+  const verbose = options?.verbose ?? false;
   const result: RemediationIssue[] = [];
+
+  if (verbose) {
+    console.log(`  Analyzing security report: ${report.repos.length} repos...`);
+  }
 
   for (const repo of report.repos) {
     const { owner, repo: repoName } = repo;
@@ -233,6 +240,13 @@ export function analyzeSecurityFindings(
           score: repo.score,
         }),
       );
+      hasFindings = true;
+    }
+
+    if (verbose && hasFindings) {
+      const repoFindings = result.filter((iss) => iss.owner === owner && iss.repo === repoName);
+      const findingTypes = repoFindings.map((iss) => iss.findingType).join(', ');
+      console.log(`    ${owner}/${repoName}: ${repoFindings.length} findings (${findingTypes})`);
     }
   }
 
@@ -247,7 +261,12 @@ export function analyzeHealthFindings(
   options?: RemediationOptions,
 ): RemediationIssue[] {
   const thresholdGrade = options?.healthGradeThreshold ?? DEFAULT_HEALTH_GRADE_THRESHOLD;
+  const verbose = options?.verbose ?? false;
   const result: RemediationIssue[] = [];
+
+  if (verbose) {
+    console.log(`  Analyzing health report: ${report.repos.length} repos...`);
+  }
 
   for (const repo of report.repos) {
     const gradeRank = GRADE_ORDER[repo.grade] ?? 0;
@@ -256,6 +275,7 @@ export function analyzeHealthFindings(
     if (gradeRank > thresholdRank) continue;
 
     const { owner, repo: repoName } = repo;
+    let repoIssueCount = 0;
 
     // Overall health grade issue
     result.push(
@@ -264,6 +284,7 @@ export function analyzeHealthFindings(
         grade: repo.grade,
       }),
     );
+    repoIssueCount++;
 
     // Per-dimension issues for failing dimensions
     if (repo.dimensions) {
@@ -285,12 +306,54 @@ export function analyzeHealthFindings(
               },
             ),
           );
+          repoIssueCount++;
         }
       }
+    }
+
+    if (verbose && repoIssueCount > 0) {
+      const repoFindings = result.filter((iss) => iss.owner === owner && iss.repo === repoName);
+      const findingTypes = repoFindings.map((iss) => iss.findingType.replace('failing-dimension-', '')).join(', ');
+      console.log(`    ${owner}/${repoName}: ${repoIssueCount} findings (${findingTypes})`);
     }
   }
 
   return result;
+}
+
+// ─── Error Categorization ────────────────────────────────────────────────────
+
+/** Categorize a caught error into a structured PipelineError. */
+function categorizePipelineError(repo: string, error: unknown): PipelineError {
+  const message = error instanceof Error ? error.message : String(error);
+
+  // RateLimitError has parsed resetAt/remaining/limit from response headers
+  if (error instanceof Error && error.name === 'RateLimitError') {
+    const err = error as Error & { resetAt?: number; remaining?: number; limit?: number };
+    const errorMsg = (err.remaining !== undefined && err.limit !== undefined)
+      ? `GitHub API rate limit exceeded (${err.remaining}/${err.limit} calls remaining)`
+      : 'GitHub API rate limit exceeded';
+    let suggestion: string;
+    if (err.resetAt) {
+      const resetTime = new Date(err.resetAt).toLocaleTimeString();
+      const minutesLeft = Math.max(1, Math.ceil((err.resetAt - Date.now()) / 60000));
+      suggestion = `Rate limit resets at ${resetTime} (in ~${minutesLeft} minutes). Wait for reset or use a different token.`;
+    } else {
+      suggestion = 'GitHub API rate limit exceeded. Wait a few minutes or use a token with higher limits.';
+    }
+    return { repo, category: 'rate_limit', message: errorMsg, suggestion };
+  }
+
+  if (message.includes('401')) {
+    return { repo, category: 'auth', message: 'GitHub API error 401', suggestion: 'Check your GITHUB_TOKEN in .env — it may be expired or missing.' };
+  }
+  if (message.includes('403') || message.toLowerCase().includes('rate limit')) {
+    return { repo, category: 'rate_limit', message: message.toLowerCase().includes('rate limit') ? 'GitHub API rate limit exceeded' : 'GitHub API error 403', suggestion: 'GitHub API rate limit exceeded. Wait a few minutes or use a token with higher limits.' };
+  }
+  if (message.includes('404') || message.includes('Not Found')) {
+    return { repo, category: 'not_found', message: 'Repository not found (404)', suggestion: 'Verify the repo exists and you have access.' };
+  }
+  return { repo, category: 'api_error', message, suggestion: 'Check the error message for details and verify your GitHub token has the required permissions.' };
 }
 
 // ─── Deduplication ───────────────────────────────────────────────────────────
@@ -302,9 +365,12 @@ export function analyzeHealthFindings(
 export async function deduplicateIssues(
   client: GitHubClient,
   planned: RemediationIssue[],
-): Promise<{ toCreate: RemediationIssue[]; toSkip: SkippedIssue[] }> {
+  options?: RemediationOptions,
+): Promise<{ toCreate: RemediationIssue[]; toSkip: SkippedIssue[]; errors: PipelineError[] }> {
+  const verbose = options?.verbose ?? false;
   const toCreate: RemediationIssue[] = [];
   const toSkip: SkippedIssue[] = [];
+  const errors: PipelineError[] = [];
 
   // Group by owner/repo for efficient API calls
   const byRepo = new Map<string, RemediationIssue[]>();
@@ -322,8 +388,9 @@ export async function deduplicateIssues(
       existingIssues = await issues.listIssues(
         client, owner, repo, 'open', REMEDIATION_LABEL, 100, 1,
       ) as Array<{ title: string; number: number; state: string }>;
-    } catch {
+    } catch (error) {
       // On API error, treat as no duplicates — create anyway
+      errors.push(categorizePipelineError(`${owner}/${repo}`, error));
       toCreate.push(...repoIssues);
       continue;
     }
@@ -346,7 +413,11 @@ export async function deduplicateIssues(
     }
   }
 
-  return { toCreate, toSkip };
+  if (verbose) {
+    console.log(`  Deduplication: ${toCreate.length} to create, ${toSkip.length} duplicates skipped`);
+  }
+
+  return { toCreate, toSkip, errors };
 }
 
 // ─── Orchestrator ────────────────────────────────────────────────────────────
@@ -359,6 +430,7 @@ export async function createRemediationIssues(
   input: RemediationInput,
   options?: RemediationOptions,
 ): Promise<RemediationResult> {
+  const verbose = options?.verbose ?? false;
   const allPlanned: RemediationIssue[] = [];
 
   if (input.securityReport) {
@@ -376,14 +448,18 @@ export async function createRemediationIssues(
   }
 
   // Deduplicate against existing open issues
-  const { toCreate, toSkip } = await deduplicateIssues(client, allPlanned);
+  const { toCreate, toSkip, errors: dedupErrors } = await deduplicateIssues(client, allPlanned, options);
 
   if (options?.dryRun) {
+    if (verbose) {
+      console.log(`  Dry run: ${toCreate.length} issues would be created`);
+    }
     return {
       created: [],
       skipped: toSkip,
       planned: toCreate,
       dryRun: true,
+      errors: dedupErrors.length > 0 ? dedupErrors : undefined,
       summary: {
         totalPlanned: toCreate.length + toSkip.length,
         totalCreated: 0,
@@ -395,23 +471,34 @@ export async function createRemediationIssues(
 
   // Create issues via GitHub API
   const created: CreatedIssue[] = [];
+  const createErrors: PipelineError[] = [];
   for (const issue of toCreate) {
-    const result = await issues.createIssue(
-      client, issue.owner, issue.repo,
-      issue.title, issue.body, issue.labels,
-    );
-    created.push({
-      ...issue,
-      issueNumber: (result as { number: number }).number,
-      issueUrl: (result as { html_url: string }).html_url,
-    });
+    try {
+      const result = await issues.createIssue(
+        client, issue.owner, issue.repo,
+        issue.title, issue.body, issue.labels,
+      );
+      created.push({
+        ...issue,
+        issueNumber: (result as { number: number }).number,
+        issueUrl: (result as { html_url: string }).html_url,
+      });
+    } catch (error) {
+      createErrors.push(categorizePipelineError(`${issue.owner}/${issue.repo}`, error));
+    }
   }
 
+  if (verbose) {
+    console.log(`  Created ${created.length} issues, skipped ${toSkip.length} duplicates`);
+  }
+
+  const allErrors = [...dedupErrors, ...createErrors];
   return {
     created,
     skipped: toSkip,
     planned: [],
     dryRun: false,
+    errors: allErrors.length > 0 ? allErrors : undefined,
     summary: {
       totalPlanned: allPlanned.length,
       totalCreated: created.length,

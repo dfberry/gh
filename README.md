@@ -1,9 +1,12 @@
 # Monorepo overview
 
-This repository is a small monorepo with two primary packages and supporting docs:
+This repository is a small monorepo with three primary packages, six pipeline solutions, four standalone tools, and supporting docs:
 
-- packages/github-rest: a lightweight GitHub REST client and reusable helpers (endpoints, pagination, permissions). See [packages/github-rest/README.md](packages/github-rest/README.md) for usage and exported helpers.
-- packages/gh-cleanup: CLI tools that implement repository-cleanup features (commands: remove-forks, archive-stale-repos, delete-empty-repos, categorize-repos, summary, evaluate-actions). See [packages/gh-cleanup/README.md](packages/gh-cleanup/README.md) for CLI options and examples.
+## Packages
+
+- **packages/github-rest**: lightweight GitHub REST client and reusable helpers (endpoints, pagination, permissions). See [packages/github-rest/README.md](packages/github-rest/README.md) for usage and exported helpers.
+- **packages/gh-cleanup**: CLI tools that implement repository-cleanup features (commands: remove-forks, archive-stale-repos, delete-empty-repos, categorize-repos, summary, evaluate-actions). See [packages/gh-cleanup/README.md](packages/gh-cleanup/README.md) for CLI options and examples.
+- **packages/llm-completion**: OpenAI/Azure OpenAI LLM client for repository description generation and pattern analysis. See [packages/llm-completion/README.md](packages/llm-completion/README.md) for API details.
 
 Docs and artifacts
 - `generated/` contains example or generated markdown outputs (e.g., catalogs and summaries) produced by the CLI for site consumption. These are intended as the site/content inputs for `dfberry.github.io` or similar static sites. To place the `generated` folder at the root of the repo, use `../../generated`.
@@ -25,75 +28,71 @@ Docs and artifacts
 
 If you want, I can also add short links from `packages/gh-cleanup/README.md` to the `.github/LLM_DESCRIBE_REPO_PROMPT.md` and the `scripts/run-all.sh` examples so users discover them faster.
 
-## Solutions Pipeline
+## Solutions
 
-The three solutions — **security-audit-repos**, **sample-health-check**, and **create-remediation-issues** — form a detect → score → remediate pipeline for repository health and security. They work together to identify issues, quantify repo health, and generate actionable work items.
+### Pipeline Solutions (Run via `npm run pipeline`)
+
+The **six solutions** work together in an orchestrated pipeline for automated GitHub repository health analysis and remediation:
+
+1. **security-audit-repos** — Security vulnerability scanning (P0)
+2. **sample-health-check** — Repository health scoring across 7 dimensions (P0)
+3. **create-remediation-issues** — Auto-create GitHub issues for findings (P1)
+4. **pr-feedback-aggregator** — Aggregate PR review patterns + LLM analysis (P1)
+5. **azure-best-practices-check** — Azure SDK/IaC/CI/config/security scoring (P2)
+6. **sample-auto-fix** — Automated remediation: creates branches, writes fixes, opens PRs (P2)
+
+### Quick start
+
+```bash
+# Build everything
+npm ci && npm run build
+
+# Run the full 6-step pipeline (dry-run by default)
+node scripts/run-pipeline.mjs
+
+# Or via npm script:
+npm run pipeline
+
+# Apply destructive operations (creates issues + PRs)
+npm run pipeline:apply
+```
+
+All output goes to `generated/{solution-name}/` with timestamped JSON reports.
 
 ### Prerequisites
 
 - Node.js >= 22
 - A `.env` file at the repository root with `GITHUB_TOKEN` or `GH_TOKEN` set
+- For pr-feedback-aggregator: also requires `OPENAI_API_KEY` or compatible LLM endpoint in `.env`
 - Run `npm ci && npm run build` to install dependencies and compile TypeScript
 
-### The three solutions
+### The six solutions
 
-**Security Audit** (`solutions/security-audit-repos/`)
+| Step | Solution | Purpose | Output |
+|------|----------|---------|--------|
+| 1 | **Security Audit** | Scan security posture (Dependabot, code scanning, secrets, branch protection) — scores 0-100 | `security-audit/{timestamp}-audit.{json,md}` |
+| 2 | **Sample Health Check** | Multi-dimension health analysis (Documentation, CI/CD, Dependencies, Activity, Hygiene, Azure, Branch Protection) — grades A–F | `sample-health-check/{timestamp}-health.{json,md}` |
+| 3 | **Create Remediation Issues** | Extract actionable findings from steps 1–2 and create GitHub Issues with deduplication | `remediation-issues/{timestamp}-issues.json` |
+| 4 | **PR Feedback Aggregator** | Fetch PR comments, identify patterns via LLM, generate actionable recommendations | `pr-feedback-aggregator/{timestamp}-feedback.json` |
+| 5 | **Azure Best Practices** | Score Azure patterns: SDK usage, IaC/Bicep, CI/CD config, security — 15 rules across 5 dimensions | `azure-best-practices/{timestamp}-check.json` |
+| 6 | **Sample Auto-Fix** | Create branches and PRs with auto-fixes for security, health, and Azure findings — includes 6-layer safety model | `sample-auto-fix/{timestamp}-fixes.json` |
 
-Scans repositories for security posture: Dependabot alerts, code scanning, secret scanning, branch protection status, and automated security fixes. Scores each repository 0-100 using a deductive model (starts at 100, deductions for findings).
+For detailed documentation, see [docs/PIPELINE.md](docs/PIPELINE.md).
 
-```bash
-npm run security-audit
-```
+The six solutions include 300+ tests ensuring reliable operation across varied repository configurations.
 
-Outputs:
-- `generated/security-audit/{timestamp}-audit.json` — structured results
-- `generated/security-audit/{timestamp}-audit.md` — human-readable summary
+### Standalone Tools
 
-**Sample Health Check** (`solutions/sample-health-check/`)
+In addition to the pipeline, the monorepo includes four standalone tools for targeted operations:
 
-Comprehensive health analyzer scoring repositories across seven dimensions: Documentation (25 pts), CI/CD (20 pts), Dependencies (16 pts), Activity (16 pts), Hygiene (12 pts), Azure (7 pts), Branch Protection (5 pts). Returns letter grades A–F.
+| Tool | Purpose | Documentation |
+|------|---------|---------------|
+| **get-pr-comments** | Extract PR comments from a single repository | [solutions/get-pr-comments/README.md](solutions/get-pr-comments/README.md) |
+| **get-user-comments** | Fetch all comments by a specific user across repositories | [solutions/get-user-comments/README.md](solutions/get-user-comments/README.md) |
+| **move-between-repos** | Transfer issues and PRs between repositories | [solutions/move-between-repos/README.md](solutions/move-between-repos/README.md) |
+| **get-instruction-from-pr-comments** | Extract actionable instructions from PR review comments | [solutions/get-instruction-from-pr-comments/README.md](solutions/get-instruction-from-pr-comments/README.md) |
 
-```bash
-npm run sample-health-check
-```
-
-Outputs:
-- `generated/sample-health-check/{timestamp}-health.json` — structured results
-- `generated/sample-health-check/{timestamp}-health.md` — human-readable summary
-
-**Create Remediation Issues** (`solutions/create-remediation-issues/`)
-
-Reads security-audit and/or health-check reports, extracts actionable findings, and creates GitHub Issues with labels and structured bodies. Includes deduplication logic to prevent duplicate issues for existing open findings.
-
-```bash
-# Dry-run (preview — no issues created):
-npm run create-remediation-issues -- --input ./generated/security-audit/<report>.json --dry-run --verbose
-
-# Create issues from a health-check report:
-npm run create-remediation-issues -- --input ./generated/sample-health-check/<report>.json --verbose
-
-# Multiple inputs:
-npm run create-remediation-issues -- --input ./generated/security-audit/<report>.json --input ./generated/sample-health-check/<report>.json --dry-run
-```
-
-### Full pipeline example
-
-```bash
-# 1. Build everything
-npm ci && npm run build
-
-# 2. Run security and health audits
-npm run security-audit
-npm run sample-health-check
-
-# 3. Preview remediation issues (dry-run)
-npm run create-remediation-issues -- --input ./generated/security-audit/<latest>.json --input ./generated/sample-health-check/<latest>.json --dry-run --verbose
-
-# 4. Create issues (remove --dry-run when ready)
-npm run create-remediation-issues -- --input ./generated/security-audit/<latest>.json --input ./generated/sample-health-check/<latest>.json --verbose
-```
-
-The three solutions include 226+ tests ensuring reliable operation across varied repository configurations.
+These tools run independently and are not part of the automated pipeline.
 
 ## Functional specification
 

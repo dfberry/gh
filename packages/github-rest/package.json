@@ -17,7 +17,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "test": "vitest run",
+    "test": "vitest --run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build && npm test"
   },

@@ -80,6 +80,14 @@ export interface HealthCheckOptions {
   verbose?: boolean;
 }
 
+/** An error encountered during pipeline execution. */
+export interface PipelineError {
+  repo: string;
+  category: 'auth' | 'not_found' | 'rate_limit' | 'api_error' | 'unknown';
+  message: string;
+  suggestion: string;
+}
+
 export interface RepoHealthCheck {
   owner: string;
   repo: string;
@@ -92,6 +100,7 @@ export interface RepoHealthCheck {
 
 export interface HealthCheckReport {
   repos: RepoHealthCheck[];
+  errors?: PipelineError[];
   summary: {
     totalRepos: number;
     avgScore: number;
@@ -339,6 +348,39 @@ export async function checkRepoHealth(
   };
 }
 
+/** Categorize a caught error into a structured PipelineError. */
+function categorizePipelineError(repo: string, error: unknown): PipelineError {
+  const message = error instanceof Error ? error.message : String(error);
+
+  // RateLimitError has parsed resetAt/remaining/limit from response headers
+  if (error instanceof Error && error.name === 'RateLimitError') {
+    const err = error as Error & { resetAt?: number; remaining?: number; limit?: number };
+    const errorMsg = (err.remaining !== undefined && err.limit !== undefined)
+      ? `GitHub API rate limit exceeded (${err.remaining}/${err.limit} calls remaining)`
+      : 'GitHub API rate limit exceeded';
+    let suggestion: string;
+    if (err.resetAt) {
+      const resetTime = new Date(err.resetAt).toLocaleTimeString();
+      const minutesLeft = Math.max(1, Math.ceil((err.resetAt - Date.now()) / 60000));
+      suggestion = `Rate limit resets at ${resetTime} (in ~${minutesLeft} minutes). Wait for reset or use a different token.`;
+    } else {
+      suggestion = 'GitHub API rate limit exceeded. Wait a few minutes or use a token with higher limits.';
+    }
+    return { repo, category: 'rate_limit', message: errorMsg, suggestion };
+  }
+
+  if (message.includes('401')) {
+    return { repo, category: 'auth', message: 'GitHub API error 401', suggestion: 'Check your GITHUB_TOKEN in .env — it may be expired or missing.' };
+  }
+  if (message.includes('403') || message.toLowerCase().includes('rate limit')) {
+    return { repo, category: 'rate_limit', message: message.toLowerCase().includes('rate limit') ? 'GitHub API rate limit exceeded' : 'GitHub API error 403', suggestion: 'GitHub API rate limit exceeded. Wait a few minutes or use a token with higher limits.' };
+  }
+  if (message.includes('404') || message.includes('Not Found')) {
+    return { repo, category: 'not_found', message: 'Repository not found (404)', suggestion: 'Verify the repo exists and you have access.' };
+  }
+  return { repo, category: 'api_error', message, suggestion: 'Check the error message for details and verify your GitHub token has the required permissions.' };
+}
+
 /**
  * Check health of multiple repositories.
  * Runs sequentially for rate-limit safety.
@@ -355,6 +397,7 @@ export async function checkReposHealth(
   }
 
   const results: RepoHealthCheck[] = [];
+  const errors: PipelineError[] = [];
 
   for (const repoFullName of repoList) {
     const [owner, repo] = repoFullName.split('/');
@@ -371,6 +414,7 @@ export async function checkReposHealth(
       if (verbose) {
         console.log(`  ✗ Failed to check ${owner}/${repo}: ${(error as Error).message}`);
       }
+      errors.push(categorizePipelineError(repoFullName, error));
     }
   }
 
@@ -407,6 +451,7 @@ export async function checkReposHealth(
 
   return {
     repos: results,
+    errors: errors.length > 0 ? errors : undefined,
     summary: {
       totalRepos,
       avgScore,

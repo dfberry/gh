@@ -26,6 +26,41 @@
 - Solution patterns: Promise.allSettled for graceful degradation, weighted scoring (start at base, deduct/award points), dual output formats (JSON + Markdown)
 - Graceful degradation via 404 handling (features disabled don't fail checks)
 
+**✅ 2026-03-07 — azure-best-practices-check (P2) Architecture Decision APPROVED**
+- Mal finalized architecture: Solution only (`solutions/azure-best-practices-check`), no new package
+- 15 checks across 5 dimensions (azure-sdk, iac, config, ci-cd, security)
+- Additive scoring (0→100), letter grades (A/B/C/D/F)
+- v1 independent; v2 feeds into create-remediation-issues
+- All github-rest endpoints exist; zero blockers
+- Ready for Wash (scaffolding) + Zoe (test-first rules/scoring)
+- See `.squad/decisions.md` Decision #30 for full architecture details
+
+**✅ 2026-03-07 — sample-auto-fix (P2) Blocked Endpoints COMPLETE & Architecture APPROVED**
+- Kaylee built all blocking github-rest endpoints for sample-auto-fix (P2 SMART Goal #6):
+  - **git.ts:** getRef, createRef, deleteRef (10 tests)
+  - **contents.ts (extended):** createOrUpdateFile, deleteFile, encodeContent (18 new tests)
+  - **repos.ts (extended):** getDefaultBranchSHA, findPRByBranch (7 new tests)
+  - **Total:** 85/85 tests passing, zero build errors, all exports verified
+- Mal wrote comprehensive architecture: data flow, 4 fix categories, 6-layer safety model, file structure, v1 vs v2 scope
+- **Ready for Wash:** Parser → planner → executor orchestration for automated remediation workflow
+- See `.squad/decisions.md` Decision #32 (git endpoints) and #33 (sample-auto-fix architecture) for full details
+
+**✅ 2026-03-07 — sample-auto-fix (P2) Implementation COMPLETE — ALL 6 SMART GOAL SOLUTIONS DONE**
+- **Wash** built complete solution: 6 modules (parser, planner, executor, dedup, index, cli), 4 templates, 47/47 tests passing
+- **Coordinator** integrated into pipeline Step 6 (after create-remediation-issues)
+- **All P0-P2 solutions now complete:**
+  1. security-audit-repos (P0) ✅
+  2. sample-health-check (P0) ✅
+  3. create-remediation-issues (P1) ✅
+  4. pr-feedback-aggregator (P1) ✅
+  5. azure-best-practices-check (P2) ✅
+  6. sample-auto-fix (P2) ✅
+- SMART Goal #1.2 infrastructure complete: baseline measurement, multi-repo health analysis, issue creation, pattern aggregation, best practices validation, automated remediation
+- See `.squad/decisions.md` Decision #34 (sample-auto-fix implementation) and #35 (pipeline integration) for full details
+- **Next Phase:** Integration testing, rate limit monitoring, template refinement, v2 feature planning
+
+
+
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
@@ -119,3 +154,281 @@
 - All 116 tests pass on first run post-implementation
 - Test mocking enabled parallel work: your implementation unblocked by test writing
 
+### 2026-03-08 — Verbose Logging for Pipeline Transparency
+
+**Status:** ✅ VERBOSE LOGGING COMPLETE (both create-remediation-issues and pr-feedback-aggregator now show progress)
+
+**Problem:** Steps 3 & 4 of `npm run pipeline` showed no output between step header and completion. Users running `--verbose` saw almost nothing. Compare to steps 1 & 2 (security-audit, health-check) which show detailed per-repo progress.
+
+**Solution delivery:**
+- Added `verbose?: boolean` to RemediationOptions and PRFeedbackOptions types
+- Added gated console.log progress to core functions (analyzeSecurityFindings, analyzeHealthFindings, deduplicateIssues, createRemediationIssues, fetchPRComments, generateReport)
+- Updated CLI modules to show input paths, output paths, and formatted summaries
+- Pattern: `const verbose = options?.verbose ?? false;` + gated `if (verbose) console.log(...)`
+
+**Verbose output patterns added:**
+- **create-remediation-issues:**
+  - "Analyzing security report: N repos..."
+  - "  {owner}/{repo}: N findings (finding-types)"
+  - "Deduplication: N to create, M duplicates skipped"
+  - "Dry run: N issues would be created" OR "Created N issues, skipped M duplicates"
+  - Formatted summary table with totals
+- **pr-feedback-aggregator:**
+  - "Analyzing N repositories..."
+  - "  {owner}/{repo}: fetching PRs..."
+  - "  ✓ {owner}/{repo}: N PRs, M comments"
+  - "  ⚠ {owner}/{repo}: not found, skipping"
+  - "  (dry-run: skipping LLM analysis)"
+  - "Aggregated: N PRs, M comments, X patterns"
+  - Formatted summary table
+
+**Design choices:**
+- No logging library — just `console.log` gated by verbose flag (keep it simple)
+- Pass verbose through options objects (not a separate parameter)
+- Follow security-audit/health-check pattern for per-repo progress (repo name + bullet + data)
+- Use ✓/⚠ symbols for success/warning (matches existing solutions)
+- Summary tables use 60-char separator lines and left-aligned labels
+
+**All tests still pass:** 75 tests (create-remediation-issues), 70 tests (pr-feedback-aggregator), build clean with zero errors
+
+**Key files modified:**
+- `solutions/create-remediation-issues/src/types.ts` (+1 field: verbose)
+- `solutions/create-remediation-issues/src/index.ts` (5 functions + verbose output)
+- `solutions/create-remediation-issues/src/cli.ts` (input paths + summary table)
+- `solutions/pr-feedback-aggregator/src/index.ts` (2 functions + verbose output)
+- `solutions/pr-feedback-aggregator/src/cli.ts` (input path + output paths + summary table)
+
+### 2026-03-09 — Pipeline Error Logging for All Solutions
+
+**Status:** ✅ COMPLETE (all 4 solutions + pipeline script now collect and log errors)
+
+**Problem:** Per-repo API errors (401 auth, 404 not-found, 403 rate-limit) were silently swallowed. Dina couldn't tell which repos failed or why without running with --verbose and reading console output.
+
+**Solution delivery:**
+- Added `PipelineError` interface to all 4 solutions (defined per-solution since packages are independent)
+- Core functions (`auditRepos`, `checkReposHealth`, `createRemediationIssues`, `generateReport`) now collect errors into `errors?: PipelineError[]` on their return types
+- CLI layers write `{step}-errors.log` files in the output directory when errors are present
+- `scripts/run-pipeline.mjs` checks all output directories for `*-errors.log` files and prints a summary
+- All 286 tests pass, build clean with zero errors
+
+**Architecture decisions:**
+- **Optional errors field:** `errors?: PipelineError[]` is optional on all result types so existing consumers (including tests) are unaffected
+- **Error categorization helper:** Each solution has a `categorizePipelineError()` that maps caught errors to structured `PipelineError` objects with human-readable messages and fix suggestions
+- **Fail-open preserved:** create-remediation-issues deduplication still creates issues on API error (fail-open), but now also logs the error
+- **Error log format:** Simple human-readable text with `[CATEGORY] repo` + error + fix suggestion — not JSON, designed for Dina to scan quickly
+- **Pipeline doesn't fail on errors:** Error logs are informational. Pipeline continues and reports error log locations at the end.
+
+**Error categories:**
+- `auth` — 401 errors → "Check your GITHUB_TOKEN in .env"
+- `not_found` — 404 errors → "Verify the repo exists and you have access"
+- `rate_limit` — 403/rate limit → "Wait a few minutes or use a token with higher limits"
+- `api_error` — other API errors → "Check the error message for details"
+
+**Key files modified:**
+- `solutions/security-audit-repos/src/index.ts` (PipelineError + error collection in auditRepos)
+- `solutions/security-audit-repos/src/cli.ts` (formatErrorLog + security-audit-errors.log writer)
+- `solutions/sample-health-check/src/index.ts` (PipelineError + error collection in checkReposHealth)
+- `solutions/sample-health-check/src/cli.ts` (formatErrorLog + health-check-errors.log writer)
+- `solutions/create-remediation-issues/src/types.ts` (PipelineError + errors field on RemediationResult)
+- `solutions/create-remediation-issues/src/index.ts` (error collection in dedup + create loops)
+- `solutions/create-remediation-issues/src/cli.ts` (formatErrorLog + remediation-issues-errors.log writer)
+- `solutions/pr-feedback-aggregator/src/types.ts` (PipelineError + errors field on AggregatedReport)
+- `solutions/pr-feedback-aggregator/src/index.ts` (error collection in generateReport)
+- `solutions/pr-feedback-aggregator/src/cli.ts` (formatErrorLog + pr-feedback-errors.log writer)
+- `scripts/run-pipeline.mjs` (error log summary after all steps)
+
+### 2026-03-09 — Pipeline Preflight Token Validation
+
+**Status:** ✅ COMPLETE (preflight check runs before all 4 pipeline steps)
+
+**Problem:** When GITHUB_TOKEN is invalid/expired, all 4 pipeline steps run and fail with 401s. Users have to dig through error logs to figure out it was a token issue all along.
+
+**Solution delivery:**
+- Added `preflight()` async function to `scripts/run-pipeline.mjs` that uses Kaylee's new `GitHubClient.validateToken()` method
+- Runs immediately after `applyMode` declaration, before Step 1
+- On success: prints `✅ GitHub token valid (authenticated as @{login})`
+- On failure: prints the error, fix suggestion, and continues (informational, not blocking)
+- Reads both `GITHUB_TOKEN` and `GH_TOKEN` env vars (covers both conventions in the project)
+
+**Design choices:**
+- **Non-blocking:** Preflight warns but does NOT exit. Pipeline continues so error logs are still generated for each step (existing behavior preserved)
+- **Import path:** `../packages/github-rest/dist/index.js` — relative to `scripts/` directory, not repo root. ESM resolution is relative to the importing file.
+- **Token precedence:** `GITHUB_TOKEN || GH_TOKEN` — checks GITHUB_TOKEN first (more common), falls back to GH_TOKEN (which is what GitHubClient constructor uses by default)
+- **Depends on Kaylee's work:** Uses `validateToken()` which returns structured `{ valid, login, scopes, error, suggestion }` — clean contract, no try/catch needed in pipeline
+
+**Key file modified:**
+- `scripts/run-pipeline.mjs` (import + preflight function + call before Step 1)
+
+### 2026-03-09 — Actionable Rate Limit Error Messages
+
+**Status:** ✅ COMPLETE (all 4 solutions + pipeline preflight now show when rate limit resets)
+
+**Problem:** Rate limit error messages just said "Wait a few minutes or use a token with higher limits" — repeating the error without actionable info. Users couldn't tell WHEN the limit resets.
+
+**Solution delivery:**
+- Updated `categorizePipelineError()` in all 4 solutions to check `error.name === 'RateLimitError'` first
+- When the error IS a `RateLimitError` (from github-rest), extracts `resetAt`, `remaining`, `limit` fields parsed from response headers
+- Error messages now show: `GitHub API rate limit exceeded (0/5000 calls remaining)`
+- Suggestions now show: `Rate limit resets at 10:45:23 PM (in ~12 minutes). Wait for reset or use a different token.`
+- Falls back to generic message when error is a plain 403/rate-limit string match (no parsed fields)
+- Pipeline preflight (`buildReport`) now shows rate limit status after Kaylee added `rateLimit` to `TokenValidationResult`
+- Preflight gates: remaining=0 → hard exit; remaining<100 → warning; otherwise → info line
+
+**Design choices:**
+- **Name-based duck typing:** Uses `error.name === 'RateLimitError'` instead of `instanceof` import to avoid coupling solutions to the class directly. Cast to typed shape for field access.
+- **Graceful fallback:** The existing 403/rate-limit string matching remains as a fallback for errors that don't come through as RateLimitError (e.g., re-thrown plain Errors).
+- **Preflight hard gate at 0:** Pipeline `process.exit(1)` when remaining=0 since all 4 steps would fail anyway.
+
+**Key files modified:**
+- `solutions/security-audit-repos/src/index.ts` (categorizePipelineError with RateLimitError check)
+- `solutions/sample-health-check/src/index.ts` (same pattern)
+- `solutions/create-remediation-issues/src/index.ts` (same pattern)
+- `solutions/pr-feedback-aggregator/src/index.ts` (same pattern)
+- `scripts/run-pipeline.mjs` (buildReport + preflight with rate limit display and hard gate)
+
+**All 338 tests pass** (52 github-rest + 25 security-audit + 116 health-check + 75 remediation + 70 pr-feedback), build clean.
+
+### 2026-03-09 — Pipeline Repo Accessibility Pre-Check
+
+**Status:** ✅ COMPLETE (pipeline now checks repo access before running solutions)
+
+**Problem:** Microsoft enterprise policy 403s blocked the PAT on Azure-Samples repos. All 4 solutions ran and failed on the same blocked repos, wasting time and producing confusing errors.
+
+**Solution delivery:**
+- Added `checkRepoAccess()` function to `scripts/run-pipeline.mjs` as Preflight Step 2 (after token validation)
+- For each repo in `active-sample-repos.json`, calls `client.checkRepoAccess(owner, repo)` and displays ✅/❌ results
+- Writes structured JSON log to `generated/preflight/{timestamp}-repo-access.json`
+- If some repos blocked: writes filtered `accessible-repos.json`, pipeline continues on accessible repos only
+- If ALL repos blocked: pipeline aborts with clear message
+- If `checkRepoAccess` method not yet available: skips pre-check with warning (safe for parallel dev with Kaylee)
+
+**Design choices:**
+- **Preflight returns client:** Changed `preflight()` to return the `GitHubClient` instance so it can be reused for repo access checks without creating a second client
+- **Direct node commands:** Steps 1, 2, 4 now invoke node directly with `effectiveInput` path instead of `npm run` (which has hardcoded input paths in package.json)
+- **Graceful fallback:** `typeof ghClient.checkRepoAccess !== 'function'` guard allows pipeline to work even before Kaylee merges the method
+- **Step 3 (create-remediation-issues) unchanged:** It consumes outputs from steps 1 & 2, which already contain only accessible repos
+
+**Key file modified:**
+- `scripts/run-pipeline.mjs` (readFile import + preflight returns client + checkRepoAccess function + effectiveInput threading through steps 1/2/4)
+
+### 2026-03-09 — Stale Error Log Cleanup
+
+**Status:** ✅ COMPLETE (pipeline and all solution CLIs now clean up error logs from previous runs)
+
+**Problem:** Error logs from previous pipeline runs persisted in `generated/` output directories and were incorrectly reported at the end of subsequent successful runs. Even though the current run had no errors, old `*-errors.log` files from rate-limited runs hours earlier remained and the pipeline's error scanner falsely reported them.
+
+**Solution delivery:**
+- Added `cleanupStaleErrorLogs()` function to `scripts/run-pipeline.mjs` that removes all `*-errors.log` files from the 4 output directories before running the 4 solution steps
+- Added per-solution cleanup at the start of each CLI's run function: security-audit-repos, sample-health-check, create-remediation-issues, pr-feedback-aggregator
+- Each solution now deletes its own error log before running (handles standalone CLI invocations outside the pipeline)
+
+**Architecture decisions:**
+- **Two-layer cleanup:** Pipeline cleans ALL error logs before starting (handles pipeline runs). Each solution CLI cleans its OWN error log before running (handles standalone runs). This ensures error logs always reflect the CURRENT run.
+- **Silent unlink failures:** `try { await unlink(errorLogPath) } catch {}` — file not existing is the happy path, so we swallow errors silently
+- **Early cleanup in CLIs:** Each solution cleans its error log immediately after ensuring the output directory exists and before making any API calls. This ensures a clean slate even if the run crashes mid-execution.
+- **Consistent pattern:** All 4 solutions follow the same cleanup pattern (unlink error log → make API calls → write new error log if needed)
+
+**Key files modified:**
+- `scripts/run-pipeline.mjs` (added unlink import + cleanupStaleErrorLogs function before step 1)
+- `solutions/security-audit-repos/src/cli.ts` (cleanup before auditRepos call)
+- `solutions/sample-health-check/src/cli.ts` (cleanup before checkReposHealth call)
+- `solutions/create-remediation-issues/src/cli.ts` (added unlink import + cleanup before createRemediationIssues call)
+- `solutions/pr-feedback-aggregator/src/cli.ts` (added unlink import + cleanup before generateReport call)
+
+**All 286 tests pass** (25 security-audit + 116 health-check + 75 remediation + 70 pr-feedback), build clean with zero errors.
+
+
+
+
+### 2026-03-07 - Remediation output gap fixed
+
+**Problem:** generated/remediation-issues/ was empty after pipeline runs. The CLI only wrote output when --out was explicitly provided, and the pipeline script never passed --out.
+
+**Fix (Option B + pipeline):**
+- cli.ts: Changed --out from file-path to directory semantics (matching security-audit and health-check pattern). Default output dir: generated/remediation-issues. Always writes timestamped json+md. Summary prints unconditionally. Added generateRemediationSummary() for MD output.
+- run-pipeline.mjs: Added --out ./generated/remediation-issues to remediation step. Uses findLatestJson() after the step (consistent with other steps).
+- cli.test.ts: Updated tests for directory-based --out; added test for default output behavior; added unlink to fs mock. 76 tests pass (61 index + 15 CLI).
+### 2026-03-07 — azure-best-practices-check (P2) IMPLEMENTED
+
+**Status:** ✅ COMPLETE — Full solution built and all 131 tests passing
+
+**What was built:**
+- `solutions/azure-best-practices-check/` — complete Azure best practices validator
+- 15 pure-function check rules across 5 dimensions: azure-sdk (4), iac (3), config (3), ci-cd (3), security (2)
+- Additive scoring engine (0→100) with letter grades (A≥85, B≥70, C≥55, D≥40, F<40)
+- Orchestrator: fetches files via github-rest contents API (5-9 calls/repo), runs rules, aggregates report
+- CLI: `--input`, `--out`, `--format json|markdown|both`, `--verbose`, `--dry-run`
+- Dual output: timestamped `{ts}-azure-bp.json` + `{ts}-azure-bp.md`
+- Error log cleanup + pipeline error categorization (same patterns as health-check/security-audit)
+
+**Key implementation details:**
+- PipelineError shape updated to match existing solutions (`repo`, `category`, `message`, `suggestion`)
+- Zoe's pre-existing test stubs had `format: 'md'` and `PipelineError.error` — fixed to match actual interface
+- CLI tests needed GITHUB_TOKEN env mock and `generateMarkdownReport` mock — added afterEach cleanup
+- Workflow file discovery: uses `client.get()` to list `.github/workflows` directory, then fetches up to 3 YAML files
+- IaC file discovery: checks root-level .bicep/.tf/azuredeploy.json, then falls back to infra/ directory
+
+**Patterns confirmed:**
+- `isMain` guard pattern for testable CLI modules
+- `import type` for type-only imports throughout
+- Sequential repo processing for rate-limit safety
+- Promise.allSettled not needed here (single-path fetching, not parallel)
+### 2026-03-07 — sample-auto-fix (P2) IMPLEMENTED
+
+**Status:** ✅ COMPLETE — Full solution built and all 47 tests passing
+
+**What was built:**
+- \solutions/sample-auto-fix/\ — automated remediation with PR creation
+- Complete pipeline: parser → planner → executor orchestration
+- 4 fix templates: SECURITY.md, .env.example, dependabot.yml, azure.yaml
+- 2 fix categories: missing-security-files, missing-azure-config
+- 6-layer safety model:
+  1. Dry-run by default (--apply required for writes)
+  2. Fork detection (skip forks with message)
+  3. PR deduplication (checkForExistingPR before creating)
+  4. Rate limit preflight (abort if remaining < 100)
+  5. Per-repo error recovery (one failure doesn't kill pipeline)
+  6. Category filtering (--category flag limits fix types)
+- CLI: \--remediation-input\, \--security-input\, \--health-input\, \--azure-input\, \--out\, \--category\, \--apply\, \--dry-run\, \--verbose\
+- Output: timestamped JSON with created PRs, skipped repos, errors, and summary
+
+**Key implementation details:**
+- Parser: extractFixableFindings() reads 4 upstream JSON formats, merges duplicate findings by repo
+- Planner: buildFixPlans() groups by repo+category, attaches templates, generates PR titles/bodies
+- Executor: executeFixPlans() orchestrates branch creation, file writes, PR creation via github-rest
+- Dedup: checkForExistingPR() prevents duplicate auto-fix PRs for same category
+- Templates: Pure string data in src/templates/ (no logic, just content)
+- All github-rest calls use correct exports: \epos.createPullRequest\, \client.getRateLimit()\
+
+**Testing strategy:**
+- Parser/planner: Pure function tests (no mocks)
+- Executor: Mocked github-rest calls with vi.mock pattern
+- Dedup: Mocked repos.findPRByBranch for PR existence checks
+- Index: Mocked executeFixPlans to verify orchestration flow
+- CLI: parseArgs validation tests
+
+**Patterns confirmed:**
+- GitHubClient instantiation: \
+ew GitHubClient({ token })\ (not just token string)
+- Rate limit check: \client.getRateLimit()\ returns RateLimitInfo directly
+- PR creation: \epos.createPullRequest()\ not pullRequests module
+- Git operations: \git.createRef()\, \epos.getDefaultBranchSHA()\
+- File writes: \contents.createOrUpdateFile()\, \contents.encodeContent()\
+- Test mocking: vi.mock at module level + vi.mocked() for assertions
+
+**File structure:**
+- src/types.ts — All interfaces (AutoFixResult, FixPlan, FixTemplate, etc.)
+- src/templates/ — 4 template files with static content
+- src/parser.ts + parser.test.ts — Extract + filter findings
+- src/planner.ts + planner.test.ts — Build fix plans with templates
+- src/executor.ts + executor.test.ts — Execute plans (branch/write/PR)
+- src/dedup.ts + dedup.test.ts — PR deduplication logic
+- src/index.ts + index.test.ts — Main orchestrator
+- src/cli.ts + cli.test.ts — CLI entry point
+- Total: 47 tests (6 parser, 8 planner, 6 dedup, 6 executor, 6 index, 12 CLI, 3 types-related)
+
+**Integration:**
+- Added to root package.json scripts: \sample-auto-fix\ command
+- Added to root tsconfig.json references
+- npm workspace linked + built successfully
+- Zero TypeScript errors, all tests passing

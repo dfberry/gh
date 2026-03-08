@@ -23,6 +23,25 @@ export interface ContentFile {
   type: string;
 }
 
+export interface GitUser {
+  name: string;
+  email: string;
+  date: string;
+}
+
+export interface FileCommitResult {
+  content: ContentFile;
+  commit: {
+    sha: string;
+    node_id: string;
+    url: string;
+    html_url: string;
+    author: GitUser;
+    committer: GitUser;
+    message: string;
+  };
+}
+
 /**
  * List files and folders at the root of the default branch for a repo.
  * Returns the array of contents (files/folders) or throws on error.
@@ -89,4 +108,90 @@ export async function getDecodedFileContent(
     }
     throw err;
   }
+}
+
+// --- Write Operations ---
+
+/**
+ * Helper: encode string to base64.
+ * GitHub's Contents API requires base64-encoded content for file writes.
+ */
+export function encodeContent(content: string): string {
+  return Buffer.from(content, 'utf8').toString('base64');
+}
+
+/**
+ * Create or update a file in a repository.
+ * PUT /repos/{owner}/{repo}/contents/{path}
+ * 
+ * @param path - Path where the file should be created/updated
+ * @param options.message - Commit message
+ * @param options.content - File content (will be base64-encoded automatically)
+ * @param options.branch - Branch to commit to (optional, defaults to repo's default branch)
+ * @param options.sha - Required for updates; the blob SHA of the file being replaced
+ */
+export async function createOrUpdateFile(
+  client: GitHubClient,
+  owner: string,
+  repo: string,
+  path: string,
+  options: {
+    message: string;
+    content: string;
+    branch?: string;
+    sha?: string;
+  },
+): Promise<FileCommitResult> {
+  const safePath = encodeURIComponent(path).replace(/%2F/g, '/');
+  const payload: Record<string, string> = {
+    message: options.message,
+    content: encodeContent(options.content),
+  };
+  
+  if (options.branch !== undefined) {
+    payload.branch = options.branch;
+  }
+  
+  if (options.sha !== undefined) {
+    payload.sha = options.sha;
+  }
+
+  return client.request<FileCommitResult>('PUT', `/repos/${owner}/${repo}/contents/${safePath}`, {
+    body: payload,
+  });
+}
+
+/**
+ * Delete a file from a repository.
+ * DELETE /repos/{owner}/{repo}/contents/{path}
+ * 
+ * @param path - Path to the file to delete
+ * @param options.message - Commit message
+ * @param options.sha - Required; the blob SHA of the file being removed
+ * @param options.branch - Branch to commit to (optional, defaults to repo's default branch)
+ */
+export async function deleteFile(
+  client: GitHubClient,
+  owner: string,
+  repo: string,
+  path: string,
+  options: {
+    message: string;
+    sha: string;
+    branch?: string;
+  },
+): Promise<FileCommitResult> {
+  const safePath = encodeURIComponent(path).replace(/%2F/g, '/');
+  const payload: Record<string, string> = {
+    message: options.message,
+    sha: options.sha,
+  };
+  
+  if (options.branch !== undefined) {
+    payload.branch = options.branch;
+  }
+
+  return client.request<FileCommitResult>('DELETE', `/repos/${owner}/${repo}/contents/${safePath}`, {
+    body: payload,
+  });
 }
