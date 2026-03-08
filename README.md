@@ -1,9 +1,12 @@
 # Monorepo overview
 
-This repository is a small monorepo with two primary packages and supporting docs:
+This repository is a small monorepo with three primary packages, six pipeline solutions, four standalone tools, and supporting docs:
 
-- packages/github-rest: a lightweight GitHub REST client and reusable helpers (endpoints, pagination, permissions). See [packages/github-rest/README.md](packages/github-rest/README.md) for usage and exported helpers.
-- packages/gh-cleanup: CLI tools that implement repository-cleanup features (commands: remove-forks, archive-stale-repos, delete-empty-repos, categorize-repos, summary, evaluate-actions). See [packages/gh-cleanup/README.md](packages/gh-cleanup/README.md) for CLI options and examples.
+## Packages
+
+- **packages/github-rest**: lightweight GitHub REST client and reusable helpers (endpoints, pagination, permissions). See [packages/github-rest/README.md](packages/github-rest/README.md) for usage and exported helpers.
+- **packages/gh-cleanup**: CLI tools that implement repository-cleanup features (commands: remove-forks, archive-stale-repos, delete-empty-repos, categorize-repos, summary, evaluate-actions). See [packages/gh-cleanup/README.md](packages/gh-cleanup/README.md) for CLI options and examples.
+- **packages/llm-completion**: OpenAI/Azure OpenAI LLM client for repository description generation and pattern analysis. See [packages/llm-completion/README.md](packages/llm-completion/README.md) for API details.
 
 Docs and artifacts
 - `generated/` contains example or generated markdown outputs (e.g., catalogs and summaries) produced by the CLI for site consumption. These are intended as the site/content inputs for `dfberry.github.io` or similar static sites. To place the `generated` folder at the root of the repo, use `../../generated`.
@@ -25,7 +28,9 @@ Docs and artifacts
 
 If you want, I can also add short links from `packages/gh-cleanup/README.md` to the `.github/LLM_DESCRIBE_REPO_PROMPT.md` and the `scripts/run-all.sh` examples so users discover them faster.
 
-## Solutions Pipeline
+## Solutions
+
+### Pipeline Solutions (Run via `npm run pipeline`)
 
 The **six solutions** work together in an orchestrated pipeline for automated GitHub repository health analysis and remediation:
 
@@ -75,6 +80,19 @@ All output goes to `generated/{solution-name}/` with timestamped JSON reports.
 For detailed documentation, see [docs/PIPELINE.md](docs/PIPELINE.md).
 
 The six solutions include 300+ tests ensuring reliable operation across varied repository configurations.
+
+### Standalone Tools
+
+In addition to the pipeline, the monorepo includes four standalone tools for targeted operations:
+
+| Tool | Purpose | Documentation |
+|------|---------|---------------|
+| **get-pr-comments** | Extract PR comments from a single repository | [solutions/get-pr-comments/README.md](solutions/get-pr-comments/README.md) |
+| **get-user-comments** | Fetch all comments by a specific user across repositories | [solutions/get-user-comments/README.md](solutions/get-user-comments/README.md) |
+| **move-between-repos** | Transfer issues and PRs between repositories | [solutions/move-between-repos/README.md](solutions/move-between-repos/README.md) |
+| **get-instruction-from-pr-comments** | Extract actionable instructions from PR review comments | [solutions/get-instruction-from-pr-comments/README.md](solutions/get-instruction-from-pr-comments/README.md) |
+
+These tools run independently and are not part of the automated pipeline.
 
 ## Functional specification
 
