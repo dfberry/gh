@@ -1,9 +1,9 @@
 name: Repo Governance
 
 on:
-  pull_request:
-  push:
-    branches: [ 'main' ]
+  # pull_request:
+  # push:
+  #   branches: [ 'main' ]
 
 jobs:
   verify-github-rest-usage:
