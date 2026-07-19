@@ -3,8 +3,8 @@ description: "Cleans account repos and builds the generated repository catalog a
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * 0' # weekly on Sunday UTC
+  # schedule:
+  #   - cron: '0 6 * * 0' # weekly on Sunday UTC
 
 permissions:
   contents: write
