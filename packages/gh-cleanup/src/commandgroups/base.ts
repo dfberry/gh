@@ -16,6 +16,9 @@ export type GroupArgs = {
   inputFile?: string;
   out?: string;
   outPrefix?: string;
+  owner?: string;
+  repo?: string;
+  single?: boolean;
   dryRun?: boolean;
   yes?: boolean;
   force?: boolean;
@@ -30,6 +33,9 @@ export function parseArgs(argv: string[]): GroupArgs & BaseFlags {
     if (a.startsWith('--input-file=')) args.inputFile = a.split('=', 2)[1];
     if (a.startsWith('--out=')) args.out = a.split('=', 2)[1];
     if (a.startsWith('--out-prefix=')) args.outPrefix = a.split('=', 2)[1];
+    if (a.startsWith('--owner=')) args.owner = a.split('=', 2)[1];
+    if (a.startsWith('--repo=')) args.repo = a.split('=', 2)[1];
+    if (a === '--single') args.single = true;
     if (a === '--dry-run') args.dryRun = true;
     if (a === '--yes') args.yes = true;
     if (a === '--force') args.force = true;
@@ -84,11 +90,13 @@ export async function runStepForEachRepo(
     startSection(`step: ${s.name} repo: ${repoFull}`);
     const [owner, repo] = repoFull.split('/');
     const safeRepo = repoFull.replace(/[\/]/g, '_');
-    const stepOut = `${outDir}/${outPrefix}-${s.name}-${safeRepo}.json`;
+    const repoOutDir = `${outDir}/repos/${safeRepo}`;
+    await ensureDir(repoOutDir);
+    const stepOut = `${repoOutDir}/${outPrefix}-${s.name}.json`;
     const childArgv: string[] = [];
     // create a per-repo normalized input file so steps that read --input only see this repo
-    const perRepoInputName = `${outPrefix}-${s.name}-${safeRepo}-input.json`;
-    const perRepoInputPath = await writeNormalizedInput(outDir, perRepoInputName, [repoFull]);
+    const perRepoInputName = `${outPrefix}-${s.name}-input.json`;
+    const perRepoInputPath = await writeNormalizedInput(repoOutDir, perRepoInputName, [repoFull]);
     childArgv.push(`--input=${perRepoInputPath}`);
     childArgv.push(`--out=${stepOut}`);
     childArgv.push(`--owner=${owner}`);
@@ -106,7 +114,9 @@ export async function runStepForEachRepo(
     try {
       const m = await import(s.module);
       if (typeof m[s.wrapper] === 'function') {
-        await m[s.wrapper](childArgv, githubClient);
+        const params = buildParamsForRepo(args, owner, repo, stepOut, forwardApply, repoFull);
+
+        await m[s.wrapper](params, githubClient);
         summary.steps.push({ name: s.name, repo: repoFull, file: stepOut, status: 'ok' });
       } else {
         summary.steps.push({ name: s.name, repo: repoFull, file: stepOut, status: 'missing' });
@@ -121,6 +131,23 @@ export async function runStepForEachRepo(
     }
   }
   return false;
+}
+
+export type Params = { args: any; data: { repos: string[] } };
+
+export function buildParamsForRepo(args: GroupArgs, owner: string, repo: string, stepOut: string, forwardApply: boolean, repoFull: string): Params {
+  const childArgs = Object.assign({}, args) as any;
+  childArgs.owner = owner;
+  childArgs.repo = repo;
+  childArgs.out = stepOut;
+  // preserve dry-run/yes/force/debug flags
+  childArgs.dryRun = !forwardApply ? true : (childArgs.dryRun || false);
+  if (args.yes) childArgs.yes = true;
+  else delete childArgs.yes;
+  if (args.force) childArgs.force = true;
+  else delete childArgs.force;
+
+  return { args: childArgs, data: { repos: [repoFull] } };
 }
 
 
@@ -167,6 +194,32 @@ async function gatherReposFromSelectedInput(args: GroupArgs, opts: {
   return { inputPath, repos };
 }
 
+async function resolveReposForRun(
+  args: GroupArgs,
+  opts: {
+    groupName: string;
+    defaultInput: string;
+    normalizedInputSuffix: string;
+    defaultOutPrefix: string;
+    steps: Step[];
+  },
+  githubClient: GitHubClient,
+  mode: string,
+): Promise<{ inputPath?: string; repos: string[] }> {
+  if (args.single) {
+    if (!args.owner || !args.repo) throw new Error('When --single is set you must provide both --owner and --repo');
+    return { repos: [`${args.owner}/${args.repo}`] };
+  }
+
+  if (mode === 'user') {
+    if (!githubClient) throw new Error('GitHub client required for user mode');
+    const repos = await fetchAuthenticatedUserRepoNames(githubClient);
+    return { repos };
+  }
+
+  return await gatherReposFromSelectedInput(args, opts);
+}
+
 export async function runGroupCommand(
   args: GroupArgs,
   opts: {
@@ -185,18 +238,7 @@ export async function runGroupCommand(
   const mode = (getMode && getMode()) || 'selected';
   console.log(`Operating mode: ${mode}`);
 
-  let inputPath: string | undefined;
-  let repos: string[] = [];
-
-  if (mode === 'user') {
-    if (!githubClient) throw new Error('GitHub client required for user mode');
-    repos = await fetchAuthenticatedUserRepoNames(githubClient);
-    // leave inputPath undefined; we'll write a normalized input file below
-  } else {
-    const result = await gatherReposFromSelectedInput(args, opts);
-    inputPath = result.inputPath;
-    repos = result.repos;
-  }
+  const { inputPath, repos } = await resolveReposForRun(args, opts, githubClient, mode);
 
   const timestamp = new Date().toISOString();
 

@@ -6,6 +6,7 @@ import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
 import { resolveInputFilePath } from '../lib/input-file-utils.js';
+import { readJsonFile } from '../lib/files.js';
 
 export type Args = BaseFlags;
 /**
@@ -60,7 +61,7 @@ export async function runCommand(client: GitHubClient, args: Args) {
   const inputPath = resolveInputFilePath((args as any).inputFile, (args as any).input);
   console.log('Incoming input path:', inputPath || '(none)');
   if (inputPath) {
-    const repoNames = await parseRepoInput(inputPath);
+    const repoNames = await import('../lib/commands-shared.js').then(m => m.readInputRepos(inputPath));
     const set = new Set(repoNames.map(String));
     ownedForks = ownedForks.filter((r: any) => set.has(r.full_name));
   }

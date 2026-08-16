@@ -13,6 +13,10 @@ import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { repos } from 'github-rest';
 import { parseRepoInput } from '../lib/input-parser.js';
 import type { GitHubClient } from 'github-rest';
+import { readInputRepos } from '../lib/commands-shared.js';
+import type { GatherActionsEntry } from '../lib/commands-shared.js';
+
+
 export type Args = BaseFlags & {
   outPath?: string;
 };
@@ -24,30 +28,31 @@ export function parseArgs(argv: string[]): Args {
   };
 }
 
-export async function runCommand(client: GitHubClient, args: Args) {
-  const inputPath = args.input;
-  const repoList: string[] = inputPath ? await parseRepoInput(inputPath) : [];
+export async function runCommand(client: GitHubClient, args: Args): Promise<GatherActionsEntry[]> {
+  const incomingRepos = await readInputRepos(args?.input);
   const results: any[] = [];
-  for (const repoFull of repoList) {
+  for (const repoFull of incomingRepos) {
     const [owner, repo] = repoFull.split('/');
     try {
       // Use existing repos.getReadme which fetches /repos/:owner/:repo/readme
+      // TBD: this should take branch as param
+      // similar to repos.getContents(client, owner, repo, '')
       const readmeResp = await repos.getReadme(client, owner, repo);
       let readme = undefined;
       if (readmeResp && typeof readmeResp === 'object' && 'content' in readmeResp) {
         const encoding = (readmeResp as any).encoding || 'base64';
         readme = Buffer.from((readmeResp as any).content, encoding).toString('utf8');
       }
-      results.push({ repo: repoFull, readme });
+      results.push({ repo: repoFull, details: { readme } });
     } catch (err) {
       // If not found, treat as no README
-      results.push({ repo: repoFull, readme: null, error: (err as any)?.message || String(err) });
+      results.push({ repo: repoFull, details: null, error: (err as any)?.message || String(err) });
     }
   }
-  return { results };
+  return results;
 }
 
-export async function writeOutput(resultObj: any, args: Args) {
+export async function writeOutput(resultObj: any, args: Args): Promise<void> {
   const results = resultObj?.results || [];
   if (args.outPath) {
     await fs.writeFile(args.outPath, JSON.stringify(results, null, 2), 'utf8');
@@ -55,11 +60,9 @@ export async function writeOutput(resultObj: any, args: Args) {
   }
 }
 
-export async function gatherRootReadmeCommand(argv: string[], client?: GitHubClient) {
+export async function gatherRootReadmeCommand(argv: string[], client?: GitHubClient): Promise<void> {
   const args = parseArgs(argv);
   if (!client) throw new Error('GitHub client is required');
   const res = await runCommand(client, args);
   await writeOutput(res, args);
 }
-
-export default gatherRootReadmeCommand;

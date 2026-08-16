@@ -29,3 +29,15 @@ export async function ensureDir(dir: string): Promise<void> {
 }
 
 export default ensureDir;
+
+/**
+ * Read a JSON file and parse it. Returns null on failure.
+ */
+export async function readJsonFile<T = any>(filePath: string): Promise<T | null> {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(raw) as T;
+  } catch (e) {
+    return null;
+  }
+}

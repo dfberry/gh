@@ -25,6 +25,7 @@ import { emitOutput, formatJsonOutput } from '../lib/report.js';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
 import { resolveInputFilePath } from '../lib/input-file-utils.js';
+import { readJsonFile } from '../lib/files.js';
 
 export type Args = BaseFlags & { olderThanDays?: number; excludeForks?: boolean; input?: string; inputFile?: string };
 
@@ -45,7 +46,7 @@ export async function runCommand(client: any, args: Args): Promise<any> {
   const inputPath = resolveInputFilePath((args as any).inputFile, args.input);
   console.log('Incoming input path:', inputPath || '(none)');
   if (inputPath) {
-    const repoNames = await parseRepoInput(inputPath);
+    const repoNames = await import('../lib/commands-shared.js').then(m => m.readInputRepos(inputPath));
     for (const full of repoNames) {
       try {
         const [owner, name] = full.split('/');

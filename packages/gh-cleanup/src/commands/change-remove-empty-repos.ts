@@ -24,6 +24,7 @@ import { getRepoPermissions, hasAdminPermission } from 'github-rest';
 import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { parseRepoInput } from '../lib/input-parser.js';
 import { resolveInputFilePath } from '../lib/input-file-utils.js';
+import { readJsonFile } from '../lib/files.js';
 
 export type Args = BaseFlags & { excludeForks?: boolean; input?: string; inputFile?: string };
 
@@ -38,13 +39,23 @@ export function parseArgs(argv: string[]): Args {
 }
 
 export async function runCommand(client: GitHubClient, args: Args) {
-  // If an input list is provided, evaluate those repos; otherwise delegate candidate-finding to the REST helper.
+  // Deconstruct args and try to read JSON input when provided
+  const { input, inputFile } = args as any;
   let candidates: any[] = [];
-  const inputPath = resolveInputFilePath((args as any).inputFile, args.input);
+  const inputPath = resolveInputFilePath(inputFile, input);
   console.log('Incoming input path:', inputPath || '(none)');
   const results: any[] = [];
   if (inputPath) {
-    const repoNames = await parseRepoInput(inputPath);
+    // prefer structured JSON when available
+    const raw = await readJsonFile<any>(inputPath).catch(() => null);
+    let repoNames: string[] = [];
+    if (raw && Array.isArray(raw) && raw.length > 0 && typeof raw[0] === 'string') {
+      repoNames = raw as string[];
+    } else if (raw && Array.isArray(raw) && raw.length > 0 && raw[0] && typeof raw[0] === 'object') {
+      repoNames = raw.map((it: any) => it.full_name || it.repo || (it.owner && it.name && `${it.owner}/${it.name}`)).filter(Boolean) as string[];
+    } else {
+      repoNames = await parseRepoInput(inputPath);
+    }
     for (const full of repoNames) {
       try {
         const [owner, name] = full.split('/');

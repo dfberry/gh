@@ -1,29 +1,17 @@
 import { permissions } from 'github-rest';
-import { parseBaseFlags, BaseFlags } from '../lib/flags.js';
 import { promises as fs } from 'fs';
 import type { GitHubClient } from 'github-rest';
-export type Args = BaseFlags & { input: string; out: string };
+import type { GatherActionsEntry } from '../lib/commands-shared.js';
+import type { Params } from '../commandgroups/base.js';
 
-export function parseArgs(argv: string[]): Args {
-  const base = parseBaseFlags(argv);
-  if (!base.input || !base.out) throw new Error('Missing --input or --out');
-  return base as Args;
-}
+export async function runCommand(client: GitHubClient, repos: string[]): Promise<GatherActionsEntry[]> {
 
-export async function runCommand(client: GitHubClient, args: Args): Promise<any> {
-  const raw = await fs.readFile(args.input, 'utf8');
-  let repos: string[] = [];
-  try {
-    repos = JSON.parse(raw);
-  } catch {
-    repos = raw.split('\n').map(x => x.trim()).filter(Boolean);
-  }
-  const results = [];
+  const results: GatherActionsEntry[] = [];
   for (const repoFull of repos) {
     const [owner, repo] = repoFull.split('/');
     try {
       const result = await permissions.getRepoActions(client, owner, repo);
-      results.push({ owner, repo, actions: result, status: 'ok' });
+      results.push({ owner, repo, details: { actions: result }, status: 'ok' });
     } catch (err: any) {
       let message = err?.message || String(err);
       if (err && (err.status === 403 || err.statusCode === 403)) {
@@ -31,21 +19,21 @@ export async function runCommand(client: GitHubClient, args: Args): Promise<any>
         if (err.body && err.body.message) apiMsg = err.body.message;
         message = `Insufficient permissions or access denied. ${apiMsg ? 'GitHub: ' + apiMsg : ''}`;
       }
-      results.push({ owner, repo, actions: null, message, status: err?.status || 'error' });
+      results.push({ owner, repo, details: { actions: null }, message, status: 'error' });
     }
   }
   return results;
 }
 
-export async function writeOutput(result: any, args: Args) {
+export async function writeOutput(result: any, args: any):Promise<void> {
   if (args.out) await fs.writeFile(args.out, JSON.stringify(result, null, 2), 'utf8');
   console.log(JSON.stringify(result, null, 2));
 }
 
-export async function actionsCommand(argv: string[], client?: GitHubClient) {
-  const args = parseArgs(argv);
+export async function actionsCommand(params: Params, client?: GitHubClient): Promise<GatherActionsEntry[]> {
   if (!client) throw new Error('GitHub client is required');
-  const res = await runCommand(client, args);
-  await writeOutput(res, args);
+  if (!params?.data?.repos) throw new Error('No repositories provided');
+  const res = await runCommand(client, params?.data?.repos);
+  await writeOutput(res, params.args);
   return res;
 }
